@@ -1,88 +1,125 @@
-import "server-only";
-import {
-  betterAuth,
-  MiddlewareInputContext,
-  MiddlewareOptions,
-} from "better-auth";
-import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { betterAuth } from "better-auth";
+import { organization, twoFactor, apiKey, oneTap } from "better-auth/plugins";
+import { reactInvitationEmail } from "@/lib/email/invitation";
+import { reactResetPasswordEmail } from "@/lib/email/reset-password";
+import { resend } from "@/lib/email/resend";
+
 import { nextCookies } from "better-auth/next-js";
-import { pgDb } from "lib/db/pg/db.pg";
+import { passkey } from "better-auth/plugins/passkey";
+import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { pgDb } from "@/lib/db/pg/db.pg";
+import { emailHarmony } from "better-auth-harmony";
+import * as schema from "@/lib/db/pg/auth.pg";
 import { headers } from "next/headers";
-import { toast } from "sonner";
-import {
-  AccountSchema,
-  SessionSchema,
-  UserSchema,
-  VerificationSchema,
-} from "lib/db/pg/schema.pg";
-import { safe } from "ts-safe";
-import { and, eq, isNotNull, isNull } from "drizzle-orm";
-import { compare } from "bcrypt-ts";
-import { toAny } from "lib/utils";
-import logger from "logger";
-import { redirect } from "next/navigation";
+import logger from "@/lib/logger";
+
+const from = process.env.BETTER_AUTH_EMAIL || "manoj@agentr.dev";
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
 export const auth = betterAuth({
-  plugins: [nextCookies()],
+  appName: "agentr",
   database: drizzleAdapter(pgDb, {
     provider: "pg",
     schema: {
-      user: UserSchema,
-      session: SessionSchema,
-      account: AccountSchema,
-      verification: VerificationSchema,
+      ...schema,
     },
   }),
-  emailAndPassword: {
-    enabled: true,
-    disableSignUp: process.env.DISABLE_SIGN_UP == "true" ? true : false,
-  },
-  session: {
-    cookieCache: {
-      enabled: true,
-      maxAge: 10 * 60,
-    },
-    expiresIn: 60 * 60 * 24 * 7, // 7 days
-    updateAge: 60 * 60 * 24, // 1 day (every 1 day the session expiration is updated)
-  },
-
-  advanced: {
-    useSecureCookies:
-      process.env.NO_HTTPS == "1"
-        ? false
-        : process.env.NODE_ENV === "production",
-    database: {
-      generateId: false,
+  emailVerification: {
+    async sendVerificationEmail({ user, url }) {
+      const res = await resend.emails.send({
+        from,
+        to: user.email,
+        subject: "Verify your email address",
+        html: `<a href="${url}">Verify your email address</a>`,
+      });
+      console.log(res, user.email);
     },
   },
   account: {
     accountLinking: {
-      trustedProviders: ["google", "github"],
+      trustedProviders: ["google", "github", "agentr"],
     },
   },
-  fetchOptions: {
-    onError(e) {
-      if (e.error.status === 429) {
-        toast.error("Too many requests. Please try again later.");
-      }
+  emailAndPassword: {
+    enabled: true,
+    async sendResetPassword({ user, url }) {
+      await resend.emails.send({
+        from,
+        to: user.email,
+        subject: "Reset your password",
+        react: reactResetPasswordEmail({
+          username: user.email,
+          resetLink: url,
+        }),
+      });
     },
   },
   socialProviders: {
     github: {
       clientId: process.env.GITHUB_CLIENT_ID || "",
       clientSecret: process.env.GITHUB_CLIENT_SECRET || "",
+      mapProfileToUser: (profile) => {
+        const [firstName, ...rest] = (profile.name || "").split(" ");
+        return {
+          firstName: firstName || undefined,
+          lastName: rest.length > 0 ? rest.join(" ") : "",
+          email: profile.email,
+          image: profile.avatar_url,
+          emailVerified: true,
+        };
+      },
     },
     google: {
-      prompt: "select_account",
-      clientId: process.env.GOOGLE_CLIENT_ID || "",
+      clientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+      mapProfileToUser: (profile) => {
+        return {
+          firstName: profile.given_name,
+          lastName: profile.family_name,
+          email: profile.email,
+          image: profile.picture,
+          emailVerified: true,
+        };
+      },
     },
   },
-  hooks: {
-    async before(inputContext) {
-      return v1_4_0_user_migrate_middleware(inputContext);
-    },
-  },
+  plugins: [
+    organization({
+      async sendInvitationEmail(data) {
+        await resend.emails.send({
+          from,
+          to: data.email,
+          subject: "You've been invited to join an organization",
+          react: reactInvitationEmail({
+            username: data.email,
+            invitedByUsername: data.inviter.user.name,
+            invitedByEmail: data.inviter.user.email,
+            teamName: data.organization.name,
+            inviteLink: `${APP_URL}/accept-invitation/${data.id}`,
+          }),
+        });
+      },
+    }),
+    twoFactor({
+      otpOptions: {
+        async sendOTP({ user, otp }) {
+          await resend.emails.send({
+            from,
+            to: user.email,
+            subject: "Your OTP",
+            html: `Your OTP is ${otp}`,
+          });
+        },
+      },
+    }),
+    passkey(),
+    oneTap(),
+    nextCookies(),
+    emailHarmony(),
+    apiKey(),
+  ],
+  trustedOrigins: ["exp://"],
 });
 
 export const getSession = async () => {
@@ -95,109 +132,10 @@ export const getSession = async () => {
       logger.error(e);
       return null;
     });
-
   if (!session) {
-    return redirect("/sign-in");
+    logger.error("No session found");
+    return null;
   }
+  // logger.debug("Session found", session);
   return session;
 };
-
-/**
- * Temporary middleware function to support migration from next-auth to better-auth.
- *
- * This middleware ensures existing users are properly migrated by moving user passwords
- * from the user table to the account table. This allows seamless authentication for
- * users who registered before the migration.
- *
- * Note: This middleware will be removed in release version v1.6.0 once the migration
- * period is complete.
- */
-async function v1_4_0_user_migrate_middleware(
-  request: MiddlewareInputContext<MiddlewareOptions> & {
-    path?: string;
-  },
-) {
-  const isSignIn = request.path?.startsWith("/sign-in/email");
-  if (!isSignIn) return request;
-  const { email, password: plainPassword } = (request.body ?? {}) as {
-    email: string;
-    password: string;
-  };
-  const oldVersionUserId = await v1_4_0_user_migrate_checkOldVersionUser(
-    email,
-    plainPassword,
-  );
-
-  if (oldVersionUserId) {
-    const newPassword = await auth.$context.then(({ password: { hash } }) => {
-      return hash(plainPassword);
-    });
-
-    await v1_4_0_user_migrate_migrateOldVersionUser(
-      oldVersionUserId,
-      newPassword,
-    );
-
-    request.body = toAny({
-      ...(request.body ?? {}),
-      password: newPassword,
-    });
-  }
-
-  return request;
-}
-
-async function v1_4_0_user_migrate_checkOldVersionUser(
-  email: string,
-  password: string,
-): Promise<string | null> {
-  return safe(async () => {
-    const [user] = await pgDb
-      .select({
-        id: UserSchema.id,
-        email: UserSchema.email,
-        oldPassword: UserSchema.password,
-      })
-      .from(UserSchema)
-      .leftJoin(
-        AccountSchema,
-        and(
-          eq(UserSchema.id, AccountSchema.userId),
-          eq(AccountSchema.providerId, "credential"),
-        ),
-      )
-      .where(
-        and(
-          isNotNull(UserSchema.password),
-          eq(UserSchema.email, email),
-          isNull(AccountSchema.id),
-        ),
-      );
-    if (!user) return null;
-    //
-    const passwordsMatch = await compare(password, user.oldPassword!);
-    return passwordsMatch ? user.id : null;
-  }).orElse(null);
-}
-async function v1_4_0_user_migrate_migrateOldVersionUser(
-  userId: string,
-  newPassword: string,
-): Promise<void> {
-  return pgDb.transaction(async (tx) => {
-    await tx
-      .update(UserSchema)
-      .set({
-        password: null,
-      })
-      .where(eq(UserSchema.id, userId));
-
-    await tx.insert(AccountSchema).values({
-      userId,
-      providerId: "credential",
-      password: newPassword,
-      accountId: userId,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-  });
-}

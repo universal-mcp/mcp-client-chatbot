@@ -60,11 +60,7 @@ const OpenAICompatibleModelSchema = z.object({
 // Define the schema for a provider that is compatible with OpenAI's API structure,
 // which includes a list of its OpenAI-compatible models.
 export const OpenAICompatibleProviderSchema = z.object({
-  provider: z
-    .string()
-    .describe(
-      "Your api key",
-    ),
+  provider: z.string().describe("Your api key"),
   models: z
     .array(OpenAICompatibleModelSchema)
     .describe("A list of AI models offered by this provider."),
