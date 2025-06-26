@@ -16,6 +16,12 @@ import {
   session as SessionSchema,
   account as AccountSchema,
   verification as VerificationSchema,
+  organization as OrganizationSchema,
+  member as MemberSchema,
+  invitation as InvitationSchema,
+  twoFactor as TwoFactorSchema,
+  apikey as ApiKeySchema,
+  passkey as PasskeySchema,
 } from "./auth.pg";
 
 export const ChatThreadSchema = pgTable("chat_thread", {
@@ -105,7 +111,18 @@ export const McpServerCustomizationSchema = pgTable(
   (table) => [unique().on(table.userId, table.mcpServerId)],
 );
 
-export { UserSchema, SessionSchema, AccountSchema, VerificationSchema };
+export {
+  UserSchema,
+  SessionSchema,
+  AccountSchema,
+  VerificationSchema,
+  OrganizationSchema,
+  MemberSchema,
+  InvitationSchema,
+  TwoFactorSchema,
+  ApiKeySchema,
+  PasskeySchema,
+};
 
 export type McpServerEntity = typeof McpServerSchema.$inferSelect;
 export type ChatThreadEntity = typeof ChatThreadSchema.$inferSelect;

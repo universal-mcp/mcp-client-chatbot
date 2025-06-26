@@ -120,6 +120,11 @@ export const auth = betterAuth({
     apiKey(),
   ],
   trustedOrigins: ["exp://"],
+  advanced: {
+    database: {
+      generateId: false,
+    },
+  },
 });
 
 export const getSession = async () => {
