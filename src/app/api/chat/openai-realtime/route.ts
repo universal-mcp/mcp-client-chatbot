@@ -12,10 +12,12 @@ import {
   buildProjectInstructionsSystemPrompt,
   buildSpeechSystemPrompt,
 } from "lib/ai/prompts";
-import { mcpClientsManager } from "lib/ai/mcp/mcp-manager";
+import { createMCPClientsManager } from "lib/ai/mcp/create-mcp-clients-manager";
 import { errorIf, safe } from "ts-safe";
 import { DEFAULT_VOICE_TOOLS } from "lib/ai/speech";
 import { rememberMcpServerCustomizationsAction } from "../actions";
+import { createDbBasedMCPConfigsStorage } from "lib/ai/mcp/db-mcp-config-storage";
+import { UUID } from "crypto";
 
 export async function POST(request: NextRequest) {
   try {
@@ -44,6 +46,11 @@ export async function POST(request: NextRequest) {
         threadId?: string;
       };
 
+    const storage = createDbBasedMCPConfigsStorage(
+      session.session.userId as UUID,
+      session.session.activeOrganizationId as UUID,
+    );
+    const mcpClientsManager = createMCPClientsManager(storage);
     const mcpTools = mcpClientsManager.tools();
 
     const tools = safe(mcpTools)

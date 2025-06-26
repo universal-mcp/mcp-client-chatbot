@@ -1,100 +1,19 @@
-import type {
-  MCPClientsManager,
-  MCPConfigStorage,
-} from "./create-mcp-clients-manager";
+import type { MCPConfigStorage } from "./create-mcp-clients-manager";
 import { mcpRepository } from "lib/db/repository";
 import defaultLogger from "logger";
-import { createDebounce } from "lib/utils";
-import equal from "fast-deep-equal";
 import { colorize } from "consola/utils";
+import { UUID } from "crypto";
 
 const logger = defaultLogger.withDefaults({
   message: colorize("gray", `MCP Config Storage: `),
 });
 
-export function createDbBasedMCPConfigsStorage(): MCPConfigStorage {
-  let manager: MCPClientsManager;
-
-  const debounce = createDebounce();
-
-  // Initializes the manager with configs from the database
-  async function init(_manager: MCPClientsManager): Promise<void> {
-    manager = _manager;
-  }
-
-  async function checkAndRefreshClients() {
-    try {
-      logger.debug("Checking MCP clients Diff");
-      const servers = await mcpRepository.selectAll();
-      const dbConfigs = servers
-        .map((server) => ({
-          id: server.id,
-          name: server.name,
-          config: server.config,
-        }))
-        .sort((a, b) => a.id.localeCompare(b.id));
-
-      const managerConfigs = await manager
-        .getClients()
-        .then((clients) =>
-          clients.map(({ id, client }) => {
-            const info = client.getInfo();
-            return {
-              id: id,
-              name: info.name,
-              config: info.config,
-            };
-          }),
-        )
-        .then((configs) => configs.sort((a, b) => a.id.localeCompare(b.id)));
-
-      let shouldRefresh = false;
-      if (dbConfigs.length !== managerConfigs.length) {
-        shouldRefresh = true;
-      } else if (!equal(dbConfigs, managerConfigs)) {
-        shouldRefresh = true;
-      }
-
-      if (shouldRefresh) {
-        const refreshPromises = dbConfigs.map(async ({ id, name, config }) => {
-          const managerConfig = await manager.getClient(id);
-          if (!managerConfig) {
-            logger.debug(`Adding MCP client ${name}`);
-            return manager.addClient(id, name, config);
-          }
-          if (
-            !equal(
-              { name, config },
-              {
-                name: managerConfig.name,
-                config: managerConfig.client.getInfo().config,
-              },
-            )
-          ) {
-            logger.debug(`Refreshing MCP client ${name}`);
-            return manager.refreshClient(id);
-          }
-        });
-        const deletePromises = managerConfigs
-          .filter((c) => {
-            const dbConfig = dbConfigs.find((c2) => c2.id === c.id);
-            return !dbConfig;
-          })
-          .map((c) => {
-            logger.debug(`Removing MCP client ${c.name}`);
-            return manager.removeClient(c.id);
-          });
-        await Promise.allSettled([...refreshPromises, ...deletePromises]);
-      }
-    } catch (error) {
-      logger.error("Failed to check and refresh clients:", error);
-    }
-  }
-
-  setInterval(() => debounce(checkAndRefreshClients, 5000), 60000).unref();
-
+export function createDbBasedMCPConfigsStorage(
+  _userId: UUID,
+  _organizationId: UUID,
+): MCPConfigStorage {
   return {
-    init,
+    async init() {},
     async loadAll() {
       try {
         const servers = await mcpRepository.selectAll();

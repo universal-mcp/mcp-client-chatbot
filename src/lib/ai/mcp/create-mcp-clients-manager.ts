@@ -9,6 +9,7 @@ import { Locker } from "lib/utils";
 import { safe } from "ts-safe";
 import { McpServerSchema } from "lib/db/pg/schema.pg";
 import { createMCPToolId } from "./mcp-tool-id";
+
 /**
  * Interface for storage of MCP server configurations.
  * Implementations should handle persistent storage of server configs.
@@ -19,7 +20,7 @@ import { createMCPToolId } from "./mcp-tool-id";
  * - Implementations should either handle these scenarios or document limitations
  */
 export interface MCPConfigStorage {
-  init(manager: MCPClientsManager): Promise<void>;
+  init(): Promise<void>;
   loadAll(): Promise<McpServerSelect[]>;
   save(server: McpServerInsert): Promise<McpServerSelect>;
   delete(id: string): Promise<void>;
@@ -51,7 +52,7 @@ export class MCPClientsManager {
       .ifOk(() => this.cleanup())
       .ifOk(async () => {
         if (this.storage) {
-          await this.storage.init(this);
+          await this.storage.init();
           const configs = await this.storage.loadAll();
           await Promise.all(
             configs.map(({ id, name, config }) =>
@@ -148,8 +149,8 @@ export class MCPClientsManager {
 
   async cleanup() {
     const clients = Array.from(this.clients.values());
-    this.clients.clear();
     await Promise.allSettled(clients.map(({ client }) => client.disconnect()));
+    this.clients.clear();
   }
 
   async getClients() {

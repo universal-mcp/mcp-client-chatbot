@@ -11,7 +11,8 @@ import {
 
 import { customModelProvider, isToolCallUnsupportedModel } from "lib/ai/models";
 
-import { mcpClientsManager } from "lib/ai/mcp/mcp-manager";
+import { createMCPClientsManager } from "lib/ai/mcp/create-mcp-clients-manager";
+import { createDbBasedMCPConfigsStorage } from "lib/ai/mcp/db-mcp-config-storage";
 
 import { chatRepository } from "lib/db/repository";
 import logger from "logger";
@@ -48,6 +49,7 @@ import {
   rememberMcpServerCustomizationsAction,
 } from "./actions";
 import { getSession } from "auth/server";
+import { UUID } from "crypto";
 
 export async function POST(request: Request) {
   try {
@@ -101,6 +103,12 @@ export async function POST(request: Request) {
     }
 
     const annotations = (message?.annotations as ChatMessageAnnotation[]) ?? [];
+
+    const storage = createDbBasedMCPConfigsStorage(
+      session.user.id as UUID,
+      session.session.activeOrganizationId as UUID,
+    );
+    const mcpClientsManager = createMCPClientsManager(storage);
 
     const mcpTools = mcpClientsManager.tools();
 
