@@ -37,8 +37,8 @@ export const InviteMemberDialog = ({
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button size="sm" className="w-full gap-2" variant="secondary">
-          <MailPlus size={16} />
+        <Button size="sm" className="gap-2" variant="secondary">
+          <MailPlus size={14} />
           <p>Invite Member</p>
         </Button>
       </DialogTrigger>
@@ -68,7 +68,7 @@ export const InviteMemberDialog = ({
           </Select>
         </div>
         <DialogFooter>
-          <DialogClose>
+          <DialogClose asChild>
             <Button
               disabled={!email || !role}
               onClick={async () => {

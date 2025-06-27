@@ -2,8 +2,6 @@ import { auth } from "@/lib/auth/server";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import UserCard from "./user-card";
-import { OrganizationCard } from "@/components/organization/organization-card";
-import { Separator } from "@/components/ui/separator";
 
 export default async function DashboardPage() {
   const [session, activeSessions] = await Promise.all([
@@ -25,8 +23,6 @@ export default async function DashboardPage() {
           session={JSON.parse(JSON.stringify(session))}
           activeSessions={JSON.parse(JSON.stringify(activeSessions))}
         />
-        <Separator />
-        <OrganizationCard />
       </div>
     </div>
   );

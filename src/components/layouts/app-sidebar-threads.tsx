@@ -54,6 +54,7 @@ export function AppSidebarThreads() {
   const {
     data: threadList,
     isLoading,
+    isValidating,
     error,
   } = useSWR("threads", selectThreadListByUserIdAction, {
     onError: handleErrorWithToast,
@@ -132,7 +133,7 @@ export function AppSidebarThreads() {
     }
   }, [error]);
 
-  if (isLoading || threadList?.length === 0)
+  if (isLoading || isValidating || threadList?.length === 0)
     return (
       <SidebarGroup>
         <SidebarGroupContent className="group-data-[collapsible=icon]:hidden group/threads">
@@ -166,7 +167,7 @@ export function AppSidebarThreads() {
                 </DropdownMenu>
               </SidebarGroupLabel>
 
-              {isLoading ? (
+              {isLoading || isValidating ? (
                 Array.from({ length: 12 }).map(
                   (_, index) => mounted && <SidebarMenuSkeleton key={index} />,
                 )

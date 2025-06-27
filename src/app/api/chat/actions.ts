@@ -25,16 +25,12 @@ import { toAny } from "lib/utils";
 import { McpServerCustomizationsPrompt, MCPToolInfo } from "app-types/mcp";
 import { serverCache } from "lib/cache";
 import { CacheKeys } from "lib/cache/cache-keys";
-import { getSession } from "auth/server";
+import { getSessionContext } from "@/lib/auth/session-context";
 import logger from "logger";
 import { redirect } from "next/navigation";
 
 export async function getUserId() {
-  const session = await getSession();
-  const userId = session?.user?.id;
-  if (!userId) {
-    throw new Error("User not found");
-  }
+  const { userId } = await getSessionContext();
   return userId;
 }
 
@@ -42,7 +38,7 @@ export async function generateTitleFromUserMessageAction({
   message,
   model,
 }: { message: Message; model: LanguageModel }) {
-  await getSession();
+  await getSessionContext();
   const prompt = toAny(message.parts?.at(-1))?.text || "unknown";
 
   const { text: title } = await generateText({
@@ -56,42 +52,65 @@ export async function generateTitleFromUserMessageAction({
 }
 
 export async function selectThreadWithMessagesAction(threadId: string) {
-  const session = await getSession();
-  const thread = await chatRepository.selectThread(threadId);
+  const { userId, organizationId } = await getSessionContext();
+  const thread = await chatRepository.selectThread(
+    threadId,
+    userId,
+    organizationId,
+  );
 
   if (!thread) {
     logger.error("Thread not found", threadId);
     return redirect("/");
   }
-  if (thread.userId !== session?.user.id) {
+  if (thread.userId !== userId) {
     return redirect("/");
   }
-  const messages = await chatRepository.selectMessagesByThreadId(threadId);
+  const messages = await chatRepository.selectMessagesByThreadId(
+    threadId,
+    userId,
+    organizationId,
+  );
   return { ...thread, messages: messages ?? [] };
 }
 
 export async function deleteMessageAction(messageId: string) {
-  await chatRepository.deleteChatMessage(messageId);
+  const { userId, organizationId } = await getSessionContext();
+  await chatRepository.deleteChatMessage(messageId, userId, organizationId);
 }
 
 export async function deleteThreadAction(threadId: string) {
-  await chatRepository.deleteThread(threadId);
+  const { userId, organizationId } = await getSessionContext();
+  await chatRepository.deleteThread(threadId, userId, organizationId);
 }
 
 export async function deleteMessagesByChatIdAfterTimestampAction(
   messageId: string,
 ) {
   "use server";
-  await chatRepository.deleteMessagesByChatIdAfterTimestamp(messageId);
+  const { userId, organizationId } = await getSessionContext();
+  await chatRepository.deleteMessagesByChatIdAfterTimestamp(
+    messageId,
+    userId,
+    organizationId,
+  );
 }
 
 export async function selectThreadListByUserIdAction() {
-  const userId = await getUserId();
-  const threads = await chatRepository.selectThreadsByUserId(userId);
+  const { userId, organizationId } = await getSessionContext();
+  const threads = await chatRepository.selectThreadsByUserId(
+    userId,
+    organizationId,
+  );
   return threads;
 }
 export async function selectMessagesByThreadIdAction(threadId: string) {
-  const messages = await chatRepository.selectMessagesByThreadId(threadId);
+  const { userId, organizationId } = await getSessionContext();
+  const messages = await chatRepository.selectMessagesByThreadId(
+    threadId,
+    userId,
+    organizationId,
+  );
   return messages;
 }
 
@@ -99,13 +118,13 @@ export async function updateThreadAction(
   id: string,
   thread: Partial<Omit<ChatThread, "createdAt" | "updatedAt" | "userId">>,
 ) {
-  const userId = await getUserId();
-  await chatRepository.updateThread(id, { ...thread, userId });
+  const { userId, organizationId } = await getSessionContext();
+  await chatRepository.updateThread(id, thread, userId, organizationId);
 }
 
 export async function deleteThreadsAction() {
-  const userId = await getUserId();
-  await chatRepository.deleteAllThreads(userId);
+  const { userId, organizationId } = await getSessionContext();
+  await chatRepository.deleteAllThreads(userId, organizationId);
 }
 
 export async function generateExampleToolSchemaAction(options: {
@@ -135,8 +154,11 @@ export async function generateExampleToolSchemaAction(options: {
 }
 
 export async function selectProjectListByUserIdAction() {
-  const userId = await getUserId();
-  const projects = await chatRepository.selectProjectsByUserId(userId);
+  const { userId, organizationId } = await getSessionContext();
+  const projects = await chatRepository.selectProjectsByUserId(
+    userId,
+    organizationId,
+  );
   return projects;
 }
 
@@ -147,14 +169,18 @@ export async function insertProjectAction({
   name: string;
   instructions?: Project["instructions"];
 }) {
-  const userId = await getUserId();
-  const project = await chatRepository.insertProject({
-    name,
-    userId,
-    instructions: instructions ?? {
-      systemPrompt: "",
+  const { userId, organizationId } = await getSessionContext();
+  const project = await chatRepository.insertProject(
+    {
+      name,
+      userId,
+      instructions: instructions ?? {
+        systemPrompt: "",
+      },
     },
-  });
+    userId,
+    organizationId,
+  );
   return project;
 }
 
@@ -167,23 +193,37 @@ export async function insertProjectWithThreadAction({
   instructions?: Project["instructions"];
   threadId: string;
 }) {
-  const userId = await getUserId();
-  const project = await chatRepository.insertProject({
-    name,
-    userId,
-    instructions: instructions ?? {
-      systemPrompt: "",
+  const { userId, organizationId } = await getSessionContext();
+  const project = await chatRepository.insertProject(
+    {
+      name,
+      userId,
+      instructions: instructions ?? {
+        systemPrompt: "",
+      },
     },
-  });
-  await chatRepository.updateThread(threadId, {
-    projectId: project.id,
-  });
+    userId,
+    organizationId,
+  );
+  await chatRepository.updateThread(
+    threadId,
+    {
+      projectId: project.id,
+    },
+    userId,
+    organizationId,
+  );
   await serverCache.delete(CacheKeys.thread(threadId));
   return project;
 }
 
 export async function selectProjectByIdAction(id: string) {
-  const project = await chatRepository.selectProjectById(id);
+  const { userId, organizationId } = await getSessionContext();
+  const project = await chatRepository.selectProjectById(
+    id,
+    userId,
+    organizationId,
+  );
   return project;
 }
 
@@ -191,25 +231,37 @@ export async function updateProjectAction(
   id: string,
   project: Partial<Pick<Project, "name" | "instructions">>,
 ) {
-  const updatedProject = await chatRepository.updateProject(id, project);
+  const { userId, organizationId } = await getSessionContext();
+  const updatedProject = await chatRepository.updateProject(
+    id,
+    project,
+    userId,
+    organizationId,
+  );
   await serverCache.delete(CacheKeys.project(id));
   return updatedProject;
 }
 
 export async function deleteProjectAction(id: string) {
+  const { userId, organizationId } = await getSessionContext();
   await serverCache.delete(CacheKeys.project(id));
-  await chatRepository.deleteProject(id);
+  await chatRepository.deleteProject(id, userId, organizationId);
 }
 
 export async function rememberProjectInstructionsAction(
   projectId: string,
 ): Promise<Project["instructions"] | null> {
+  const { userId, organizationId } = await getSessionContext();
   const key = CacheKeys.project(projectId);
   const cachedProject = await serverCache.get<Project>(key);
   if (cachedProject) {
     return cachedProject.instructions;
   }
-  const project = await chatRepository.selectProjectById(projectId);
+  const project = await chatRepository.selectProjectById(
+    projectId,
+    userId,
+    organizationId,
+  );
   if (!project) {
     return null;
   }
@@ -218,12 +270,17 @@ export async function rememberProjectInstructionsAction(
 }
 
 export async function rememberThreadAction(threadId: string) {
+  const { userId, organizationId } = await getSessionContext();
   const key = CacheKeys.thread(threadId);
   const cachedThread = await serverCache.get<ChatThread>(key);
   if (cachedThread) {
     return cachedThread;
   }
-  const thread = await chatRepository.selectThread(threadId);
+  const thread = await chatRepository.selectThread(
+    threadId,
+    userId,
+    organizationId,
+  );
   if (!thread) {
     return null;
   }
@@ -232,7 +289,13 @@ export async function rememberThreadAction(threadId: string) {
 }
 
 export async function updateProjectNameAction(id: string, name: string) {
-  const updatedProject = await chatRepository.updateProject(id, { name });
+  const { userId, organizationId } = await getSessionContext();
+  const updatedProject = await chatRepository.updateProject(
+    id,
+    { name },
+    userId,
+    organizationId,
+  );
   await serverCache.delete(CacheKeys.project(id));
   return updatedProject;
 }
@@ -246,10 +309,17 @@ export async function rememberMcpServerCustomizationsAction(userId: string) {
     return cachedMcpServerCustomizations;
   }
 
+  const { organizationId } = await getSessionContext();
   const mcpServerCustomizations =
-    await mcpServerCustomizationRepository.selectByUserId(userId);
+    await mcpServerCustomizationRepository.selectByUserId(
+      userId,
+      organizationId,
+    );
   const mcpToolCustomizations =
-    await mcpMcpToolCustomizationRepository.selectByUserId(userId);
+    await mcpMcpToolCustomizationRepository.selectByUserId(
+      userId,
+      organizationId,
+    );
 
   const serverIds: string[] = [
     ...mcpServerCustomizations.map(

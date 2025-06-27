@@ -1,5 +1,5 @@
 import { McpToolCustomizationZodSchema } from "app-types/mcp";
-import { getSession } from "auth/server";
+import { getSessionContext } from "@/lib/auth/session-context";
 import { serverCache } from "lib/cache";
 import { CacheKeys } from "lib/cache/cache-keys";
 import { mcpMcpToolCustomizationRepository } from "lib/db/repository";
@@ -9,16 +9,16 @@ export async function GET(
   { params }: { params: Promise<{ server: string; tool: string }> },
 ) {
   const { server, tool } = await params;
-  const session = await getSession();
-  if (!session) {
-    return new Response("Unauthorized", { status: 401 });
-  }
+  const { userId, organizationId } = await getSessionContext();
 
-  const result = await mcpMcpToolCustomizationRepository.select({
-    mcpServerId: server,
-    userId: session.user.id,
-    toolName: tool,
-  });
+  const result = await mcpMcpToolCustomizationRepository.select(
+    {
+      mcpServerId: server,
+      userId,
+      toolName: tool,
+    },
+    organizationId,
+  );
   return Response.json(result ?? {});
 }
 
@@ -27,10 +27,7 @@ export async function POST(
   { params }: { params: Promise<{ server: string; tool: string }> },
 ) {
   const { server, tool } = await params;
-  const session = await getSession();
-  if (!session) {
-    return new Response("Unauthorized", { status: 401 });
-  }
+  const { userId, organizationId } = await getSessionContext();
 
   const body = await request.json();
 
@@ -43,13 +40,16 @@ export async function POST(
   );
 
   const result =
-    await mcpMcpToolCustomizationRepository.upsertToolCustomization({
-      userId: session.user.id,
-      mcpServerId,
-      toolName,
-      prompt,
-    });
-  const key = CacheKeys.mcpServerCustomizations(session.user.id);
+    await mcpMcpToolCustomizationRepository.upsertToolCustomization(
+      {
+        userId,
+        mcpServerId,
+        toolName,
+        prompt,
+      },
+      organizationId,
+    );
+  const key = CacheKeys.mcpServerCustomizations(userId);
   void serverCache.delete(key);
 
   return Response.json(result);
@@ -60,17 +60,17 @@ export async function DELETE(
   { params }: { params: Promise<{ server: string; tool: string }> },
 ) {
   const { server, tool } = await params;
-  const session = await getSession();
-  if (!session) {
-    return new Response("Unauthorized", { status: 401 });
-  }
+  const { userId, organizationId } = await getSessionContext();
 
-  await mcpMcpToolCustomizationRepository.deleteToolCustomization({
-    mcpServerId: server,
-    userId: session.user.id,
-    toolName: tool,
-  });
-  const key = CacheKeys.mcpServerCustomizations(session.user.id);
+  await mcpMcpToolCustomizationRepository.deleteToolCustomization(
+    {
+      mcpServerId: server,
+      userId,
+      toolName: tool,
+    },
+    organizationId,
+  );
+  const key = CacheKeys.mcpServerCustomizations(userId);
   void serverCache.delete(key);
 
   return Response.json({ success: true });

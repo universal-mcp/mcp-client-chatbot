@@ -5,12 +5,14 @@ import { eq } from "drizzle-orm";
 
 export const pgUserRepository: UserRepository = {
   existsByEmail: async (email: string): Promise<boolean> => {
+    // This function doesn't need session context as it's used for authentication
     const result = await db
       .select()
       .from(UserSchema)
       .where(eq(UserSchema.email, email));
     return result.length > 0;
   },
+
   updateUser: async (
     id: string,
     user: Pick<User, "name" | "image">,
@@ -29,6 +31,7 @@ export const pgUserRepository: UserRepository = {
       preferences: result.preferences ?? undefined,
     };
   },
+
   updatePreferences: async (
     userId: string,
     preferences: UserPreferences,
@@ -46,6 +49,7 @@ export const pgUserRepository: UserRepository = {
       preferences: result.preferences ?? undefined,
     };
   },
+
   getPreferences: async (userId: string) => {
     const [result] = await db
       .select({ preferences: UserSchema.preferences })
@@ -53,6 +57,7 @@ export const pgUserRepository: UserRepository = {
       .where(eq(UserSchema.id, userId));
     return result?.preferences ?? null;
   },
+
   findById: async (userId: string) => {
     const [result] = await db
       .select()

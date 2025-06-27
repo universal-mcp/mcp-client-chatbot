@@ -19,6 +19,7 @@ import { AppSidebarThreads } from "./app-sidebar-threads";
 
 import { isShortcutEvent, Shortcuts } from "lib/keyboard-shortcuts";
 import { AppSidebarUser } from "./app-sidebar-user";
+import { WorkspacePicker } from "./workspace-picker";
 import { PanelLeft } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -54,33 +55,39 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="offcanvas" className="border-r">
-      <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem className="flex items-center gap-0.5">
-            <SidebarMenuButton asChild className="hover:bg-transparent">
-              <Link
-                href={`/`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  router.push("/");
-                  router.refresh();
-                }}
-              >
-                <h4 className="font-bold">mcp/chat-bot</h4>
-                <div
-                  className="ml-auto block sm:hidden"
+      <SidebarHeader className="p-0">
+        {/* Workspace Picker */}
+        <WorkspacePicker />
+
+        {/* App Header */}
+        <div className="p-2">
+          <SidebarMenu>
+            <SidebarMenuItem className="flex items-center gap-0.5">
+              <SidebarMenuButton asChild className="hover:bg-transparent">
+                <Link
+                  href={`/`}
                   onClick={(e) => {
                     e.preventDefault();
-                    e.stopPropagation();
-                    setOpenMobile(false);
+                    router.push("/");
+                    router.refresh();
                   }}
                 >
-                  <PanelLeft className="size-4" />
-                </div>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+                  <h4 className="font-bold">mcp-client/chatbot</h4>
+                  <div
+                    className="ml-auto block sm:hidden"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setOpenMobile(false);
+                    }}
+                  >
+                    <PanelLeft className="size-4" />
+                  </div>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </div>
       </SidebarHeader>
 
       <SidebarContent className="mt-2 overflow-hidden relative">

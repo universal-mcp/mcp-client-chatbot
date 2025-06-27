@@ -1,16 +1,13 @@
-import { getSession } from "auth/server";
 import { UserPreferencesZodSchema } from "app-types/user";
 import { userRepository } from "lib/db/repository";
 import { NextResponse } from "next/server";
+import { getSessionContext } from "@/lib/auth/session-context";
 
 export async function GET() {
   try {
-    const session = await getSession();
+    const { userId } = await getSessionContext();
 
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const preferences = await userRepository.getPreferences(session.user.id);
+    const preferences = await userRepository.getPreferences(userId);
     return NextResponse.json(preferences ?? {});
   } catch (error: any) {
     return NextResponse.json(
@@ -22,14 +19,12 @@ export async function GET() {
 
 export async function PUT(request: Request) {
   try {
-    const session = await getSession();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const { userId } = await getSessionContext();
+
     const json = await request.json();
     const preferences = UserPreferencesZodSchema.parse(json);
     const updatedUser = await userRepository.updatePreferences(
-      session.user.id,
+      userId,
       preferences,
     );
     return NextResponse.json({

@@ -3,6 +3,10 @@ import { z } from "zod";
 import { Safe, safe } from "ts-safe";
 import { errorToString } from "lib/utils";
 import { McpServerSchema } from "lib/db/pg/schema.pg";
+import {
+  getSessionContext,
+  checkAdminPermission,
+} from "@/lib/auth/session-context";
 
 export async function selectMcpClientsAction() {
   const list = await mcpClientsManager.getClients();
@@ -31,6 +35,10 @@ export async function saveMcpClientAction(
   if (process.env.NOT_ALLOW_ADD_MCP_SERVERS) {
     throw new Error("Not allowed to add MCP servers");
   }
+
+  const { userId, organizationId } = await getSessionContext();
+  await checkAdminPermission(userId, organizationId);
+
   // Validate name to ensure it only contains alphanumeric characters and hyphens
   const nameSchema = z.string().regex(/^[a-zA-Z0-9\-]+$/, {
     message:
@@ -57,10 +65,16 @@ export async function existMcpClientByServerNameAction(serverName: string) {
 }
 
 export async function removeMcpClientAction(id: string) {
+  const { userId, organizationId } = await getSessionContext();
+  await checkAdminPermission(userId, organizationId);
+
   await mcpClientsManager.removeClient(id);
 }
 
 export async function refreshMcpClientAction(id: string) {
+  const { userId, organizationId } = await getSessionContext();
+  await checkAdminPermission(userId, organizationId);
+
   await mcpClientsManager.refreshClient(id);
 }
 

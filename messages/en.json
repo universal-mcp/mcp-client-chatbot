@@ -264,7 +264,8 @@
     "showAllChats": "View All Chats",
     "showLessChats": "Show less",
     "reportAnIssue": "Report an issue",
-    "joinCommunity": "Join Community"
+    "joinCommunity": "Join Community",
+    "manageAccount": "Manage Account"
   },
   "KeyboardShortcuts": {
     "title": "Keyboard Shortcuts",

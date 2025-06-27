@@ -1,18 +1,18 @@
-import { redirect } from "next/navigation";
-import { getSession } from "auth/server";
+import { getSessionContext } from "@/lib/auth/session-context";
 import { Message, smoothStream, streamText } from "ai";
 import { customModelProvider } from "lib/ai/models";
 import logger from "logger";
 import { buildUserSystemPrompt } from "lib/ai/prompts";
 import { userRepository } from "lib/db/repository";
+import { redirect } from "next/navigation";
 
 export async function POST(request: Request) {
   try {
     const json = await request.json();
 
-    const session = await getSession();
+    const { userId, user } = await getSessionContext();
 
-    if (!session?.user.id) {
+    if (!userId) {
       return redirect("/sign-in");
     }
 
@@ -26,11 +26,11 @@ export async function POST(request: Request) {
     };
     const model = customModelProvider.getModel(chatModel);
     const userPreferences =
-      (await userRepository.getPreferences(session.user.id)) || undefined;
+      (await userRepository.getPreferences(userId)) || undefined;
 
     return streamText({
       model,
-      system: `${buildUserSystemPrompt(session.user, userPreferences)} ${
+      system: `${buildUserSystemPrompt(user, userPreferences)} ${
         instructions ? `\n\n${instructions}` : ""
       }`.trim(),
       messages,

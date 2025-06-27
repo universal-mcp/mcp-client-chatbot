@@ -1,4 +1,4 @@
-import { getSession } from "auth/server";
+import { getSessionContext } from "@/lib/auth/session-context";
 import { mcpMcpToolCustomizationRepository } from "lib/db/repository";
 
 import { NextResponse } from "next/server";
@@ -8,15 +8,16 @@ export async function GET(
   { params }: { params: Promise<{ server: string }> },
 ) {
   const { server } = await params;
-  const session = await getSession();
-  if (!session) {
-    return new Response("Unauthorized", { status: 401 });
-  }
+  const { userId, organizationId } = await getSessionContext();
+
   const mcpServerCustomization =
-    await mcpMcpToolCustomizationRepository.selectByUserIdAndMcpServerId({
-      mcpServerId: server,
-      userId: session.user.id,
-    });
+    await mcpMcpToolCustomizationRepository.selectByUserIdAndMcpServerId(
+      {
+        mcpServerId: server,
+        userId,
+      },
+      organizationId,
+    );
 
   return NextResponse.json(mcpServerCustomization);
 }

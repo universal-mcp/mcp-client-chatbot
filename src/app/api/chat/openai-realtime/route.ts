@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getSession } from "auth/server";
+import { getSessionContext } from "@/lib/auth/session-context";
 import { AllowedMCPServer, VercelAIMcpTool } from "app-types/mcp";
 import { chatRepository } from "lib/db/repository";
 import {
@@ -30,11 +30,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const session = await getSession();
-
-    if (!session?.user.id) {
-      return new Response("Unauthorized", { status: 401 });
-    }
+    const { userId, organizationId, user } = await getSessionContext();
 
     const { voice, allowedMcpServers, toolChoice, threadId, projectId } =
       (await request.json()) as {
@@ -62,19 +58,21 @@ export async function POST(request: NextRequest) {
 
     const { instructions, userPreferences } = projectId
       ? await chatRepository.selectThreadInstructionsByProjectId(
-          session.user.id,
+          userId,
           projectId,
+          organizationId,
         )
       : await chatRepository.selectThreadInstructions(
-          session.user.id,
-          threadId,
+          userId,
+          threadId ?? null,
+          organizationId,
         );
 
     const mcpServerCustomizations = await safe()
       .map(() => {
         if (Object.keys(tools ?? {}).length === 0)
           throw new Error("No tools found");
-        return rememberMcpServerCustomizationsAction(session.user.id);
+        return rememberMcpServerCustomizationsAction(userId);
       })
       .map((v) => filterMcpServerCustomizations(tools!, v))
       .orElse({});
@@ -84,7 +82,7 @@ export async function POST(request: NextRequest) {
     });
 
     const systemPrompt = mergeSystemPrompt(
-      buildSpeechSystemPrompt(session.user, userPreferences),
+      buildSpeechSystemPrompt(user, userPreferences),
       buildProjectInstructionsSystemPrompt(instructions),
       buildMcpServerCustomizationsSystemPrompt(mcpServerCustomizations),
     );

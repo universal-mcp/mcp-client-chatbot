@@ -30,6 +30,10 @@ export const ChatThreadSchema = pgTable("chat_thread", {
   userId: uuid("user_id")
     .notNull()
     .references(() => UserSchema.id),
+  organizationId: uuid("organization_id").references(
+    () => OrganizationSchema.id,
+    { onDelete: "cascade" },
+  ),
   createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   projectId: uuid("project_id"),
 });
@@ -53,6 +57,10 @@ export const ProjectSchema = pgTable("project", {
   userId: uuid("user_id")
     .notNull()
     .references(() => UserSchema.id),
+  organizationId: uuid("organization_id").references(
+    () => OrganizationSchema.id,
+    { onDelete: "cascade" },
+  ),
   instructions: json("instructions").$type<Project["instructions"]>(),
   createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: timestamp("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
@@ -63,6 +71,13 @@ export const McpServerSchema = pgTable("mcp_server", {
   name: text("name").notNull(),
   config: json("config").notNull().$type<MCPServerConfig>(),
   enabled: boolean("enabled").notNull().default(true),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => UserSchema.id),
+  organizationId: uuid("organization_id").references(
+    () => OrganizationSchema.id,
+    { onDelete: "cascade" },
+  ),
   createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: timestamp("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
@@ -75,6 +90,10 @@ export const McpToolCustomizationSchema = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => UserSchema.id, { onDelete: "cascade" }),
+    organizationId: uuid("organization_id").references(
+      () => OrganizationSchema.id,
+      { onDelete: "cascade" },
+    ),
     toolName: text("tool_name").notNull(),
     mcpServerId: uuid("mcp_server_id")
       .notNull()
@@ -87,7 +106,14 @@ export const McpToolCustomizationSchema = pgTable(
       .notNull()
       .default(sql`CURRENT_TIMESTAMP`),
   },
-  (table) => [unique().on(table.userId, table.toolName, table.mcpServerId)],
+  (table) => [
+    unique().on(
+      table.userId,
+      table.organizationId,
+      table.toolName,
+      table.mcpServerId,
+    ),
+  ],
 );
 
 export const McpServerCustomizationSchema = pgTable(
@@ -97,6 +123,10 @@ export const McpServerCustomizationSchema = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => UserSchema.id, { onDelete: "cascade" }),
+    organizationId: uuid("organization_id").references(
+      () => OrganizationSchema.id,
+      { onDelete: "cascade" },
+    ),
     mcpServerId: uuid("mcp_server_id")
       .notNull()
       .references(() => McpServerSchema.id, { onDelete: "cascade" }),
@@ -108,7 +138,9 @@ export const McpServerCustomizationSchema = pgTable(
       .default(sql`CURRENT_TIMESTAMP`)
       .notNull(),
   },
-  (table) => [unique().on(table.userId, table.mcpServerId)],
+  (table) => [
+    unique().on(table.userId, table.organizationId, table.mcpServerId),
+  ],
 );
 
 export {
@@ -133,3 +165,5 @@ export type ToolCustomizationEntity =
   typeof McpToolCustomizationSchema.$inferSelect;
 export type McpServerCustomizationEntity =
   typeof McpServerCustomizationSchema.$inferSelect;
+export type OrganizationEntity = typeof OrganizationSchema.$inferSelect;
+export type MemberEntity = typeof MemberSchema.$inferSelect;

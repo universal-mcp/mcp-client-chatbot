@@ -9,14 +9,14 @@ const logger = defaultLogger.withDefaults({
 });
 
 export function createDbBasedMCPConfigsStorage(
-  _userId: UUID,
-  _organizationId: UUID,
+  userId: UUID,
+  organizationId: UUID | null,
 ): MCPConfigStorage {
   return {
     async init() {},
     async loadAll() {
       try {
-        const servers = await mcpRepository.selectAll();
+        const servers = await mcpRepository.selectAll(userId, organizationId);
         return servers;
       } catch (error) {
         logger.error("Failed to load MCP configs from database:", error);
@@ -25,7 +25,7 @@ export function createDbBasedMCPConfigsStorage(
     },
     async save(server) {
       try {
-        return mcpRepository.save(server);
+        return mcpRepository.save(server, userId, organizationId);
       } catch (error) {
         logger.error(
           `Failed to save MCP config "${server.name}" to database:`,
@@ -36,7 +36,7 @@ export function createDbBasedMCPConfigsStorage(
     },
     async delete(id) {
       try {
-        await mcpRepository.deleteById(id);
+        await mcpRepository.deleteById(id, userId, organizationId);
       } catch (error) {
         logger.error(
           `Failed to delete MCP config "${id}" from database:",`,
@@ -47,7 +47,11 @@ export function createDbBasedMCPConfigsStorage(
     },
     async has(id: string): Promise<boolean> {
       try {
-        const server = await mcpRepository.selectById(id);
+        const server = await mcpRepository.selectById(
+          id,
+          userId,
+          organizationId,
+        );
         return !!server;
       } catch (error) {
         logger.error(`Failed to check MCP config "${id}" in database:`, error);
@@ -55,7 +59,7 @@ export function createDbBasedMCPConfigsStorage(
       }
     },
     async get(id) {
-      return mcpRepository.selectById(id);
+      return mcpRepository.selectById(id, userId, organizationId);
     },
   };
 }

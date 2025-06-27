@@ -1,15 +1,15 @@
 import { chatRepository } from "lib/db/repository";
-import { getSession } from "auth/server";
-import { redirect } from "next/navigation";
 import { generateUUID } from "lib/utils";
 import { generateTitleFromUserMessageAction } from "../chat/actions";
+import { getSessionContext } from "@/lib/auth/session-context";
+import { redirect } from "next/navigation";
 
 export async function POST(request: Request) {
   const { id, projectId, message, model } = await request.json();
 
-  const session = await getSession();
+  const { userId, organizationId } = await getSessionContext();
 
-  if (!session?.user.id) {
+  if (!userId) {
     return redirect("/sign-in");
   }
 
@@ -18,12 +18,16 @@ export async function POST(request: Request) {
     model,
   });
 
-  const newThread = await chatRepository.insertThread({
-    id: id ?? generateUUID(),
-    projectId,
-    title,
-    userId: session.user.id,
-  });
+  const newThread = await chatRepository.insertThread(
+    {
+      id: id ?? generateUUID(),
+      projectId,
+      title,
+      userId,
+    },
+    userId,
+    organizationId,
+  );
 
   return Response.json({
     threadId: newThread.id,
