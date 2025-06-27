@@ -195,8 +195,8 @@ export default function WorkspaceSettingsPage() {
                   <div className="space-y-2">
                     <h3 className="font-semibold">Ready to collaborate?</h3>
                     <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-                      Create an organization workspace to invite team members
-                      and work together on projects.
+                      Create a workspace to invite team members and work
+                      together on projects.
                     </p>
                   </div>
                   <Button
@@ -204,7 +204,7 @@ export default function WorkspaceSettingsPage() {
                     className="mt-4"
                   >
                     <Building2 className="h-4 w-4 mr-2" />
-                    Create Organization
+                    Create Workspace
                   </Button>
                 </div>
               </CardContent>
