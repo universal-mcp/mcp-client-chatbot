@@ -14,7 +14,6 @@ import {
   useActiveOrganization,
   useListOrganizations,
 } from "@/lib/auth/client";
-import { ActiveOrganization, Organization } from "@/lib/auth/types";
 import { useEffect, useRef, useState } from "react";
 import { appStore } from "@/app/store";
 import { CreateOrganizationModal } from "@/components/organization/create-organization-modal";
