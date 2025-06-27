@@ -47,17 +47,13 @@ import {
   generateTitleFromUserMessageAction,
   rememberMcpServerCustomizationsAction,
 } from "./actions";
-import { getSession } from "auth/server";
+import { getSessionContext } from "@/lib/auth/session-context";
 
 export async function POST(request: Request) {
   try {
     const json = await request.json();
 
-    const session = await getSession();
-
-    if (!session?.user.id) {
-      return new Response("Unauthorized", { status: 401 });
-    }
+    const { userId, organizationId, user } = await getSessionContext();
 
     const {
       id,
@@ -71,23 +67,35 @@ export async function POST(request: Request) {
 
     const model = customModelProvider.getModel(chatModel);
 
-    let thread = await chatRepository.selectThreadDetails(id);
+    let thread = await chatRepository.selectThreadDetails(
+      id,
+      userId,
+      organizationId,
+    );
 
     if (!thread) {
       const title = await generateTitleFromUserMessageAction({
         message,
         model,
       });
-      const newThread = await chatRepository.insertThread({
-        id,
-        projectId: projectId ?? null,
-        title,
-        userId: session.user.id,
-      });
-      thread = await chatRepository.selectThreadDetails(newThread.id);
+      const newThread = await chatRepository.insertThread(
+        {
+          id,
+          projectId: projectId ?? null,
+          title,
+          userId,
+        },
+        userId,
+        organizationId,
+      );
+      thread = await chatRepository.selectThreadDetails(
+        newThread.id,
+        userId,
+        organizationId,
+      );
     }
 
-    if (thread!.userId !== session.user.id) {
+    if (thread!.userId !== userId) {
       return new Response("Forbidden", { status: 403 });
     }
 
@@ -158,13 +166,13 @@ export async function POST(request: Request) {
           .map(() => {
             if (Object.keys(tools ?? {}).length === 0)
               throw new Error("No tools found");
-            return rememberMcpServerCustomizationsAction(session.user.id);
+            return rememberMcpServerCustomizationsAction(userId);
           })
           .map((v) => filterMcpServerCustomizations(tools!, v))
           .orElse({});
 
         const systemPrompt = mergeSystemPrompt(
-          buildUserSystemPrompt(session.user, userPreferences),
+          buildUserSystemPrompt(user, userPreferences),
           buildProjectInstructionsSystemPrompt(thread?.instructions),
           buildMcpServerCustomizationsSystemPrompt(mcpServerCustomizations),
         );
@@ -204,17 +212,21 @@ export async function POST(request: Request) {
               responseMessages: response.messages,
             });
             if (isLastMessageUserMessage) {
-              await chatRepository.insertMessage({
-                threadId: thread!.id,
-                model: chatModel?.model ?? null,
-                role: "user",
-                parts: message.parts,
-                attachments: message.experimental_attachments,
-                id: message.id,
-                annotations: appendAnnotations(message.annotations, {
-                  usageTokens: usage.promptTokens,
-                }),
-              });
+              await chatRepository.insertMessage(
+                {
+                  threadId: thread!.id,
+                  model: chatModel?.model ?? null,
+                  role: "user",
+                  parts: message.parts,
+                  attachments: message.experimental_attachments,
+                  id: message.id,
+                  annotations: appendAnnotations(message.annotations, {
+                    usageTokens: usage.promptTokens,
+                  }),
+                },
+                userId,
+                organizationId,
+              );
             }
             const assistantMessage = appendMessages.at(-1);
             if (assistantMessage) {
@@ -226,15 +238,19 @@ export async function POST(request: Request) {
                 },
               );
               dataStream.writeMessageAnnotation(annotations.at(-1)!);
-              await chatRepository.upsertMessage({
-                model: chatModel?.model ?? null,
-                threadId: thread!.id,
-                role: assistantMessage.role,
-                id: assistantMessage.id,
-                parts: assistantMessage.parts as UIMessage["parts"],
-                attachments: assistantMessage.experimental_attachments,
-                annotations,
-              });
+              await chatRepository.upsertMessage(
+                {
+                  model: chatModel?.model ?? null,
+                  threadId: thread!.id,
+                  role: assistantMessage.role,
+                  id: assistantMessage.id,
+                  parts: assistantMessage.parts as UIMessage["parts"],
+                  attachments: assistantMessage.experimental_attachments,
+                  annotations,
+                },
+                userId,
+                organizationId,
+              );
             }
           },
         });

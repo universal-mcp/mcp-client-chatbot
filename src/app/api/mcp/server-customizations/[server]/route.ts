@@ -1,5 +1,5 @@
 import { McpServerCustomizationZodSchema } from "app-types/mcp";
-import { getSession } from "auth/server";
+import { getSessionContext } from "@/lib/auth/session-context";
 import { serverCache } from "lib/cache";
 import { CacheKeys } from "lib/cache/cache-keys";
 import { mcpServerCustomizationRepository } from "lib/db/repository";
@@ -11,15 +11,16 @@ export async function GET(
   { params }: { params: Promise<{ server: string }> },
 ) {
   const { server } = await params;
-  const session = await getSession();
-  if (!session) {
-    return new Response("Unauthorized", { status: 401 });
-  }
+  const { userId, organizationId } = await getSessionContext();
+
   const mcpServerCustomization =
-    await mcpServerCustomizationRepository.selectByUserIdAndMcpServerId({
-      mcpServerId: server,
-      userId: session.user.id,
-    });
+    await mcpServerCustomizationRepository.selectByUserIdAndMcpServerId(
+      {
+        mcpServerId: server,
+        userId,
+      },
+      organizationId,
+    );
 
   return NextResponse.json(mcpServerCustomization ?? {});
 }
@@ -29,10 +30,7 @@ export async function POST(
   { params }: { params: Promise<{ server: string }> },
 ) {
   const { server } = await params;
-  const session = await getSession();
-  if (!session) {
-    return new Response("Unauthorized", { status: 401 });
-  }
+  const { userId, organizationId } = await getSessionContext();
 
   const body = await request.json();
   const { mcpServerId, prompt } = McpServerCustomizationZodSchema.parse({
@@ -41,12 +39,15 @@ export async function POST(
   });
 
   const result =
-    await mcpServerCustomizationRepository.upsertMcpServerCustomization({
-      userId: session.user.id,
-      mcpServerId,
-      prompt,
-    });
-  const key = CacheKeys.mcpServerCustomizations(session.user.id);
+    await mcpServerCustomizationRepository.upsertMcpServerCustomization(
+      {
+        userId,
+        mcpServerId,
+        prompt,
+      },
+      organizationId,
+    );
+  const key = CacheKeys.mcpServerCustomizations(userId);
   void serverCache.delete(key);
 
   return NextResponse.json(result);
@@ -57,18 +58,16 @@ export async function DELETE(
   { params }: { params: Promise<{ server: string }> },
 ) {
   const { server } = await params;
-  const session = await getSession();
-  if (!session) {
-    return new Response("Unauthorized", { status: 401 });
-  }
+  const { userId, organizationId } = await getSessionContext();
 
   await mcpServerCustomizationRepository.deleteMcpServerCustomizationByMcpServerIdAndUserId(
     {
       mcpServerId: server,
-      userId: session.user.id,
+      userId,
     },
+    organizationId,
   );
-  const key = CacheKeys.mcpServerCustomizations(session.user.id);
+  const key = CacheKeys.mcpServerCustomizations(userId);
   void serverCache.delete(key);
 
   return NextResponse.json({ success: true });
