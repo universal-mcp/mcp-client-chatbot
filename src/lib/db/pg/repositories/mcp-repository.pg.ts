@@ -1,58 +1,11 @@
 import { pgDb as db } from "../db.pg";
-import { McpServerSchema, MemberSchema } from "../schema.pg";
+import { McpServerSchema } from "../schema.pg";
 import { and, eq, isNull } from "drizzle-orm";
 import { generateUUID } from "lib/utils";
 import type { MCPRepository } from "app-types/mcp";
-import { getSession } from "@/lib/auth/server";
-
-async function getSessionContext() {
-  const session = await getSession();
-  if (!session?.user?.id) {
-    throw new Error("Unauthorized: No active session");
-  }
-  return {
-    userId: session.user.id,
-    organizationId: session.session.activeOrganizationId || null,
-  };
-}
-
-async function checkAdminPermission(
-  userId: string,
-  organizationId: string | null,
-) {
-  // In personal mode, user is always admin
-  if (!organizationId) {
-    return true;
-  }
-
-  // In organization mode, check if user is admin or owner
-  const [member] = await db
-    .select()
-    .from(MemberSchema)
-    .where(
-      and(
-        eq(MemberSchema.userId, userId),
-        eq(MemberSchema.organizationId, organizationId),
-      ),
-    )
-    .limit(1);
-
-  if (!member) {
-    throw new Error("User is not a member of this organization");
-  }
-
-  if (member.role !== "admin" && member.role !== "owner") {
-    throw new Error("Only organization admins can manage MCP servers");
-  }
-
-  return true;
-}
 
 export const pgMcpRepository: MCPRepository = {
-  async save(server) {
-    const { userId, organizationId } = await getSessionContext();
-    await checkAdminPermission(userId, organizationId);
-
+  async save(server, userId: string, organizationId: string | null) {
     const [result] = await db
       .insert(McpServerSchema)
       .values({
@@ -60,7 +13,7 @@ export const pgMcpRepository: MCPRepository = {
         name: server.name,
         config: server.config,
         enabled: true,
-        createdBy: userId,
+        userId,
         organizationId,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -77,9 +30,7 @@ export const pgMcpRepository: MCPRepository = {
     return result;
   },
 
-  async selectById(id) {
-    const { organizationId } = await getSessionContext();
-
+  async selectById(id, _userId: string, organizationId: string | null) {
     const [result] = await db
       .select()
       .from(McpServerSchema)
@@ -94,9 +45,7 @@ export const pgMcpRepository: MCPRepository = {
     return result;
   },
 
-  async selectAll() {
-    const { organizationId } = await getSessionContext();
-
+  async selectAll(_userId: string, organizationId: string | null) {
     const results = await db
       .select()
       .from(McpServerSchema)
@@ -108,10 +57,7 @@ export const pgMcpRepository: MCPRepository = {
     return results;
   },
 
-  async deleteById(id) {
-    const { userId, organizationId } = await getSessionContext();
-    await checkAdminPermission(userId, organizationId);
-
+  async deleteById(id, _userId: string, organizationId: string | null) {
     // Verify the server belongs to the current organization context
     const [server] = await db
       .select()
@@ -133,9 +79,11 @@ export const pgMcpRepository: MCPRepository = {
     await db.delete(McpServerSchema).where(eq(McpServerSchema.id, id));
   },
 
-  async selectByServerName(name) {
-    const { organizationId } = await getSessionContext();
-
+  async selectByServerName(
+    name,
+    _userId: string,
+    organizationId: string | null,
+  ) {
     const [result] = await db
       .select()
       .from(McpServerSchema)
@@ -150,9 +98,11 @@ export const pgMcpRepository: MCPRepository = {
     return result;
   },
 
-  async existsByServerName(name) {
-    const { organizationId } = await getSessionContext();
-
+  async existsByServerName(
+    name,
+    _userId: string,
+    organizationId: string | null,
+  ) {
     const [result] = await db
       .select({ id: McpServerSchema.id })
       .from(McpServerSchema)

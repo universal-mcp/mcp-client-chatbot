@@ -16,25 +16,13 @@ import {
 import { and, desc, eq, gte, isNull, sql } from "drizzle-orm";
 import { pgUserRepository } from "./user-repository.pg";
 import { UserPreferences } from "app-types/user";
-import { getSession } from "@/lib/auth/server";
-
-async function getSessionContext() {
-  const session = await getSession();
-  if (!session?.user?.id) {
-    throw new Error("Unauthorized: No active session");
-  }
-  return {
-    userId: session.user.id,
-    organizationId: session.session.activeOrganizationId || null,
-  };
-}
 
 export const pgChatRepository: ChatRepository = {
   insertThread: async (
     thread: Omit<ChatThread, "createdAt">,
+    userId: string,
+    organizationId: string | null,
   ): Promise<ChatThread> => {
-    const { userId, organizationId } = await getSessionContext();
-
     const [result] = await db
       .insert(ChatThreadSchema)
       .values({
@@ -48,9 +36,11 @@ export const pgChatRepository: ChatRepository = {
     return result;
   },
 
-  deleteChatMessage: async (id: string): Promise<void> => {
-    const { userId, organizationId } = await getSessionContext();
-
+  deleteChatMessage: async (
+    id: string,
+    userId: string,
+    organizationId: string | null,
+  ): Promise<void> => {
     // Verify the message belongs to a thread in the user's current organization context
     const messageThread = await db
       .select({ threadId: ChatMessageSchema.threadId })
@@ -77,9 +67,11 @@ export const pgChatRepository: ChatRepository = {
     await db.delete(ChatMessageSchema).where(eq(ChatMessageSchema.id, id));
   },
 
-  selectThread: async (id: string): Promise<ChatThread | null> => {
-    const { userId, organizationId } = await getSessionContext();
-
+  selectThread: async (
+    id: string,
+    userId: string,
+    organizationId: string | null,
+  ): Promise<ChatThread | null> => {
     const [result] = await db
       .select()
       .from(ChatThreadSchema)
@@ -95,12 +87,14 @@ export const pgChatRepository: ChatRepository = {
     return result;
   },
 
-  selectThreadDetails: async (id: string) => {
+  selectThreadDetails: async (
+    id: string,
+    userId: string,
+    organizationId: string | null,
+  ) => {
     if (!id) {
       return null;
     }
-
-    const { userId, organizationId } = await getSessionContext();
 
     const [thread] = await db
       .select()
@@ -121,7 +115,11 @@ export const pgChatRepository: ChatRepository = {
       return null;
     }
 
-    const messages = await pgChatRepository.selectMessagesByThreadId(id);
+    const messages = await pgChatRepository.selectMessagesByThreadId(
+      id,
+      userId,
+      organizationId,
+    );
     return {
       id: thread.chat_thread.id,
       title: thread.chat_thread.title,
@@ -134,9 +132,11 @@ export const pgChatRepository: ChatRepository = {
     };
   },
 
-  selectThreadInstructionsByProjectId: async (userId, projectId) => {
-    const { organizationId } = await getSessionContext();
-
+  selectThreadInstructionsByProjectId: async (
+    userId: string,
+    projectId: string | null,
+    organizationId: string | null,
+  ) => {
     const result = {
       instructions: null as Project["instructions"] | null,
       userPreferences: undefined as UserPreferences | undefined,
@@ -170,9 +170,11 @@ export const pgChatRepository: ChatRepository = {
     return result;
   },
 
-  selectThreadInstructions: async (userId, threadId) => {
-    const { organizationId } = await getSessionContext();
-
+  selectThreadInstructions: async (
+    userId: string,
+    threadId: string | null,
+    organizationId: string | null,
+  ) => {
     const result = {
       instructions: null as Project["instructions"] | null,
       userPreferences: undefined as UserPreferences | undefined,
@@ -218,9 +220,9 @@ export const pgChatRepository: ChatRepository = {
 
   selectMessagesByThreadId: async (
     threadId: string,
+    userId: string,
+    organizationId: string | null,
   ): Promise<ChatMessage[]> => {
-    const { userId, organizationId } = await getSessionContext();
-
     // Verify thread belongs to current user and organization context
     const threadCheck = await db
       .select({ id: ChatThreadSchema.id })
@@ -250,13 +252,12 @@ export const pgChatRepository: ChatRepository = {
 
   selectThreadsByUserId: async (
     userId: string,
+    organizationId: string | null,
   ): Promise<
     (ChatThread & {
       lastMessageAt: number;
     })[]
   > => {
-    const { organizationId } = await getSessionContext();
-
     const threadWithLatestMessage = await db
       .select({
         threadId: ChatThreadSchema.id,
@@ -301,9 +302,9 @@ export const pgChatRepository: ChatRepository = {
   updateThread: async (
     id: string,
     thread: Partial<Omit<ChatThread, "id" | "createdAt">>,
+    userId: string,
+    organizationId: string | null,
   ): Promise<ChatThread> => {
-    const { userId, organizationId } = await getSessionContext();
-
     const [result] = await db
       .update(ChatThreadSchema)
       .set({
@@ -323,9 +324,11 @@ export const pgChatRepository: ChatRepository = {
     return result;
   },
 
-  deleteThread: async (id: string): Promise<void> => {
-    const { userId, organizationId } = await getSessionContext();
-
+  deleteThread: async (
+    id: string,
+    userId: string,
+    organizationId: string | null,
+  ): Promise<void> => {
     // Verify thread belongs to current user and organization context
     const threadCheck = await db
       .select({ id: ChatThreadSchema.id })
@@ -354,9 +357,9 @@ export const pgChatRepository: ChatRepository = {
 
   insertMessage: async (
     message: Omit<ChatMessage, "createdAt">,
+    userId: string,
+    organizationId: string | null,
   ): Promise<ChatMessage> => {
-    const { userId, organizationId } = await getSessionContext();
-
     // Verify thread belongs to current user and organization context
     const threadCheck = await db
       .select({ id: ChatThreadSchema.id })
@@ -389,9 +392,9 @@ export const pgChatRepository: ChatRepository = {
 
   upsertMessage: async (
     message: Omit<ChatMessage, "createdAt">,
+    userId: string,
+    organizationId: string | null,
   ): Promise<ChatMessage> => {
-    const { userId, organizationId } = await getSessionContext();
-
     // Verify thread belongs to current user and organization context
     const threadCheck = await db
       .select({ id: ChatThreadSchema.id })
@@ -429,9 +432,9 @@ export const pgChatRepository: ChatRepository = {
 
   deleteMessagesByChatIdAfterTimestamp: async (
     messageId: string,
+    userId: string,
+    organizationId: string | null,
   ): Promise<void> => {
-    const { userId, organizationId } = await getSessionContext();
-
     const [message] = await db
       .select()
       .from(ChatMessageSchema)
@@ -462,9 +465,10 @@ export const pgChatRepository: ChatRepository = {
       );
   },
 
-  deleteNonProjectThreads: async (userId: string): Promise<void> => {
-    const { organizationId } = await getSessionContext();
-
+  deleteNonProjectThreads: async (
+    userId: string,
+    organizationId: string | null,
+  ): Promise<void> => {
     const threadIds = await db
       .select({ id: ChatThreadSchema.id })
       .from(ChatThreadSchema)
@@ -478,13 +482,16 @@ export const pgChatRepository: ChatRepository = {
         ),
       );
     await Promise.all(
-      threadIds.map((threadId) => pgChatRepository.deleteThread(threadId.id)),
+      threadIds.map((threadId) =>
+        pgChatRepository.deleteThread(threadId.id, userId, organizationId),
+      ),
     );
   },
 
-  deleteAllThreads: async (userId: string): Promise<void> => {
-    const { organizationId } = await getSessionContext();
-
+  deleteAllThreads: async (
+    userId: string,
+    organizationId: string | null,
+  ): Promise<void> => {
     const threadIds = await db
       .select({ id: ChatThreadSchema.id })
       .from(ChatThreadSchema)
@@ -497,15 +504,17 @@ export const pgChatRepository: ChatRepository = {
         ),
       );
     await Promise.all(
-      threadIds.map((threadId) => pgChatRepository.deleteThread(threadId.id)),
+      threadIds.map((threadId) =>
+        pgChatRepository.deleteThread(threadId.id, userId, organizationId),
+      ),
     );
   },
 
   insertProject: async (
     project: Omit<Project, "id" | "createdAt" | "updatedAt">,
+    userId: string,
+    organizationId: string | null,
   ): Promise<Project> => {
-    const { userId, organizationId } = await getSessionContext();
-
     const result = await db
       .insert(ProjectSchema)
       .values({
@@ -521,14 +530,14 @@ export const pgChatRepository: ChatRepository = {
 
   selectProjectById: async (
     id: string,
+    userId: string,
+    organizationId: string | null,
   ): Promise<
     | (Project & {
         threads: ChatThread[];
       })
     | null
   > => {
-    const { userId, organizationId } = await getSessionContext();
-
     const result = await db
       .select({
         project: ProjectSchema,
@@ -558,9 +567,8 @@ export const pgChatRepository: ChatRepository = {
 
   selectProjectsByUserId: async (
     userId: string,
+    organizationId: string | null,
   ): Promise<Omit<Project, "instructions">[]> => {
-    const { organizationId } = await getSessionContext();
-
     const result = await db
       .select({
         id: ProjectSchema.id,
@@ -594,9 +602,9 @@ export const pgChatRepository: ChatRepository = {
   updateProject: async (
     id: string,
     project: Partial<Pick<Project, "name" | "instructions">>,
+    userId: string,
+    organizationId: string | null,
   ): Promise<Project> => {
-    const { userId, organizationId } = await getSessionContext();
-
     const [result] = await db
       .update(ProjectSchema)
       .set(project)
@@ -613,9 +621,11 @@ export const pgChatRepository: ChatRepository = {
     return result as Project;
   },
 
-  deleteProject: async (id: string): Promise<void> => {
-    const { userId, organizationId } = await getSessionContext();
-
+  deleteProject: async (
+    id: string,
+    userId: string,
+    organizationId: string | null,
+  ): Promise<void> => {
     // Verify project belongs to current user and organization context
     const projectCheck = await db
       .select({ id: ProjectSchema.id })
@@ -640,7 +650,9 @@ export const pgChatRepository: ChatRepository = {
       .from(ChatThreadSchema)
       .where(eq(ChatThreadSchema.projectId, id));
     await Promise.all(
-      threadIds.map((threadId) => pgChatRepository.deleteThread(threadId.id)),
+      threadIds.map((threadId) =>
+        pgChatRepository.deleteThread(threadId.id, userId, organizationId),
+      ),
     );
 
     await db.delete(ProjectSchema).where(eq(ProjectSchema.id, id));
@@ -648,11 +660,12 @@ export const pgChatRepository: ChatRepository = {
 
   insertMessages: async (
     messages: PartialBy<ChatMessage, "createdAt">[],
+    userId: string,
+    organizationId: string | null,
   ): Promise<ChatMessage[]> => {
     // For bulk operations, we assume they're for the same thread and verify once
     if (messages.length === 0) return [];
 
-    const { userId, organizationId } = await getSessionContext();
     const threadId = messages[0].threadId;
 
     // Verify thread belongs to current user and organization context

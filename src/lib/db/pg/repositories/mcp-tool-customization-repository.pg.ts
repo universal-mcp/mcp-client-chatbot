@@ -2,30 +2,23 @@ import { pgDb as db } from "../db.pg";
 import { McpServerSchema, McpToolCustomizationSchema } from "../schema.pg";
 import { and, eq, isNull } from "drizzle-orm";
 import type { McpToolCustomizationRepository } from "@/types/mcp";
-import { getSession } from "@/lib/auth/server";
-
-async function getSessionContext() {
-  const session = await getSession();
-  if (!session?.user?.id) {
-    throw new Error("Unauthorized: No active session");
-  }
-  return {
-    userId: session.user.id,
-    organizationId: session.session.activeOrganizationId || null,
-  };
-}
 
 export const pgMcpMcpToolCustomizationRepository: McpToolCustomizationRepository =
   {
-    async select(key) {
-      const { userId, organizationId } = await getSessionContext();
-
+    async select(
+      key: {
+        userId: string;
+        mcpServerId: string;
+        toolName: string;
+      },
+      organizationId: string | null,
+    ) {
       const [result] = await db
         .select()
         .from(McpToolCustomizationSchema)
         .where(
           and(
-            eq(McpToolCustomizationSchema.userId, userId),
+            eq(McpToolCustomizationSchema.userId, key.userId),
             eq(McpToolCustomizationSchema.mcpServerId, key.mcpServerId),
             eq(McpToolCustomizationSchema.toolName, key.toolName),
             organizationId
@@ -36,15 +29,19 @@ export const pgMcpMcpToolCustomizationRepository: McpToolCustomizationRepository
       return result;
     },
 
-    async selectByUserIdAndMcpServerId(key) {
-      const { userId, organizationId } = await getSessionContext();
-
+    async selectByUserIdAndMcpServerId(
+      key: {
+        userId: string;
+        mcpServerId: string;
+      },
+      organizationId: string | null,
+    ) {
       const rows = await db
         .select()
         .from(McpToolCustomizationSchema)
         .where(
           and(
-            eq(McpToolCustomizationSchema.userId, userId),
+            eq(McpToolCustomizationSchema.userId, key.userId),
             eq(McpToolCustomizationSchema.mcpServerId, key.mcpServerId),
             organizationId
               ? eq(McpToolCustomizationSchema.organizationId, organizationId)
@@ -54,9 +51,7 @@ export const pgMcpMcpToolCustomizationRepository: McpToolCustomizationRepository
       return rows;
     },
 
-    async selectByUserId(userId) {
-      const { organizationId } = await getSessionContext();
-
+    async selectByUserId(userId: string, organizationId: string | null) {
       return db
         .select({
           id: McpToolCustomizationSchema.id,
@@ -87,9 +82,15 @@ export const pgMcpMcpToolCustomizationRepository: McpToolCustomizationRepository
         );
     },
 
-    async upsertToolCustomization(data) {
-      const { userId, organizationId } = await getSessionContext();
-
+    async upsertToolCustomization(
+      data: {
+        userId: string;
+        mcpServerId: string;
+        toolName: string;
+        prompt?: string | null;
+      },
+      organizationId: string | null,
+    ) {
       // Verify the MCP server belongs to the current organization context
       const [server] = await db
         .select()
@@ -112,7 +113,7 @@ export const pgMcpMcpToolCustomizationRepository: McpToolCustomizationRepository
       const [result] = await db
         .insert(McpToolCustomizationSchema)
         .values({
-          userId,
+          userId: data.userId,
           organizationId,
           toolName: data.toolName,
           mcpServerId: data.mcpServerId,
@@ -134,16 +135,21 @@ export const pgMcpMcpToolCustomizationRepository: McpToolCustomizationRepository
       return result as any;
     },
 
-    async deleteToolCustomization(key) {
-      const { userId, organizationId } = await getSessionContext();
-
+    async deleteToolCustomization(
+      key: {
+        mcpServerId: string;
+        toolName: string;
+        userId: string;
+      },
+      organizationId: string | null,
+    ) {
       await db
         .delete(McpToolCustomizationSchema)
         .where(
           and(
             eq(McpToolCustomizationSchema.mcpServerId, key.mcpServerId),
             eq(McpToolCustomizationSchema.toolName, key.toolName),
-            eq(McpToolCustomizationSchema.userId, userId),
+            eq(McpToolCustomizationSchema.userId, key.userId),
             organizationId
               ? eq(McpToolCustomizationSchema.organizationId, organizationId)
               : isNull(McpToolCustomizationSchema.organizationId),

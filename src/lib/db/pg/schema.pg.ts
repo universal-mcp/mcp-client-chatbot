@@ -71,7 +71,7 @@ export const McpServerSchema = pgTable("mcp_server", {
   name: text("name").notNull(),
   config: json("config").notNull().$type<MCPServerConfig>(),
   enabled: boolean("enabled").notNull().default(true),
-  createdBy: uuid("created_by")
+  userId: uuid("user_id")
     .notNull()
     .references(() => UserSchema.id),
   organizationId: uuid("organization_id").references(
