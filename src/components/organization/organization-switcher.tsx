@@ -5,8 +5,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChevronDown } from "lucide-react";
-import { organization } from "@/lib/auth/client";
+import { organization, useActiveOrganization } from "@/lib/auth/client";
 import { ActiveOrganization, Organization } from "@/lib/auth/types";
+import { useEffect, useRef } from "react";
+import { appStore } from "@/app/store";
 
 export const OrganizationSwitcher = ({
   activeOrganization,
@@ -15,6 +17,28 @@ export const OrganizationSwitcher = ({
   activeOrganization: ActiveOrganization | null;
   organizations: Organization[];
 }) => {
+  const { data: currentActiveOrg } = useActiveOrganization();
+  const invalidateOrganizationData = appStore(
+    (state) => state.invalidateOrganizationData,
+  );
+  const previousOrgId = useRef<string | null>(currentActiveOrg?.id || null);
+
+  // Detect organization changes and invalidate SWR data
+  useEffect(() => {
+    const currentOrgId = currentActiveOrg?.id || null;
+
+    // Only invalidate if the organization actually changed
+    if (previousOrgId.current !== currentOrgId) {
+      console.log("Organization changed, invalidating data...", {
+        from: previousOrgId.current,
+        to: currentOrgId,
+      });
+
+      invalidateOrganizationData();
+      previousOrgId.current = currentOrgId;
+    }
+  }, [currentActiveOrg?.id, invalidateOrganizationData]);
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>

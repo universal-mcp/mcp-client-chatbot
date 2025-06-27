@@ -2,54 +2,21 @@
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import {
   organization,
   useActiveOrganization,
-  useListOrganizations,
   useSession,
 } from "@/lib/auth/client";
 import { ActiveOrganization, OrganizationMember } from "@/lib/auth/types";
-import { Loader2 } from "lucide-react";
+import { Loader2, Users, UserPlus, Crown, Shield, User } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "framer-motion";
 import CopyButton from "@/components/ui/copy-button";
-import { CreateOrganizationDialog } from "@/components/organization/create-organization-dialog";
 import { InviteMemberDialog } from "@/components/organization/invite-member-dialog";
-import { OrganizationSwitcher } from "@/components/organization/organization-switcher";
-
-// --- Organization Details ---
-function OrganizationDetails({
-  activeOrganization,
-}: {
-  activeOrganization: ActiveOrganization | null;
-}) {
-  return (
-    <>
-      <div className="flex items-center gap-2 mt-4">
-        <Avatar className="rounded-none w-12 h-12">
-          <AvatarImage
-            className="object-cover w-full h-full rounded-none"
-            src={activeOrganization?.logo || undefined}
-          />
-          <AvatarFallback className="rounded-none">
-            {activeOrganization?.name?.charAt(0) || "P"}
-          </AvatarFallback>
-        </Avatar>
-        <div>
-          <p className="text-base font-semibold text-foreground">
-            {activeOrganization?.name || "Personal"}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {activeOrganization?.members.length || 1} members
-          </p>
-        </div>
-      </div>
-    </>
-  );
-}
 
 // --- Org Members ---
 function OrgMembers({
@@ -66,23 +33,86 @@ function OrgMembers({
       memberIdOrEmail: member.id,
     });
   };
+
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case "owner":
+        return <Crown className="h-3 w-3 text-yellow-600" />;
+      case "admin":
+        return <Shield className="h-3 w-3 text-blue-600" />;
+      default:
+        return <User className="h-3 w-3 text-gray-500" />;
+    }
+  };
+
+  const getRoleBadge = (role: string) => {
+    const variants = {
+      owner:
+        "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300",
+      admin: "bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300",
+      member:
+        "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-300",
+    };
+
+    return (
+      <Badge
+        variant="secondary"
+        className={`text-xs ${variants[role as keyof typeof variants] || variants.member}`}
+      >
+        <div className="flex items-center gap-1">
+          {getRoleIcon(role)}
+          {role}
+        </div>
+      </Badge>
+    );
+  };
+
   return (
-    <div className="flex flex-col gap-4 flex-grow">
-      <p className="text-sm font-semibold text-foreground mb-1">Members</p>
-      <div className="flex flex-col gap-2">
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Users className="h-4 w-4 text-muted-foreground" />
+          <h3 className="text-lg font-semibold text-foreground">Members</h3>
+          <Badge variant="outline" className="text-xs">
+            {activeOrganization?.members.length || 1}
+          </Badge>
+        </div>
+        {activeOrganization?.id && (
+          <InviteMemberDialog activeOrganization={activeOrganization} />
+        )}
+      </div>
+
+      <div className="space-y-3">
         {activeOrganization?.members.map((member) => (
-          <div key={member.id} className="flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <Avatar className="sm:flex w-9 h-9">
+          <div
+            key={member.id}
+            className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <Avatar className="h-10 w-10">
                 <AvatarImage
                   src={member.user.image || undefined}
                   className="object-cover"
                 />
-                <AvatarFallback>{member.user.name?.charAt(0)}</AvatarFallback>
+                <AvatarFallback className="text-sm">
+                  {member.user.name?.charAt(0)}
+                </AvatarFallback>
               </Avatar>
-              <div>
-                <p className="text-sm">{member.user.name}</p>
-                <p className="text-xs text-muted-foreground">{member.role}</p>
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium">{member.user.name}</p>
+                  {member.userId === session?.user.id && (
+                    <Badge variant="outline" className="text-xs">
+                      You
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <p className="text-xs text-muted-foreground">
+                    {member.user.email}
+                  </p>
+                  {getRoleBadge(member.role)}
+                </div>
               </div>
             </div>
             {member.role !== "owner" &&
@@ -92,22 +122,36 @@ function OrgMembers({
                   size="sm"
                   variant="destructive"
                   onClick={() => handleRemoveMember(member)}
+                  className="h-8"
                 >
                   {currentMember?.id === member.id ? "Leave" : "Remove"}
                 </Button>
               )}
           </div>
         ))}
+
         {!activeOrganization?.id && (
-          <div>
-            <div className="flex items-center gap-2">
-              <Avatar>
+          <div className="p-3 rounded-lg border bg-card">
+            <div className="flex items-center gap-3">
+              <Avatar className="h-10 w-10">
                 <AvatarImage src={session?.user.image || undefined} />
-                <AvatarFallback>{session?.user.name?.charAt(0)}</AvatarFallback>
+                <AvatarFallback className="text-sm">
+                  {session?.user.name?.charAt(0)}
+                </AvatarFallback>
               </Avatar>
-              <div>
-                <p className="text-sm">{session?.user.name}</p>
-                <p className="text-xs text-muted-foreground">Owner</p>
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium">{session?.user.name}</p>
+                  <Badge variant="outline" className="text-xs">
+                    You
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-2">
+                  <p className="text-xs text-muted-foreground">
+                    {session?.user.email}
+                  </p>
+                  {getRoleBadge("owner")}
+                </div>
               </div>
             </div>
           </div>
@@ -132,32 +176,65 @@ function Invites({
   const pendingInvites =
     activeOrganization?.invitations.filter((inv) => inv.status === "pending") ||
     [];
+
+  if (!activeOrganization?.id) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <UserPlus className="h-4 w-4 text-muted-foreground" />
+          <h3 className="text-sm font-semibold text-foreground">Invitations</h3>
+        </div>
+        <div className="p-4 rounded-lg border-2 border-dashed border-muted bg-muted/20">
+          <p className="text-sm text-muted-foreground text-center">
+            Invite members to collaborate in organization workspaces
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col gap-4 flex-grow">
-      <p className="text-sm font-semibold text-foreground mb-1">Invites</p>
-      <div className="flex flex-col gap-2">
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <UserPlus className="h-4 w-4 text-muted-foreground" />
+        <h3 className="text-sm font-semibold text-foreground">
+          Pending Invitations
+        </h3>
+        <Badge variant="outline" className="text-xs">
+          {pendingInvites.length}
+        </Badge>
+      </div>
+
+      <div className="space-y-3">
         <AnimatePresence>
           {pendingInvites.map((invitation) => (
             <motion.div
               key={invitation.id}
-              className="flex items-center justify-between"
+              className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
               variants={inviteVariants}
               initial="hidden"
               animate="visible"
               exit="exit"
               layout
             >
-              <div>
-                <p className="text-sm">{invitation.email}</p>
-                <p className="text-xs text-muted-foreground">
-                  {invitation.role}
-                </p>
+              <div className="flex flex-col gap-1">
+                <p className="text-sm font-medium">{invitation.email}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-xs text-muted-foreground">Invited as</p>
+                  <Badge variant="secondary" className="text-xs">
+                    {invitation.role}
+                  </Badge>
+                </div>
               </div>
               <div className="flex items-center gap-2">
+                <CopyButton
+                  textToCopy={`${process.env.NEXT_PUBLIC_APP_URL}/accept-invitation/${invitation.id}`}
+                />
                 <Button
                   disabled={isRevoking.includes(invitation.id)}
                   size="sm"
                   variant="destructive"
+                  className="h-8"
                   onClick={() => {
                     organization.cancelInvitation(
                       {
@@ -189,30 +266,17 @@ function Invites({
                     "Revoke"
                   )}
                 </Button>
-                <div>
-                  <CopyButton
-                    textToCopy={`${process.env.NEXT_PUBLIC_APP_URL}/accept-invitation/${invitation.id}`}
-                  />
-                </div>
               </div>
             </motion.div>
           ))}
         </AnimatePresence>
-        {(activeOrganization?.invitations.length === 0 ||
-          pendingInvites.length === 0) && (
-          <motion.p
-            className="text-sm text-muted-foreground"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            No Active Invitations
-          </motion.p>
-        )}
-        {!activeOrganization?.id && (
-          <Label className="text-xs text-muted-foreground">
-            You can&apos;t invite members to your personal workspace.
-          </Label>
+
+        {pendingInvites.length === 0 && (
+          <div className="p-4 rounded-lg border-2 border-dashed border-muted bg-muted/20">
+            <p className="text-sm text-muted-foreground text-center">
+              No pending invitations
+            </p>
+          </div>
         )}
       </div>
     </div>
@@ -220,7 +284,6 @@ function Invites({
 }
 
 export function OrganizationCard() {
-  const { data: organizations } = useListOrganizations();
   const { data: activeOrganization } = useActiveOrganization() as {
     data: ActiveOrganization | null;
   };
@@ -238,45 +301,22 @@ export function OrganizationCard() {
   );
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg md:text-xl font-bold text-foreground">
-          Organization
-        </CardTitle>
-        <div className="flex justify-between items-center mt-2">
-          <OrganizationSwitcher
-            activeOrganization={activeOrganization as ActiveOrganization}
-            organizations={organizations || []}
-          />
-          <div>
-            <CreateOrganizationDialog />
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <OrganizationDetails activeOrganization={activeOrganization} />
-        <div className="flex gap-8 flex-col md:flex-row">
-          <OrgMembers
-            activeOrganization={activeOrganization}
-            currentMember={currentMember}
-            session={session}
-          />
-          <Invites
-            activeOrganization={activeOrganization}
-            isRevoking={isRevoking}
-            setIsRevoking={setIsRevoking}
-            inviteVariants={inviteVariants}
-          />
-        </div>
-        <div className="flex justify-end w-full mt-4">
-          <div>
-            <div>
-              {activeOrganization?.id && (
-                <InviteMemberDialog activeOrganization={activeOrganization} />
-              )}
-            </div>
-          </div>
-        </div>
+    <Card className="border-0 shadow-sm">
+      <CardContent className="space-y-6">
+        <OrgMembers
+          activeOrganization={activeOrganization}
+          currentMember={currentMember}
+          session={session}
+        />
+
+        <Separator />
+
+        <Invites
+          activeOrganization={activeOrganization}
+          isRevoking={isRevoking}
+          setIsRevoking={setIsRevoking}
+          inviteVariants={inviteVariants}
+        />
       </CardContent>
     </Card>
   );
