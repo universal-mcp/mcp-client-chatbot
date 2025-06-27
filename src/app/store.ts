@@ -8,6 +8,8 @@ import {
 } from "app-types/chat";
 import { AllowedMCPServer, MCPServerInfo } from "app-types/mcp";
 import { OPENAI_VOICE } from "lib/ai/speech/open-ai/use-voice-chat.openai";
+import { mutate } from "swr";
+
 export interface AppState {
   threadList: ChatThread[];
   mcpList: (MCPServerInfo & { id: string })[];
@@ -44,6 +46,7 @@ export interface AppState {
 
 export interface AppDispatch {
   mutate: (state: Mutate<AppState>) => void;
+  invalidateOrganizationData: () => void;
 }
 
 const initialState: AppState = {
@@ -79,6 +82,22 @@ export const appStore = create<AppState & AppDispatch>()(
     (set) => ({
       ...initialState,
       mutate: set,
+      invalidateOrganizationData: () => {
+        // Invalidate all organization-scoped SWR keys
+        mutate("projects");
+        mutate("threads");
+        mutate("mcp-servers");
+        mutate("chat-models");
+
+        // Clear current selections since they might not exist in the new organization
+        set({
+          currentThreadId: null,
+          currentProjectId: null,
+          threadList: [],
+          projectList: [],
+          mcpList: [],
+        });
+      },
     }),
     {
       name: "mc-app-store-v2.0.0",
