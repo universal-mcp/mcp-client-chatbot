@@ -25,6 +25,7 @@ import {
   Sun,
   MoonStar,
   ChevronRight,
+  User,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { appStore } from "@/app/store";
@@ -35,6 +36,7 @@ import { useTranslations } from "next-intl";
 import useSWR from "swr";
 import { getLocaleAction } from "@/i18n/get-locale";
 import { useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { GithubIcon } from "ui/github-icon";
 import { DiscordIcon } from "ui/discord-icon";
 
@@ -42,6 +44,7 @@ export function AppSidebarUser() {
   const appStoreMutate = appStore((state) => state.mutate);
   const { data } = authClient.useSession();
   const t = useTranslations("Layout");
+  const router = useRouter();
 
   const user = data?.user;
 
@@ -97,7 +100,13 @@ export function AppSidebarUser() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={() => router.push("/account")}
+            >
+              <User className="size-4 text-foreground" />
+              <span>{t("manageAccount")}</span>
+            </DropdownMenuItem>
             <DropdownMenuItem
               className="cursor-pointer"
               onClick={() => appStoreMutate({ openChatPreferences: true })}

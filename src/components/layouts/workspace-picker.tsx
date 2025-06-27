@@ -54,6 +54,7 @@ export const WorkspacePicker = () => {
     await organization.setActive({
       organizationId: orgId,
     });
+    router.refresh();
   };
 
   return (
