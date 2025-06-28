@@ -56,10 +56,10 @@ export function AppSidebarMenus() {
           <TooltipProvider>
             <Tooltip>
               <SidebarMenuItem>
-                <Link href="/mcp">
+                <Link href="/integrations">
                   <SidebarMenuButton className="font-semibold">
                     <MCPIcon className="size-4 fill-accent-foreground" />
-                    {t("mcpConfiguration")}
+                    Integrations
                   </SidebarMenuButton>
                 </Link>
               </SidebarMenuItem>

@@ -7,8 +7,20 @@ import {
   getSessionContext,
   checkAdminPermission,
 } from "@/lib/auth/session-context";
+import { createMCPClientsManager } from "lib/ai/mcp/create-mcp-clients-manager";
+import { createDbBasedMCPConfigsStorage } from "lib/ai/mcp/db-mcp-config-storage";
+
+// Create manager instance
+async function getMcpClientsManager() {
+  const { userId, organizationId } = await getSessionContext();
+  const storage = createDbBasedMCPConfigsStorage(userId, organizationId);
+  const manager = createMCPClientsManager(storage);
+  await manager.init();
+  return manager;
+}
 
 export async function selectMcpClientsAction() {
+  const mcpClientsManager = await getMcpClientsManager();
   const list = await mcpClientsManager.getClients();
   return list.map(({ client, id }) => {
     return {
@@ -19,6 +31,7 @@ export async function selectMcpClientsAction() {
 }
 
 export async function selectMcpClientAction(id: string) {
+  const mcpClientsManager = await getMcpClientsManager();
   const client = await mcpClientsManager.getClient(id);
   if (!client) {
     throw new Error("Client not found");
@@ -52,10 +65,12 @@ export async function saveMcpClientAction(
     );
   }
 
+  const mcpClientsManager = await getMcpClientsManager();
   await mcpClientsManager.persistClient(server);
 }
 
 export async function existMcpClientByServerNameAction(serverName: string) {
+  const mcpClientsManager = await getMcpClientsManager();
   const client = await mcpClientsManager.getClients().then((clients) => {
     return clients.find(
       (client) => client.client.getInfo().name === serverName,
@@ -68,6 +83,7 @@ export async function removeMcpClientAction(id: string) {
   const { userId, organizationId } = await getSessionContext();
   await checkAdminPermission(userId, organizationId);
 
+  const mcpClientsManager = await getMcpClientsManager();
   await mcpClientsManager.removeClient(id);
 }
 
@@ -75,6 +91,7 @@ export async function refreshMcpClientAction(id: string) {
   const { userId, organizationId } = await getSessionContext();
   await checkAdminPermission(userId, organizationId);
 
+  const mcpClientsManager = await getMcpClientsManager();
   await mcpClientsManager.refreshClient(id);
 }
 
@@ -100,6 +117,7 @@ export async function callMcpToolAction(
   input?: unknown,
 ) {
   const chain = safe(async () => {
+    const mcpClientsManager = await getMcpClientsManager();
     const client = await mcpClientsManager.getClient(id);
     if (!client) {
       throw new Error("Client not found");
@@ -124,6 +142,7 @@ export async function callMcpToolByServerNameAction(
   input?: unknown,
 ) {
   const chain = safe(async () => {
+    const mcpClientsManager = await getMcpClientsManager();
     const client = await mcpClientsManager.getClients().then((clients) => {
       return clients.find(
         (client) => client.client.getInfo().name === serverName,
