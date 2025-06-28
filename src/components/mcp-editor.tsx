@@ -29,6 +29,7 @@ import {
   existMcpClientByServerNameAction,
   saveMcpClientAction,
 } from "@/app/api/mcp/actions";
+import { useSession } from "auth/client";
 
 interface MCPEditorProps {
   initialConfig?: MCPServerConfig;
@@ -59,6 +60,7 @@ export default function MCPEditor({
   id,
 }: MCPEditorProps) {
   const t = useTranslations();
+  const { data: session } = useSession();
   const shouldInsert = useMemo(() => isNull(id), [id]);
 
   const [isLoading, setIsLoading] = useState(false);
@@ -117,6 +119,12 @@ export default function MCPEditor({
 
   // Handle save button click
   const handleSave = async () => {
+    if (!session) {
+      return handleErrorWithToast(
+        new Error("Session not found"),
+        "mcp-editor-error",
+      );
+    }
     // Perform validation
     if (!validateConfig(config)) return;
     if (!name) {
@@ -147,6 +155,8 @@ export default function MCPEditor({
           name,
           config,
           id,
+          userId: session.session.userId,
+          organizationId: session.session.activeOrganizationId ?? null,
         }),
       )
       .ifOk(() => toast.success(t("MCP.configurationSavedSuccessfully")))

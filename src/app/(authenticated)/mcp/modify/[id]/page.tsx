@@ -5,13 +5,15 @@ import { ArrowLeft } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { mcpRepository } from "lib/db/repository";
 import { redirect } from "next/navigation";
+import { getSessionContext } from "@/lib/auth/session-context";
 
 export default async function Page({
   params,
 }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const t = await getTranslations();
-  const mcpClient = await mcpRepository.selectById(id);
+  const { userId, organizationId } = await getSessionContext();
+  const mcpClient = await mcpRepository.selectById(id, userId, organizationId);
 
   if (!mcpClient) {
     return redirect("/mcp");

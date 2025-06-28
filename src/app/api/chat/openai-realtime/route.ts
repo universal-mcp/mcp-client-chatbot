@@ -17,7 +17,6 @@ import { errorIf, safe } from "ts-safe";
 import { DEFAULT_VOICE_TOOLS } from "lib/ai/speech";
 import { rememberMcpServerCustomizationsAction } from "../actions";
 import { createDbBasedMCPConfigsStorage } from "lib/ai/mcp/db-mcp-config-storage";
-import { UUID } from "crypto";
 
 export async function POST(request: NextRequest) {
   try {
@@ -42,10 +41,7 @@ export async function POST(request: NextRequest) {
         threadId?: string;
       };
 
-    const storage = createDbBasedMCPConfigsStorage(
-      session.session.userId as UUID,
-      session.session.activeOrganizationId as UUID,
-    );
+    const storage = createDbBasedMCPConfigsStorage(userId, organizationId);
     const mcpClientsManager = createMCPClientsManager(storage);
     const mcpTools = mcpClientsManager.tools();
 
