@@ -86,8 +86,9 @@ export const appStore = create<AppState & AppDispatch>()(
         // Invalidate all organization-scoped SWR keys
         mutate("projects");
         mutate("threads");
-        mutate("mcp-servers");
+        mutate("mcp-integrations");
         mutate("chat-models");
+        mutate("user-role");
 
         // Clear current selections since they might not exist in the new organization
         set({

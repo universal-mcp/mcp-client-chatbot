@@ -48,7 +48,6 @@ import {
   generateTitleFromUserMessageAction,
   rememberMcpServerCustomizationsAction,
 } from "./actions";
-import { UUID } from "crypto";
 import { getSessionContext } from "auth/session-context";
 
 export async function POST(request: Request) {
@@ -112,13 +111,11 @@ export async function POST(request: Request) {
 
     const annotations = (message?.annotations as ChatMessageAnnotation[]) ?? [];
 
-    const storage = createDbBasedMCPConfigsStorage(
-      userId as UUID,
-      organizationId as UUID,
-    );
-    const mcpClientsManager = createMCPClientsManager(storage);
+    const storage = createDbBasedMCPConfigsStorage(userId, organizationId);
+    const manager = createMCPClientsManager(storage);
+    await manager.init();
 
-    const mcpTools = mcpClientsManager.tools();
+    const mcpTools = manager.tools();
 
     const mentions = annotations
       .flatMap((annotation) => annotation.mentions)

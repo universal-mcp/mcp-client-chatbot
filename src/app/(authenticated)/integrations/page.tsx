@@ -15,6 +15,7 @@ import {
   RefreshCw,
   Eye,
   Pencil,
+  Lock,
 } from "lucide-react";
 import {
   Dialog,
@@ -55,7 +56,26 @@ export default function IntegrationsPage() {
     fallbackData: [],
   });
 
+  const { data: userRole, isLoading: isLoadingRole } = useSWR(
+    "user-role",
+    async () => {
+      const response = await fetch("/api/user/role");
+      if (!response.ok) {
+        throw new Error("Failed to fetch user role");
+      }
+      return response.json();
+    },
+  );
+
+  const isAdmin = userRole?.isAdmin ?? false;
+  const isLoadingData = isLoading || isLoadingRole;
+
   const handleAddServer = async () => {
+    if (!isAdmin) {
+      toast.error("MCP server management can only be done by admins");
+      return;
+    }
+
     if (!newServerName.trim() || !newServerUrl.trim()) {
       toast.error("Please fill in both server name and URL");
       return;
@@ -92,6 +112,14 @@ export default function IntegrationsPage() {
     } finally {
       setIsAddingServer(false);
     }
+  };
+
+  const handleAddServerClick = () => {
+    if (!isAdmin) {
+      toast.error("MCP server management can only be done by admins");
+      return;
+    }
+    setAddServerModalOpen(true);
   };
 
   const handleDeleteServer = async (serverId: string) => {
@@ -133,19 +161,20 @@ export default function IntegrationsPage() {
         </div>
 
         <div className="space-y-6">
-          {isLoading && (
+          {isLoadingData && (
             <div className="flex items-center justify-center py-12">
               <Loader className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           )}
 
-          {!isLoading && mcpServers && mcpServers.length > 0 && (
+          {!isLoadingData && mcpServers && mcpServers.length > 0 && (
             <div className="space-y-4">
               {mcpServers.map((server: McpServerWithId) => (
                 <ServerCard
                   key={server.id}
                   server={server}
                   isLoading={loadingServerId === server.id}
+                  isAdmin={isAdmin}
                   onDelete={handleDeleteServer}
                   onRefresh={handleRefreshServer}
                   onEdit={handleEditServer}
@@ -154,7 +183,7 @@ export default function IntegrationsPage() {
             </div>
           )}
 
-          {!isLoading && (!mcpServers || mcpServers.length === 0) && (
+          {!isLoadingData && (!mcpServers || mcpServers.length === 0) && (
             <div className="text-center py-12">
               <Settings className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium text-foreground mb-2">
@@ -167,17 +196,23 @@ export default function IntegrationsPage() {
           )}
 
           {/* Add Server Button */}
-          <div className="flex justify-center">
-            <Button
-              onClick={() => setAddServerModalOpen(true)}
-              variant="outline"
-              size="lg"
-              className="border-2 border-dashed border-muted-foreground/25 hover:border-muted-foreground/50 bg-transparent hover:bg-muted/30 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <Plus className="h-5 w-5 mr-2" />
-              Add New Server
-            </Button>
-          </div>
+          {!isLoadingData && (
+            <div className="flex justify-center">
+              <Button
+                onClick={handleAddServerClick}
+                variant="outline"
+                size="lg"
+                className="border-2 border-dashed border-muted-foreground/25 hover:border-muted-foreground/50 bg-transparent hover:bg-muted/30 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {isAdmin ? (
+                  <Plus className="h-5 w-5 mr-2" />
+                ) : (
+                  <Lock className="h-5 w-5 mr-2" />
+                )}
+                Add New Server
+              </Button>
+            </div>
+          )}
 
           {/* Add Server Modal */}
           <Dialog
@@ -241,6 +276,7 @@ export default function IntegrationsPage() {
 interface ServerCardProps {
   server: McpServerWithId;
   isLoading: boolean;
+  isAdmin: boolean;
   onDelete: (serverId: string) => void;
   onRefresh: (serverId: string) => void;
   onEdit: (serverId: string, name: string, url: string) => void;
@@ -249,6 +285,7 @@ interface ServerCardProps {
 function ServerCard({
   server,
   isLoading,
+  isAdmin,
   onDelete,
   onRefresh,
   onEdit,
@@ -281,6 +318,17 @@ function ServerCard({
     disconnected: "Disconnected",
     loading: "Connecting",
   }[server.status];
+
+  // Obfuscate URL for non-admin users
+  const getDisplayUrl = (url: string) => {
+    if (isAdmin) return url;
+    if (url.length <= 20) return "•".repeat(url.length);
+    return (
+      url.substring(0, 8) +
+      "•".repeat(url.length - 16) +
+      url.substring(url.length - 8)
+    );
+  };
 
   const handleDelete = async () => {
     try {
@@ -361,15 +409,17 @@ function ServerCard({
             >
               Authorize
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setEditModalOpen(true)}
-              disabled={isLoading}
-              className="hover:bg-green-50 hover:text-green-600"
-            >
-              <Pencil className="h-4 w-4" />
-            </Button>
+            {isAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setEditModalOpen(true)}
+                disabled={isLoading}
+                className="hover:bg-green-50 hover:text-green-600"
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -381,99 +431,50 @@ function ServerCard({
                 className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
               />
             </Button>
-            <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-              <DialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Delete Server</DialogTitle>
-                  <DialogDescription>
-                    Are you sure you want to delete {server.name}? This action
-                    cannot be undone.
-                  </DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
+            {isAdmin && (
+              <Dialog
+                open={deleteDialogOpen}
+                onOpenChange={setDeleteDialogOpen}
+              >
+                <DialogTrigger asChild>
                   <Button
                     variant="outline"
-                    onClick={() => setDeleteDialogOpen(false)}
-                    disabled={isDeleting}
+                    size="sm"
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
                   >
-                    Cancel
+                    <Trash2 className="h-4 w-4" />
                   </Button>
-                  <Button
-                    variant="destructive"
-                    onClick={handleDelete}
-                    disabled={isDeleting}
-                  >
-                    {isDeleting && (
-                      <Loader className="h-4 w-4 animate-spin mr-2" />
-                    )}
-                    Delete
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-
-            {/* Edit Modal */}
-            <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Edit Server</DialogTitle>
-                  <DialogDescription>
-                    Update the server name and URL for {server.name}.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-server-name">Server Name</Label>
-                    <Input
-                      id="edit-server-name"
-                      placeholder="my-server"
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-server-url">Server URL</Label>
-                    <Input
-                      id="edit-server-url"
-                      placeholder="https://example.com/mcp"
-                      value={editUrl}
-                      onChange={(e) => setEditUrl(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setEditModalOpen(false);
-                      // Reset form to original values
-                      setEditName(server.name);
-                      setEditUrl(
-                        "url" in server.config ? server.config.url : "",
-                      );
-                    }}
-                    disabled={isEditing}
-                  >
-                    Cancel
-                  </Button>
-                  <Button onClick={handleEdit} disabled={isEditing}>
-                    {isEditing && (
-                      <Loader className="h-4 w-4 animate-spin mr-2" />
-                    )}
-                    Save Changes
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Delete Server</DialogTitle>
+                    <DialogDescription>
+                      Are you sure you want to delete {server.name}? This action
+                      cannot be undone.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      onClick={() => setDeleteDialogOpen(false)}
+                      disabled={isDeleting}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={handleDelete}
+                      disabled={isDeleting}
+                    >
+                      {isDeleting && (
+                        <Loader className="h-4 w-4 animate-spin mr-2" />
+                      )}
+                      Delete
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -483,7 +484,9 @@ function ServerCard({
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span className="font-medium">URL:</span>
             <code className="bg-muted px-2 py-1 rounded text-xs">
-              {"url" in server.config ? server.config.url : "N/A"}
+              {getDisplayUrl(
+                "url" in server.config ? server.config.url : "N/A",
+              )}
             </code>
           </div>
 
@@ -552,22 +555,60 @@ function ServerCard({
               </DialogFooter>
             </DialogContent>
           </Dialog>
-
-          {/* {server.error && (
-              <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
-                <p className="text-sm text-destructive font-medium">Error</p>
-                <p className="text-xs text-destructive/80 mt-1">
-                  {typeof server.error === 'string' 
-                    ? server.error 
-                    : typeof server.error === 'object' 
-                    ? JSON.stringify(server.error, null, 2)
-                    : String(server.error)
-                  }
-                </p>
-              </div>
-            )} */}
         </div>
       </CardContent>
+
+      {/* Edit Modal - Only render for admin users */}
+      {isAdmin && (
+        <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Server</DialogTitle>
+              <DialogDescription>
+                Update the server name and URL for {server.name}.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-server-name">Server Name</Label>
+                <Input
+                  id="edit-server-name"
+                  placeholder="my-server"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-server-url">Server URL</Label>
+                <Input
+                  id="edit-server-url"
+                  placeholder="https://example.com/mcp"
+                  value={editUrl}
+                  onChange={(e) => setEditUrl(e.target.value)}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setEditModalOpen(false);
+                  // Reset form to original values
+                  setEditName(server.name);
+                  setEditUrl("url" in server.config ? server.config.url : "");
+                }}
+                disabled={isEditing}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleEdit} disabled={isEditing}>
+                {isEditing && <Loader className="h-4 w-4 animate-spin mr-2" />}
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </Card>
   );
 }
