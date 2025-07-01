@@ -54,11 +54,10 @@ export class MCPClientsManager {
         if (this.storage) {
           await this.storage.init();
           const configs = await this.storage.loadAll();
-          await Promise.all(
-            configs.map(({ id, name, config }) =>
-              this.addClient(id, name, config),
-            ),
-          );
+          // Initialize clients sequentially to avoid race conditions
+          for (const { id, name, config } of configs) {
+            await this.addClient(id, name, config);
+          }
         }
       })
       .watch(() => this.initializedLock.unlock())
@@ -95,6 +94,7 @@ export class MCPClientsManager {
     }
     const client = createMCPClient(name, serverConfig, {
       autoDisconnectSeconds: this.autoDisconnectSeconds,
+      serverId: id, // Pass the server ID for OAuth token lookup
     });
     this.clients.set(id, { client, name });
     return client.connect();
