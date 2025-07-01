@@ -1,17 +1,12 @@
 import { NextResponse } from "next/server";
-import {
-  getSessionContext,
-  checkAdminPermission,
-} from "@/lib/auth/session-context";
+import { checkAdminPermission } from "@/lib/auth/session-context";
 
 export async function GET() {
   try {
-    const { userId, organizationId } = await getSessionContext();
-
     // Check if user has admin permissions
     let isAdmin = false;
     try {
-      isAdmin = await checkAdminPermission(userId, organizationId);
+      isAdmin = await checkAdminPermission();
     } catch (_error) {
       // If checkAdminPermission throws an error, user is not admin
       isAdmin = false;

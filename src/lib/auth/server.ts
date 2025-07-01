@@ -144,3 +144,16 @@ export const getSession = async () => {
   // logger.debug("Session found", session);
   return session;
 };
+
+export const getActiveMember = async () => {
+  "use server";
+  try {
+    const member = await auth.api.getActiveMember({
+      headers: await headers(),
+    });
+    return member;
+  } catch (e) {
+    logger.error(e, "Failed to get active member");
+    return null;
+  }
+};
