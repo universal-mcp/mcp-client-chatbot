@@ -163,9 +163,10 @@ function UpdateThreadNameDialog({
   onUpdated: (title: string) => void;
 }>) {
   const [title, setTitle] = useState(initialTitle);
+  const [isOpen, setIsOpen] = useState(false);
   const t = useTranslations();
   return (
-    <Dialog>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent hideClose>
         <DialogHeader>
@@ -178,6 +179,7 @@ function UpdateThreadNameDialog({
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 onUpdated(title);
+                setIsOpen(false);
               }
             }}
             onInput={(e) => {

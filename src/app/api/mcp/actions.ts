@@ -36,8 +36,9 @@ export async function selectMcpClientAction(id: string) {
   if (!client) {
     throw new Error("Client not found");
   }
+  const { config, ...info } = client.client.getInfo();
   return {
-    ...client.client.getInfo(),
+    ...info,
     id,
   };
 }
@@ -49,8 +50,7 @@ export async function saveMcpClientAction(
     throw new Error("Not allowed to add MCP servers");
   }
 
-  const { userId, organizationId } = await getSessionContext();
-  await checkAdminPermission(userId, organizationId);
+  await checkAdminPermission();
 
   // Validate name to ensure it only contains alphanumeric characters and hyphens
   const nameSchema = z.string().regex(/^[a-zA-Z0-9\-]+$/, {
@@ -80,16 +80,14 @@ export async function existMcpClientByServerNameAction(serverName: string) {
 }
 
 export async function removeMcpClientAction(id: string) {
-  const { userId, organizationId } = await getSessionContext();
-  await checkAdminPermission(userId, organizationId);
+  await checkAdminPermission();
 
   const mcpClientsManager = await getMcpClientsManager();
   await mcpClientsManager.removeClient(id);
 }
 
 export async function refreshMcpClientAction(id: string) {
-  const { userId, organizationId } = await getSessionContext();
-  await checkAdminPermission(userId, organizationId);
+  await checkAdminPermission();
 
   const mcpClientsManager = await getMcpClientsManager();
   await mcpClientsManager.refreshClient(id);
