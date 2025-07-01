@@ -35,7 +35,14 @@ import {
   removeMcpClientAction,
   refreshMcpClientAction,
 } from "@/app/api/mcp/actions";
+import {
+  authorizeServerAction,
+  getAuthorizationStatusAction,
+  revokeAuthorizationAction,
+  type AuthorizationStatus,
+} from "@/app/api/mcp/oauth/actions";
 import type { MCPServerInfo } from "app-types/mcp";
+import { isMaybeRemoteConfig } from "@/lib/ai/mcp/is-mcp-config";
 
 interface McpServerWithId extends MCPServerInfo {
   id: string;
@@ -47,6 +54,9 @@ export default function IntegrationsPage() {
   const [newServerUrl, setNewServerUrl] = useState("");
   const [loadingServerId] = useState<string | null>(null);
   const [addServerModalOpen, setAddServerModalOpen] = useState(false);
+  const [authStatuses, setAuthStatuses] = useState<
+    Record<string, AuthorizationStatus>
+  >({});
 
   const {
     data: mcpServers,
@@ -69,6 +79,59 @@ export default function IntegrationsPage() {
 
   const isAdmin = userRole?.isAdmin ?? false;
   const isLoadingData = isLoading || isLoadingRole;
+
+  // Handle OAuth callback success/error messages
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const success = params.get("success");
+    const error = params.get("error");
+    const serverName = params.get("server");
+
+    if (success === "authorized" && serverName) {
+      toast.success(
+        `Successfully authorized ${decodeURIComponent(serverName)}`,
+      );
+      // Clear URL parameters
+      window.history.replaceState({}, "", window.location.pathname);
+      // Refresh data to get updated auth status
+      mutate();
+    } else if (error) {
+      const errorDescription = params.get("error_description");
+      toast.error(
+        `Authorization failed: ${error}${errorDescription ? ` - ${errorDescription}` : ""}`,
+      );
+      // Clear URL parameters
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
+
+  // Load authorization statuses for remote servers
+  useEffect(() => {
+    const loadAuthStatuses = async () => {
+      if (mcpServers && mcpServers.length > 0) {
+        const statuses: Record<string, AuthorizationStatus> = {};
+
+        for (const server of mcpServers) {
+          // Only check auth status for remote servers
+          if (isMaybeRemoteConfig(server.config) && server.oauthRequired) {
+            try {
+              const status = await getAuthorizationStatusAction(server.id);
+              statuses[server.id] = status;
+            } catch (error) {
+              console.error(
+                `Failed to get auth status for ${server.name}:`,
+                error,
+              );
+            }
+          }
+        }
+
+        setAuthStatuses(statuses);
+      }
+    };
+
+    loadAuthStatuses();
+  }, [mcpServers]);
 
   const handleAddServer = async () => {
     if (!isAdmin) {
@@ -148,6 +211,41 @@ export default function IntegrationsPage() {
     mutate();
   };
 
+  const handleAuthorizeServer = async (serverId: string) => {
+    try {
+      const result = await authorizeServerAction(serverId);
+      if (result.success && result.authorizationUrl) {
+        // Open authorization URL in new tab
+        window.open(result.authorizationUrl, "_blank", "noopener,noreferrer");
+        toast.info("Please complete authorization in the new tab");
+      } else {
+        toast.error(result.error || "Failed to initiate authorization");
+      }
+    } catch (error) {
+      toast.error("Failed to start authorization process");
+      console.error("Authorization error:", error);
+    }
+  };
+
+  const handleRevokeAuthorization = async (serverId: string) => {
+    try {
+      const result = await revokeAuthorizationAction(serverId);
+      if (result.success) {
+        toast.success("Authorization revoked successfully");
+        // Update auth status
+        setAuthStatuses((prev) => ({
+          ...prev,
+          [serverId]: { isAuthorized: false, hasToken: false },
+        }));
+      } else {
+        toast.error(result.error || "Failed to revoke authorization");
+      }
+    } catch (error) {
+      toast.error("Failed to revoke authorization");
+      console.error("Revoke authorization error:", error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto p-6">
@@ -178,6 +276,10 @@ export default function IntegrationsPage() {
                   onDelete={handleDeleteServer}
                   onRefresh={handleRefreshServer}
                   onEdit={handleEditServer}
+                  onAuthorize={handleAuthorizeServer}
+                  onRevokeAuth={handleRevokeAuthorization}
+                  authStatus={authStatuses[server.id]}
+                  oauthRequired={server.oauthRequired}
                 />
               ))}
             </div>
@@ -280,6 +382,10 @@ interface ServerCardProps {
   onDelete: (serverId: string) => void;
   onRefresh: (serverId: string) => void;
   onEdit: (serverId: string, name: string, url: string) => void;
+  onAuthorize: (serverId: string) => Promise<void>;
+  onRevokeAuth: (serverId: string) => Promise<void>;
+  authStatus?: AuthorizationStatus;
+  oauthRequired?: boolean;
 }
 
 function ServerCard({
@@ -289,6 +395,10 @@ function ServerCard({
   onDelete,
   onRefresh,
   onEdit,
+  onAuthorize,
+  onRevokeAuth,
+  authStatus,
+  oauthRequired,
 }: ServerCardProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -397,18 +507,52 @@ function ServerCard({
             <Badge variant="secondary" className="text-xs">
               {statusText}
             </Badge>
+            {/* Show OAuth authorization status for remote servers */}
+            {isMaybeRemoteConfig(server.config) &&
+              authStatus &&
+              oauthRequired && (
+                <Badge
+                  variant={authStatus.isAuthorized ? "default" : "outline"}
+                  className={`text-xs ${
+                    authStatus.isAuthorized
+                      ? "bg-green-100 text-green-800 hover:bg-green-100"
+                      : "bg-orange-100 text-orange-800 hover:bg-orange-100"
+                  }`}
+                >
+                  {authStatus.isAuthorized ? "Authorized" : "Not Authorized"}
+                </Badge>
+              )}
           </div>
 
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                toast.info("Authorization functionality coming soon");
-              }}
-            >
-              Authorize
-            </Button>
+            {/* Show authorize button only for remote servers that require OAuth */}
+            {isMaybeRemoteConfig(server.config) && oauthRequired && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (authStatus?.isAuthorized) {
+                    onRevokeAuth(server.id);
+                  } else {
+                    onAuthorize(server.id);
+                  }
+                }}
+                className={
+                  authStatus?.isAuthorized
+                    ? "hover:bg-red-50 hover:text-red-600"
+                    : "hover:bg-green-50 hover:text-green-600"
+                }
+              >
+                {authStatus?.isAuthorized ? (
+                  <>
+                    <Lock className="h-4 w-4 mr-1" />
+                    Revoke
+                  </>
+                ) : (
+                  <>Connect</>
+                )}
+              </Button>
+            )}
             {isAdmin && (
               <Button
                 variant="outline"

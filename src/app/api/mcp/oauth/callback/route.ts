@@ -1,0 +1,135 @@
+import { NextRequest, NextResponse } from "next/server";
+import { MCPOAuthClient } from "lib/oauth/oauth-client";
+import { OAuthStateManager } from "lib/oauth/oauth-state-manager";
+import { getSessionContext } from "@/lib/auth/session-context";
+import {
+  pgMcpOAuthClientRepository,
+  pgMcpOAuthTokenRepository,
+} from "@/lib/db/pg/repositories/mcp-repository.pg";
+import logger from "@/lib/logger";
+
+export async function GET(request: NextRequest) {
+  const searchParams = request.nextUrl.searchParams;
+  const code = searchParams.get("code");
+  const state = searchParams.get("state");
+  const error = searchParams.get("error");
+  const errorDescription = searchParams.get("error_description");
+
+  try {
+    // Handle OAuth errors
+    if (error) {
+      logger.error(`OAuth authorization error: ${error} - ${errorDescription}`);
+      return NextResponse.redirect(
+        new URL(
+          `/integrations?error=${encodeURIComponent(error)}&error_description=${encodeURIComponent(errorDescription || "")}`,
+          request.url,
+        ),
+      );
+    }
+
+    // Validate required parameters
+    if (!code || !state) {
+      logger.error("Missing required OAuth callback parameters");
+      return NextResponse.redirect(
+        new URL("/integrations?error=invalid_request", request.url),
+      );
+    }
+
+    // Get user session
+    const { userId, organizationId } = await getSessionContext();
+
+    // Retrieve and validate authorization state from secure storage
+    const authState = await OAuthStateManager.getState(state);
+
+    if (!authState) {
+      logger.error("Invalid or expired authorization state");
+      return NextResponse.redirect(
+        new URL("/integrations?error=invalid_state", request.url),
+      );
+    }
+
+    // Validate state matches current user
+    if (
+      authState.userId !== userId ||
+      authState.organizationId !== organizationId
+    ) {
+      logger.error("Authorization state user/organization mismatch");
+      await OAuthStateManager.clearState(); // Clear state on mismatch
+      return NextResponse.redirect(
+        new URL("/integrations?error=invalid_state", request.url),
+      );
+    }
+
+    // Get OAuth client configuration
+    const clientConfig = await pgMcpOAuthClientRepository.findByServerId(
+      authState.serverId,
+      userId,
+      organizationId,
+    );
+
+    if (!clientConfig) {
+      logger.error("OAuth client configuration not found");
+      return NextResponse.redirect(
+        new URL("/integrations?error=client_not_found", request.url),
+      );
+    }
+
+    // Exchange authorization code for access token
+    const tokenResponse = await MCPOAuthClient.exchangeCodeForToken(
+      clientConfig.tokenEndpoint,
+      clientConfig.clientId,
+      clientConfig.clientSecret || undefined,
+      code,
+      clientConfig.redirectUri,
+      authState.codeVerifier,
+    );
+
+    if (!tokenResponse) {
+      logger.error("Failed to exchange authorization code for token");
+      return NextResponse.redirect(
+        new URL("/integrations?error=token_exchange_failed", request.url),
+      );
+    }
+
+    // Calculate token expiration
+    const expiresAt = tokenResponse.expires_in
+      ? new Date(Date.now() + tokenResponse.expires_in * 1000)
+      : null;
+
+    // Store or update the access token
+    await pgMcpOAuthTokenRepository.save({
+      userId,
+      organizationId,
+      mcpServerId: authState.serverId,
+      accessToken: tokenResponse.access_token,
+      refreshToken: tokenResponse.refresh_token || null,
+      tokenType: tokenResponse.token_type,
+      scope: tokenResponse.scope || null,
+      expiresAt,
+    });
+
+    logger.info(
+      `Successfully stored OAuth token for server ${authState.serverName}`,
+    );
+
+    // Clean up authorization state after successful use
+    await OAuthStateManager.clearState();
+
+    // Redirect back to integrations page with success
+    return NextResponse.redirect(
+      new URL(
+        `/integrations?success=authorized&server=${encodeURIComponent(authState.serverName)}`,
+        request.url,
+      ),
+    );
+  } catch (error) {
+    logger.error("OAuth callback error:", error);
+
+    // Try to clean up state even on error
+    await OAuthStateManager.clearState();
+
+    return NextResponse.redirect(
+      new URL("/integrations?error=callback_error", request.url),
+    );
+  }
+}

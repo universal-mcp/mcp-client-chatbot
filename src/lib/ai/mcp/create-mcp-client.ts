@@ -24,9 +24,11 @@ import {
 
 import { safe } from "ts-safe";
 import { IS_MCP_SERVER_REMOTE_ONLY } from "lib/const";
+import { getAccessTokenAction } from "@/app/api/mcp/oauth/actions";
 
 type ClientOptions = {
   autoDisconnectSeconds?: number;
+  serverId?: string; // MCP server ID for OAuth token lookup
 };
 
 /**
@@ -38,6 +40,8 @@ export class MCPClient {
   private isConnected = false;
   private log: ConsolaInstance;
   private locker = new Locker();
+  private serverId?: string;
+  private oauthRequired?: boolean;
   // Information about available tools from the server
   toolInfo: MCPToolInfo[] = [];
   // Tool instances that can be used for AI functions
@@ -52,6 +56,7 @@ export class MCPClient {
     this.log = logger.withDefaults({
       message: colorize("cyan", `MCP Client ${this.name}: `),
     });
+    this.serverId = options.serverId;
   }
 
   getInfo(): MCPServerInfo {
@@ -65,6 +70,7 @@ export class MCPClient {
           : "disconnected",
       error: this.error,
       toolInfo: this.toolInfo,
+      oauthRequired: this.oauthRequired,
     };
   }
 
@@ -100,6 +106,7 @@ export class MCPClient {
 
       // Create appropriate transport based on server config type
       if (isMaybeStdioConfig(this.serverConfig)) {
+        this.oauthRequired = false; // Stdio transport does not use OAuth
         // Skip stdio transport
         if (IS_MCP_SERVER_REMOTE_ONLY) {
           throw new Error("Stdio transport is not supported");
@@ -127,25 +134,69 @@ export class MCPClient {
         const config = MCPRemoteConfigZodSchema.parse(this.serverConfig);
         const abortController = new AbortController();
         const url = new URL(config.url);
+
+        // Prepare headers with OAuth authorization if available
+        const headers: Record<string, string> = { ...config.headers };
+        let hasAuthToken = false;
+
+        // Add OAuth authorization header if we have a server ID and access token
+        if (this.serverId) {
+          try {
+            const accessToken = await getAccessTokenAction(this.serverId);
+            if (accessToken) {
+              headers["Authorization"] = `Bearer ${accessToken}`;
+              headers["X-OAuth-Server-ID"] = this.serverId; // Add server ID for debugging
+              headers["X-Request-Source"] = "mcp-client-chatbot"; // Add source identifier
+              this.log.info("Added OAuth authorization header to request");
+              hasAuthToken = true;
+            } else {
+              this.log.warn(
+                `No valid OAuth token available for server: ${this.name}. Server may require authorization.`,
+              );
+              // Add a header to indicate we attempted OAuth but no token was available
+              headers["X-OAuth-Status"] = "no-token";
+            }
+          } catch (error) {
+            this.log.warn("Failed to get OAuth access token:", error);
+            headers["X-OAuth-Status"] = "error";
+            // Continue without authorization - the server will return 401 if auth is required
+          }
+        } else {
+          // No server ID provided, likely a legacy configuration
+          this.log.debug("No server ID provided for OAuth token lookup");
+        }
+
         try {
           const transport = new StreamableHTTPClientTransport(url, {
             requestInit: {
-              headers: config.headers,
+              headers,
               signal: abortController.signal,
             },
           });
           await client.connect(transport);
-        } catch {
+          this.oauthRequired = hasAuthToken;
+        } catch (streamError) {
           this.log.info(
             "Streamable HTTP connection failed, falling back to SSE transport",
           );
-          const transport = new SSEClientTransport(url, {
-            requestInit: {
-              headers: config.headers,
-              signal: abortController.signal,
-            },
-          });
-          await client.connect(transport);
+          try {
+            const transport = new SSEClientTransport(url, {
+              requestInit: {
+                headers,
+                signal: abortController.signal,
+              },
+            });
+            await client.connect(transport);
+            this.oauthRequired = hasAuthToken;
+          } catch (sseError) {
+            if (
+              errorToString(sseError).includes("401") ||
+              errorToString(streamError).includes("401")
+            ) {
+              this.oauthRequired = true;
+            }
+            throw sseError;
+          }
         }
       } else {
         throw new Error("Invalid server config");
@@ -191,6 +242,9 @@ export class MCPClient {
       this.log.error(error);
       this.isConnected = false;
       this.error = error;
+      if (this.oauthRequired !== true && errorToString(error).includes("401")) {
+        this.oauthRequired = true;
+      }
     }
 
     this.locker.unlock();

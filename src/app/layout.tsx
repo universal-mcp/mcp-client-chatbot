@@ -6,6 +6,11 @@ import { Toaster } from "ui/sonner";
 import { BASE_THEMES } from "lib/const";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale } from "next-intl/server";
+
+// Initialize OAuth cleanup service in production
+if (process.env.NODE_ENV === "production") {
+  import("lib/oauth/oauth-cleanup");
+}
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],

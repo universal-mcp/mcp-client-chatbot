@@ -40,6 +40,7 @@ export type MCPServerInfo = {
   error?: unknown;
   status: "connected" | "disconnected" | "loading";
   toolInfo: MCPToolInfo[];
+  oauthRequired?: boolean;
 };
 
 export type McpServerInsert = {

@@ -143,6 +143,103 @@ export const McpServerCustomizationSchema = pgTable(
   ],
 );
 
+// OAuth tokens and credentials for MCP servers
+export const McpOAuthTokenSchema = pgTable(
+  "mcp_oauth_token",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => UserSchema.id, { onDelete: "cascade" }),
+    organizationId: uuid("organization_id").references(
+      () => OrganizationSchema.id,
+      { onDelete: "cascade" },
+    ),
+    mcpServerId: uuid("mcp_server_id")
+      .notNull()
+      .references(() => McpServerSchema.id, { onDelete: "cascade" }),
+    accessToken: text("access_token").notNull(),
+    refreshToken: text("refresh_token"),
+    tokenType: text("token_type").notNull().default("Bearer"),
+    scope: text("scope"),
+    expiresAt: timestamp("expires_at"),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    uniqueConstraint: unique().on(
+      table.userId,
+      table.organizationId,
+      table.mcpServerId,
+    ),
+  }),
+);
+
+// OAuth client credentials for MCP servers (for dynamic registration)
+export const McpOAuthClientSchema = pgTable(
+  "mcp_oauth_client",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => UserSchema.id, { onDelete: "cascade" }),
+    organizationId: uuid("organization_id").references(
+      () => OrganizationSchema.id,
+      { onDelete: "cascade" },
+    ),
+    mcpServerId: uuid("mcp_server_id")
+      .notNull()
+      .references(() => McpServerSchema.id, { onDelete: "cascade" }),
+    clientId: text("client_id").notNull(),
+    clientSecret: text("client_secret"), // Optional for public clients
+    redirectUri: text("redirect_uri").notNull(),
+    authorizationEndpoint: text("authorization_endpoint").notNull(),
+    tokenEndpoint: text("token_endpoint").notNull(),
+    registrationEndpoint: text("registration_endpoint"),
+    isDynamicallyRegistered: boolean("is_dynamically_registered").default(
+      false,
+    ),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    uniqueConstraint: unique().on(
+      table.userId,
+      table.organizationId,
+      table.mcpServerId,
+    ),
+  }),
+);
+
+// OAuth state for CSRF protection during authorization flow
+export const McpOAuthStateSchema = pgTable("mcp_oauth_state", {
+  id: text("id").primaryKey(), // Using the secure random string as ID
+  serverId: uuid("server_id")
+    .notNull()
+    .references(() => McpServerSchema.id, { onDelete: "cascade" }),
+  serverName: text("server_name").notNull(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => UserSchema.id, { onDelete: "cascade" }),
+  organizationId: uuid("organization_id").references(
+    () => OrganizationSchema.id,
+    { onDelete: "cascade" },
+  ),
+  codeVerifier: text("code_verifier").notNull(),
+  redirectUri: text("redirect_uri").notNull(),
+  nonce: text("nonce").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
 export {
   UserSchema,
   SessionSchema,
@@ -167,3 +264,6 @@ export type McpServerCustomizationEntity =
   typeof McpServerCustomizationSchema.$inferSelect;
 export type OrganizationEntity = typeof OrganizationSchema.$inferSelect;
 export type MemberEntity = typeof MemberSchema.$inferSelect;
+export type McpOAuthTokenEntity = typeof McpOAuthTokenSchema.$inferSelect;
+export type McpOAuthClientEntity = typeof McpOAuthClientSchema.$inferSelect;
+export type McpOAuthStateEntity = typeof McpOAuthStateSchema.$inferSelect;
