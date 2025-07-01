@@ -37,7 +37,6 @@ import useSWR from "swr";
 import { getLocaleAction } from "@/i18n/get-locale";
 import { useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { GithubIcon } from "ui/github-icon";
 import { DiscordIcon } from "ui/discord-icon";
 
 export function AppSidebarUser() {
@@ -66,7 +65,10 @@ export function AppSidebarUser() {
               <Avatar className="rounded-full size-8 border">
                 <AvatarImage
                   className="object-cover"
-                  src={user?.image || "/pf.png"}
+                  src={
+                    user?.image ||
+                    `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user?.email || "default")}`
+                  }
                   alt={user?.name || ""}
                 />
                 <AvatarFallback>{user?.name?.slice(0, 1) || ""}</AvatarFallback>
@@ -84,7 +86,10 @@ export function AppSidebarUser() {
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-full">
                   <AvatarImage
-                    src={user?.image || "/pf.png"}
+                    src={
+                      user?.image ||
+                      `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user?.email || "default")}`
+                    }
                     alt={user?.name || ""}
                   />
                   <AvatarFallback className="rounded-lg">
@@ -126,18 +131,7 @@ export function AppSidebarUser() {
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => {
-                window.open(
-                  "https://github.com/cgoinglove/mcp-client-chatbot/issues/new",
-                  "_blank",
-                );
-              }}
-            >
-              <GithubIcon className="size-4 fill-foreground" />
-              <span>{t("reportAnIssue")}</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => {
-                window.open("https://discord.gg/gCRu69Upnp", "_blank");
+                window.open("https://discord.gg/STNBAAMDkG", "_blank");
               }}
             >
               <DiscordIcon className="size-4 fill-foreground" />

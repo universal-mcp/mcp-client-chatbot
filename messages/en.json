@@ -176,7 +176,7 @@
     "Thread": {
       "chat": "Chat",
       "summarizeAsProject": "Summarize as Project",
-      "renameChat": "Re Name",
+      "renameChat": "Re-name",
       "deleteChat": "Delete Chat",
       "failedToDeleteThread": "Failed to delete thread",
       "threadDeleted": "Thread deleted",
