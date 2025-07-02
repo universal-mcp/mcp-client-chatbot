@@ -42,10 +42,7 @@ export async function POST(request: NextRequest) {
         threadId?: string;
       };
 
-    const storage = createDbBasedMCPConfigsStorage(
-      session.session.userId as UUID,
-      session.session.activeOrganizationId as UUID,
-    );
+    const storage = createDbBasedMCPConfigsStorage(userId, organizationId);
     const mcpClientsManager = createMCPClientsManager(storage);
     const mcpTools = mcpClientsManager.tools();
 
