@@ -14,7 +14,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Building2, Users, Settings, Save } from "lucide-react";
-import { useActiveOrganization, organization } from "@/lib/auth/client";
+import {
+  useActiveOrganization,
+  organization,
+  useListOrganizations,
+} from "@/lib/auth/client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -23,6 +27,7 @@ import { CreateOrganizationModal } from "@/components/organization/create-organi
 
 export default function WorkspaceSettingsPage() {
   const { data: activeOrganization } = useActiveOrganization();
+  const { refetch: refetchOrganizations } = useListOrganizations();
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(activeOrganization?.name || "");
@@ -217,6 +222,7 @@ export default function WorkspaceSettingsPage() {
       <CreateOrganizationModal
         open={isCreateModalOpen}
         onOpenChange={setIsCreateModalOpen}
+        refetchOrganizations={refetchOrganizations}
       />
     </div>
   );

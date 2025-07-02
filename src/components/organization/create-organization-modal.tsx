@@ -20,7 +20,7 @@ import { useRouter } from "next/navigation";
 interface CreateOrganizationModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  refetchOrganizations: () => void;
+  refetchOrganizations?: () => void;
 }
 
 export const CreateOrganizationModal = ({
@@ -132,7 +132,7 @@ export const CreateOrganizationModal = ({
                   onSuccess: async (ctx) => {
                     toast.success("Workspace created successfully");
                     onOpenChange(false);
-                    refetchOrganizations();
+                    refetchOrganizations?.();
                     // Switch to the newly created workspace
                     if (ctx.data?.id) {
                       await organization.setActive({
