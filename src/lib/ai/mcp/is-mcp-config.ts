@@ -1,18 +1,4 @@
-import type {
-  MCPServerConfig,
-  MCPRemoteConfig,
-  MCPStdioConfig,
-} from "app-types/mcp";
-
-/**
- * Type guard to check if an object is potentially a valid stdio config
- */
-export function isMaybeStdioConfig(config: unknown): config is MCPStdioConfig {
-  if (typeof config !== "object" || config === null) {
-    return false;
-  }
-  return "command" in config && typeof config.command === "string";
-}
+import type { MCPServerConfig, MCPRemoteConfig } from "app-types/mcp";
 
 /**
  * Type guard to check if an object is potentially a valid remote config (sse,streamable)
@@ -27,10 +13,10 @@ export function isMaybeRemoteConfig(
 }
 
 /**
- * Type guard for MCP server config (either stdio or remote)
+ * Type guard for MCP server config (remote-only)
  */
 export function isMaybeMCPServerConfig(
   config: unknown,
 ): config is MCPServerConfig {
-  return isMaybeStdioConfig(config) || isMaybeRemoteConfig(config);
+  return isMaybeRemoteConfig(config);
 }
