@@ -1,9 +1,11 @@
 "use server";
 
-import { getSessionContext } from "@/lib/auth/session-context";
+import {
+  checkAdminPermission,
+  getSessionContext,
+} from "@/lib/auth/session-context";
 import { MCPOAuthClient } from "lib/oauth/oauth-client";
 import { OAuthStateManager } from "lib/oauth/oauth-state-manager";
-import { isMaybeRemoteConfig } from "@/lib/ai/mcp/is-mcp-config";
 import { serverCache } from "@/lib/cache";
 import {
   pgMcpOAuthClientRepository,
@@ -57,11 +59,17 @@ export interface AuthorizationStatus {
   tokenExpiry?: Date;
 }
 
+export interface AccessTokenResult {
+  token: string;
+  expiresAt?: Date;
+}
+
 /**
  * Initiate OAuth authorization flow for an MCP server
  */
 export async function authorizeServerAction(
   serverId: string,
+  credentialType?: "personal" | "shared",
 ): Promise<AuthorizeServerResponse> {
   return safe(async () => {
     const { userId, organizationId } = await getSessionContext();
@@ -71,6 +79,13 @@ export async function authorizeServerAction(
       throw new Error(
         "Too many OAuth requests. Please wait before trying again.",
       );
+    }
+
+    // Check if this is a shared credential server in an organization workspace
+    const isSharedCredentials = credentialType === "shared";
+    if (isSharedCredentials && organizationId) {
+      // Only check admin permissions for shared credentials in organization workspaces
+      await checkAdminPermission();
     }
 
     // Get the MCP server configuration
@@ -84,14 +99,8 @@ export async function authorizeServerAction(
       throw new Error("MCP server not found");
     }
 
-    // Check if it's a remote server (OAuth only applies to HTTP-based transports)
-    if (!isMaybeRemoteConfig(mcpServer.config)) {
-      throw new Error(
-        "OAuth authorization is only supported for remote MCP servers",
-      );
-    }
-
-    const serverUrl = mcpServer.config.url;
+    // All servers are remote now
+    const serverUrl = (mcpServer.config as any).url;
 
     // Discover OAuth endpoints
     const endpoints = await MCPOAuthClient.getOAuthEndpoints(serverUrl);
@@ -191,50 +200,11 @@ export async function authorizeServerAction(
 }
 
 /**
- * Check authorization status for an MCP server
- */
-export async function getAuthorizationStatusAction(
-  serverId: string,
-): Promise<AuthorizationStatus> {
-  return safe(async () => {
-    const { userId, organizationId } = await getSessionContext();
-
-    const token = await pgMcpOAuthTokenRepository.findByServerId(
-      serverId,
-      userId,
-      organizationId,
-    );
-
-    if (!token) {
-      return {
-        isAuthorized: false,
-        hasToken: false,
-      };
-    }
-
-    const now = new Date();
-    const isExpired = token.expiresAt && token.expiresAt < now;
-
-    return {
-      isAuthorized: !isExpired,
-      hasToken: true,
-      tokenExpiry: token.expiresAt || undefined,
-    };
-  })
-    .ifFail(() => {
-      return {
-        isAuthorized: false,
-        hasToken: false,
-      };
-    })
-    .unwrap();
-}
-
-/**
  * Revoke authorization for an MCP server
  */
 export async function revokeAuthorizationAction(
   serverId: string,
+  credentialType?: "personal" | "shared",
 ): Promise<{ success: boolean; error?: string }> {
   return safe(async () => {
     const { userId, organizationId } = await getSessionContext();
@@ -246,10 +216,18 @@ export async function revokeAuthorizationAction(
       );
     }
 
+    // Check if this is a shared credential server in an organization workspace
+    const isSharedCredentials = credentialType === "shared";
+    if (isSharedCredentials && organizationId) {
+      // Only check admin permissions for shared credentials in organization workspaces
+      await checkAdminPermission();
+    }
+
     await pgMcpOAuthTokenRepository.deleteByServerId(
       serverId,
       userId,
       organizationId,
+      credentialType,
     );
 
     // Clear token from cache
@@ -278,7 +256,8 @@ export async function revokeAuthorizationAction(
  */
 export async function getAccessTokenAction(
   serverId: string,
-): Promise<string | null> {
+  credentialType?: "personal" | "shared",
+): Promise<AccessTokenResult | null> {
   return safe(async () => {
     const { userId, organizationId } = await getSessionContext();
 
@@ -286,15 +265,16 @@ export async function getAccessTokenAction(
     const cacheKey = `oauth:token:${userId}:${serverId}:${organizationId || "null"}`;
 
     // Try to get from cache first (for performance)
-    const cachedToken = await serverCache.get<string>(cacheKey);
-    if (cachedToken) {
-      return cachedToken;
+    const cachedTokenData = await serverCache.get<AccessTokenResult>(cacheKey);
+    if (cachedTokenData) {
+      return cachedTokenData;
     }
 
     const token = await pgMcpOAuthTokenRepository.findByServerId(
       serverId,
       userId,
       organizationId,
+      credentialType,
     );
 
     if (!token) {
@@ -360,7 +340,11 @@ export async function getAccessTokenAction(
               ? Math.min(refreshResult.expires_in * 900, 3600000) // 90% of lifetime or 1 hour
               : 3600000; // Default 1 hour
 
-            await serverCache.set(cacheKey, currentAccessToken, cacheTimeMs);
+            const tokenResult = {
+              token: currentAccessToken,
+              expiresAt: newExpiresAt || undefined,
+            };
+            await serverCache.set(cacheKey, tokenResult, cacheTimeMs);
           } else {
             logger.error(`Failed to refresh token for server: ${serverId}`);
             // Token refresh failed, return null to force re-authorization
@@ -391,14 +375,22 @@ export async function getAccessTokenAction(
 
       if (cacheTime > 60000) {
         // Only cache if more than 1 minute remaining
-        await serverCache.set(cacheKey, currentAccessToken, cacheTime);
+        const tokenResult = {
+          token: currentAccessToken,
+          expiresAt: token.expiresAt,
+        };
+        await serverCache.set(cacheKey, tokenResult, cacheTime);
       }
     } else if (!token.expiresAt) {
       // Token doesn't expire, cache for 1 hour
-      await serverCache.set(cacheKey, currentAccessToken, 3600000);
+      const tokenResult = { token: currentAccessToken, expiresAt: undefined };
+      await serverCache.set(cacheKey, tokenResult, 3600000);
     }
 
-    return currentAccessToken;
+    return {
+      token: currentAccessToken,
+      expiresAt: token.expiresAt || undefined,
+    };
   })
     .ifFail((error) => {
       logger.error("Failed to get access token:", error);

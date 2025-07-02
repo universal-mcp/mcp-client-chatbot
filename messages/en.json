@@ -41,7 +41,7 @@
       "createAccount": "Create account"
     },
     "Intro": {
-      "description": "Welcome to MCP Chat Bot. Sign in to experience our AI-powered conversational tools."
+      "description": "Welcome to Wingmen. Sign in to experience our AI-powered conversational tools."
     },
     "ForgotPassword": {
       "title": "Forgot password",
@@ -176,7 +176,7 @@
     "Thread": {
       "chat": "Chat",
       "summarizeAsProject": "Summarize as Project",
-      "renameChat": "Re-name",
+      "renameChat": "Rename",
       "deleteChat": "Delete Chat",
       "failedToDeleteThread": "Failed to delete thread",
       "threadDeleted": "Thread deleted",

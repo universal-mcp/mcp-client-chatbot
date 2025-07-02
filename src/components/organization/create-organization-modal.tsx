@@ -15,22 +15,25 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import Image from "next/image";
 import { organization } from "@/lib/auth/client";
-import router from "next/router";
+import { useRouter } from "next/navigation";
 
 interface CreateOrganizationModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  refetchOrganizations: () => void;
 }
 
 export const CreateOrganizationModal = ({
   open,
   onOpenChange,
+  refetchOrganizations,
 }: CreateOrganizationModalProps) => {
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [loading, setLoading] = useState(false);
   const [isSlugEdited, setIsSlugEdited] = useState(false);
   const [logo, setLogo] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     if (!isSlugEdited) {
@@ -129,6 +132,7 @@ export const CreateOrganizationModal = ({
                   onSuccess: async (ctx) => {
                     toast.success("Workspace created successfully");
                     onOpenChange(false);
+                    refetchOrganizations();
                     // Switch to the newly created workspace
                     if (ctx.data?.id) {
                       await organization.setActive({

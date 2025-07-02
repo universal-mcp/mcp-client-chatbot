@@ -3,6 +3,7 @@ import { checkAdminPermission } from "@/lib/auth/session-context";
 
 export async function GET() {
   try {
+    console.log("GET /api/user/role");
     // Check if user has admin permissions
     let isAdmin = false;
     try {

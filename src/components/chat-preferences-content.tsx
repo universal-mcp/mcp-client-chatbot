@@ -68,6 +68,8 @@ export function UserInstructionsContent() {
 
   const [isSaving, setIsSaving] = useState(false);
 
+  const appStoreMutate = appStore((state) => state.mutate);
+
   const savePreferences = async () => {
     safe(() => setIsSaving(true))
       .ifOk(() =>
@@ -182,7 +184,17 @@ export function UserInstructionsContent() {
       </div>
       {isDiff && !isValidating && (
         <div className="flex pt-4 items-center justify-end fade-in animate-in duration-300">
-          <Button variant="ghost">{t("Common.cancel")}</Button>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              if (data) {
+                setPreferences(data);
+              }
+              appStoreMutate({ openChatPreferences: false });
+            }}
+          >
+            {t("Common.cancel")}
+          </Button>
           <Button disabled={isSaving || isLoading} onClick={savePreferences}>
             {t("Common.save")}
             {isSaving && <Loader className="size-4 ml-2 animate-spin" />}

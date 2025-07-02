@@ -14,46 +14,41 @@ import {
   useActiveOrganization,
   useListOrganizations,
 } from "@/lib/auth/client";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { appStore } from "@/app/store";
 import { CreateOrganizationModal } from "@/components/organization/create-organization-modal";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 export const WorkspacePicker = () => {
-  const { data: organizations } = useListOrganizations();
+  const { data: organizations, refetch: refetchOrganizations } =
+    useListOrganizations();
   const { data: activeOrganization } = useActiveOrganization();
   const invalidateOrganizationData = appStore(
     (state) => state.invalidateOrganizationData,
   );
-  const previousOrgId = useRef<string | null>(activeOrganization?.id || null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const router = useRouter();
 
-  // Detect organization changes and invalidate SWR data
-  useEffect(() => {
-    const currentOrgId = activeOrganization?.id || null;
+  const handleSwitchOrganization = async (orgId: string | null) => {
+    try {
+      // Don't do anything if trying to switch to current org
+      if (orgId === activeOrganization?.id) {
+        return;
+      }
 
-    // Only invalidate if the organization actually changed
-    if (previousOrgId.current !== currentOrgId) {
-      console.log("Organization changed, invalidating data...", {
-        from: previousOrgId.current,
-        to: currentOrgId,
+      // Set the new active organization
+      await organization.setActive({
+        organizationId: orgId,
       });
 
       invalidateOrganizationData();
-      previousOrgId.current = currentOrgId;
+      // Refresh the router to update UI
+      router.refresh();
+    } catch (error) {
+      console.error("Failed to switch organization:", error);
+      // Here you could add a toast notification or other error handling UI
     }
-  }, [activeOrganization?.id, invalidateOrganizationData]);
-
-  const handleSwitchOrganization = async (orgId: string | null) => {
-    if (orgId === activeOrganization?.id) {
-      return;
-    }
-    await organization.setActive({
-      organizationId: orgId,
-    });
-    router.refresh();
   };
 
   return (
@@ -168,6 +163,7 @@ export const WorkspacePicker = () => {
       <CreateOrganizationModal
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
+        refetchOrganizations={refetchOrganizations}
       />
     </div>
   );

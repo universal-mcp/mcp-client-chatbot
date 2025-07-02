@@ -4,12 +4,12 @@ import { z } from "zod";
 export const MCPRemoteConfigZodSchema = z.object({
   url: z.string().url().describe("The URL of the SSE endpoint"),
   headers: z.record(z.string(), z.string()).optional(),
-});
-
-export const MCPStdioConfigZodSchema = z.object({
-  command: z.string().min(1).describe("The command to run"),
-  args: z.array(z.string()).optional(),
-  env: z.record(z.string(), z.string()).optional(),
+  credentialType: z
+    .enum(["personal", "shared"])
+    .default("personal")
+    .describe(
+      "Type of credential storage - personal or shared within workspace",
+    ),
 });
 
 export const AllowedMCPServerZodSchema = z.object({
@@ -20,9 +20,9 @@ export const AllowedMCPServerZodSchema = z.object({
 export type AllowedMCPServer = z.infer<typeof AllowedMCPServerZodSchema>;
 
 export type MCPRemoteConfig = z.infer<typeof MCPRemoteConfigZodSchema>;
-export type MCPStdioConfig = z.infer<typeof MCPStdioConfigZodSchema>;
 
-export type MCPServerConfig = MCPRemoteConfig | MCPStdioConfig;
+// All servers are remote-only now
+export type MCPServerConfig = MCPRemoteConfig;
 
 export type MCPToolInfo = {
   name: string;
@@ -34,13 +34,20 @@ export type MCPToolInfo = {
   };
 };
 
+export type MCPOAuthStatus = {
+  required: boolean;
+  isAuthorized: boolean;
+  hasToken: boolean;
+  tokenExpiry?: Date;
+};
+
 export type MCPServerInfo = {
   name: string;
   config: MCPServerConfig;
   error?: unknown;
   status: "connected" | "disconnected" | "loading";
   toolInfo: MCPToolInfo[];
-  oauthRequired?: boolean;
+  oauthStatus: MCPOAuthStatus;
 };
 
 export type McpServerInsert = {
