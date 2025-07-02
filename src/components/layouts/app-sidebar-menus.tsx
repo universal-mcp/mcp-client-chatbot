@@ -66,7 +66,7 @@ export function AppSidebarMenus() {
                     isActive={pathname === "/integrations"}
                   >
                     <MCPIcon className="size-4 fill-accent-foreground" />
-                    Integrations
+                    MCP Integrations
                   </SidebarMenuButton>
                 </Link>
               </SidebarMenuItem>
