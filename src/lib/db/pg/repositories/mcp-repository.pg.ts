@@ -222,20 +222,38 @@ export const pgMcpOAuthTokenRepository = {
     mcpServerId: string,
     userId: string,
     organizationId: string | null,
+    credentialType?: "personal" | "shared",
   ) {
-    const [result] = await db
-      .select()
-      .from(McpOAuthTokenSchema)
-      .where(
-        and(
-          eq(McpOAuthTokenSchema.mcpServerId, mcpServerId),
-          eq(McpOAuthTokenSchema.userId, userId),
-          organizationId
-            ? eq(McpOAuthTokenSchema.organizationId, organizationId)
-            : isNull(McpOAuthTokenSchema.organizationId),
-        ),
-      );
-    return result;
+    const usesSharedCredentials = credentialType === "shared";
+
+    if (usesSharedCredentials && organizationId) {
+      // For shared credentials, find any token for this server in the organization
+      const [result] = await db
+        .select()
+        .from(McpOAuthTokenSchema)
+        .where(
+          and(
+            eq(McpOAuthTokenSchema.mcpServerId, mcpServerId),
+            eq(McpOAuthTokenSchema.organizationId, organizationId),
+          ),
+        );
+      return result;
+    } else {
+      // For personal credentials, find token for specific user
+      const [result] = await db
+        .select()
+        .from(McpOAuthTokenSchema)
+        .where(
+          and(
+            eq(McpOAuthTokenSchema.mcpServerId, mcpServerId),
+            eq(McpOAuthTokenSchema.userId, userId),
+            organizationId
+              ? eq(McpOAuthTokenSchema.organizationId, organizationId)
+              : isNull(McpOAuthTokenSchema.organizationId),
+          ),
+        );
+      return result;
+    }
   },
 
   async save(
@@ -253,9 +271,9 @@ export const pgMcpOAuthTokenRepository = {
       .values(values)
       .onConflictDoUpdate({
         target: [
-          McpOAuthTokenSchema.userId,
-          McpOAuthTokenSchema.mcpServerId,
           McpOAuthTokenSchema.organizationId,
+          McpOAuthTokenSchema.mcpServerId,
+          McpOAuthTokenSchema.userId,
         ],
         set: {
           accessToken: token.accessToken,
@@ -273,17 +291,33 @@ export const pgMcpOAuthTokenRepository = {
     mcpServerId: string,
     userId: string,
     organizationId: string | null,
+    credentialType?: "personal" | "shared",
   ) {
-    return db
-      .delete(McpOAuthTokenSchema)
-      .where(
-        and(
-          eq(McpOAuthTokenSchema.mcpServerId, mcpServerId),
-          eq(McpOAuthTokenSchema.userId, userId),
-          organizationId
-            ? eq(McpOAuthTokenSchema.organizationId, organizationId)
-            : isNull(McpOAuthTokenSchema.organizationId),
-        ),
-      );
+    const usesSharedCredentials = credentialType === "shared";
+
+    if (usesSharedCredentials && organizationId) {
+      // For shared credentials, delete the shared token for this server in the organization
+      return db
+        .delete(McpOAuthTokenSchema)
+        .where(
+          and(
+            eq(McpOAuthTokenSchema.mcpServerId, mcpServerId),
+            eq(McpOAuthTokenSchema.organizationId, organizationId),
+          ),
+        );
+    } else {
+      // For personal credentials, delete token for specific user
+      return db
+        .delete(McpOAuthTokenSchema)
+        .where(
+          and(
+            eq(McpOAuthTokenSchema.mcpServerId, mcpServerId),
+            eq(McpOAuthTokenSchema.userId, userId),
+            organizationId
+              ? eq(McpOAuthTokenSchema.organizationId, organizationId)
+              : isNull(McpOAuthTokenSchema.organizationId),
+          ),
+        );
+    }
   },
 };

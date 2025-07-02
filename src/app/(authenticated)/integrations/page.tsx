@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,6 @@ import {
   RefreshCw,
   Eye,
   Pencil,
-  Lock,
 } from "lucide-react";
 import {
   Dialog,
@@ -37,26 +36,60 @@ import {
 } from "@/app/api/mcp/actions";
 import {
   authorizeServerAction,
-  getAuthorizationStatusAction,
   revokeAuthorizationAction,
-  type AuthorizationStatus,
 } from "@/app/api/mcp/oauth/actions";
 import type { MCPServerInfo } from "app-types/mcp";
-import { isMaybeRemoteConfig } from "@/lib/ai/mcp/is-mcp-config";
+import { useActiveOrganization } from "@/lib/auth/client";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+interface DefaultServerConfig {
+  id: string;
+  name: string;
+  url: string;
+  badgeText: string;
+}
 
 interface McpServerWithId extends MCPServerInfo {
   id: string;
+  isDefault?: boolean; // Flag to identify default servers
+  defaultConfig?: DefaultServerConfig; // Store default server configuration
 }
+
+// Configuration for default servers - easily extensible for future servers
+const DEFAULT_SERVERS: DefaultServerConfig[] = [
+  {
+    id: "default-agentr",
+    name: "AgentR",
+    url: "https://mcp.agentr.dev/sse",
+    badgeText: "Recommended",
+  },
+  // Add more default servers here in the future
+];
 
 export default function IntegrationsPage() {
   const [isAddingServer, setIsAddingServer] = useState(false);
   const [newServerName, setNewServerName] = useState("");
   const [newServerUrl, setNewServerUrl] = useState("");
+  const [newServerCredentialType, setNewServerCredentialType] = useState<
+    "personal" | "shared"
+  >("personal");
   const [loadingServerId] = useState<string | null>(null);
   const [addServerModalOpen, setAddServerModalOpen] = useState(false);
-  const [authStatuses, setAuthStatuses] = useState<
-    Record<string, AuthorizationStatus>
-  >({});
+  const [defaultServerModalOpen, setDefaultServerModalOpen] = useState(false);
+  const [selectedDefaultServer, setSelectedDefaultServer] =
+    useState<DefaultServerConfig | null>(null);
+  const [defaultServerCredentialType, setDefaultServerCredentialType] =
+    useState<"personal" | "shared">("personal");
+
+  // Get organization context to determine if we're in a workspace
+  const { data: activeOrganization } = useActiveOrganization();
+  const isOrganizationWorkspace = !!activeOrganization?.id;
 
   const {
     data: mcpServers,
@@ -79,6 +112,42 @@ export default function IntegrationsPage() {
 
   const isAdmin = userRole?.isAdmin ?? false;
   const isLoadingData = isLoading || isLoadingRole;
+
+  // Check which default servers already exist in the user's servers
+  const existingServerNames = new Set(
+    mcpServers?.map((server: McpServerWithId) => server.name) || [],
+  );
+
+  // Create default server objects for servers that don't exist yet
+  const availableDefaultServers = useMemo(() => {
+    return DEFAULT_SERVERS.filter(
+      (config) => !existingServerNames.has(config.name),
+    ).map((config) => ({
+      id: config.id,
+      name: config.name,
+      status: "disconnected" as const,
+      config: {
+        url: config.url,
+        credentialType: "personal" as const,
+      },
+      toolInfo: [],
+      oauthStatus: {
+        required: false,
+        isAuthorized: false,
+        hasToken: false,
+      },
+      isDefault: true,
+      defaultConfig: config, // Store the config for easy access
+    }));
+  }, [existingServerNames]);
+
+  // Combine default servers with actual servers for display
+  const displayServers = useMemo(() => {
+    if (!isLoadingData && isAdmin && availableDefaultServers.length > 0) {
+      return [...availableDefaultServers, ...(mcpServers || [])];
+    }
+    return mcpServers || [];
+  }, [isLoadingData, isAdmin, availableDefaultServers, mcpServers]);
 
   // Handle OAuth callback success/error messages
   useEffect(() => {
@@ -103,35 +172,7 @@ export default function IntegrationsPage() {
       // Clear URL parameters
       window.history.replaceState({}, "", window.location.pathname);
     }
-  }, []);
-
-  // Load authorization statuses for remote servers
-  useEffect(() => {
-    const loadAuthStatuses = async () => {
-      if (mcpServers && mcpServers.length > 0) {
-        const statuses: Record<string, AuthorizationStatus> = {};
-
-        for (const server of mcpServers) {
-          // Only check auth status for remote servers
-          if (isMaybeRemoteConfig(server.config) && server.oauthRequired) {
-            try {
-              const status = await getAuthorizationStatusAction(server.id);
-              statuses[server.id] = status;
-            } catch (error) {
-              console.error(
-                `Failed to get auth status for ${server.name}:`,
-                error,
-              );
-            }
-          }
-        }
-
-        setAuthStatuses(statuses);
-      }
-    };
-
-    loadAuthStatuses();
-  }, [mcpServers]);
+  }, [mutate]);
 
   const handleAddServer = async () => {
     if (!isAdmin) {
@@ -159,6 +200,10 @@ export default function IntegrationsPage() {
         name: newServerName,
         config: {
           url: newServerUrl,
+          credentialType:
+            isOrganizationWorkspace && isAdmin
+              ? newServerCredentialType
+              : "personal",
         },
         userId: "",
       });
@@ -166,6 +211,7 @@ export default function IntegrationsPage() {
       toast.success("Server added successfully");
       setNewServerName("");
       setNewServerUrl("");
+      setNewServerCredentialType("personal");
       setAddServerModalOpen(false);
       mutate();
     } catch (error) {
@@ -185,6 +231,68 @@ export default function IntegrationsPage() {
     setAddServerModalOpen(true);
   };
 
+  const handleConnectDefaultServer = async (
+    serverConfig: DefaultServerConfig,
+  ) => {
+    if (!isAdmin) {
+      toast.error("MCP server management can only be done by admins");
+      return;
+    }
+
+    setSelectedDefaultServer(serverConfig);
+
+    // If in workspace, show credential type selection modal
+    if (isOrganizationWorkspace) {
+      setDefaultServerModalOpen(true);
+      return;
+    }
+
+    // Otherwise, directly add with personal credentials
+    await addDefaultServer(serverConfig, "personal");
+  };
+
+  const handleDefaultServerConnect = async () => {
+    if (!selectedDefaultServer) return;
+    await addDefaultServer(selectedDefaultServer, defaultServerCredentialType);
+    setDefaultServerModalOpen(false);
+    setSelectedDefaultServer(null);
+  };
+
+  const addDefaultServer = async (
+    serverConfig: DefaultServerConfig,
+    credentialType: "personal" | "shared",
+  ) => {
+    try {
+      setIsAddingServer(true);
+
+      // Check if server name already exists (safety check)
+      const exists = await existMcpClientByServerNameAction(serverConfig.name);
+      if (exists) {
+        toast.error(`${serverConfig.name} server already exists`);
+        return;
+      }
+
+      // Add the default server
+      await saveMcpClientAction({
+        name: serverConfig.name,
+        config: {
+          url: serverConfig.url,
+          credentialType,
+        },
+        userId: "",
+      });
+
+      toast.success(`${serverConfig.name} server added successfully`);
+      mutate();
+    } catch (error) {
+      toast.error(
+        `Failed to add ${serverConfig.name} server: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
+    } finally {
+      setIsAddingServer(false);
+    }
+  };
+
   const handleDeleteServer = async (serverId: string) => {
     await removeMcpClientAction(serverId);
     mutate();
@@ -200,11 +308,21 @@ export default function IntegrationsPage() {
     name: string,
     url: string,
   ) => {
+    // Find the existing server to preserve its credentialType
+    const existingServer = mcpServers?.find(
+      (s: McpServerWithId) => s.id === serverId,
+    );
+    const existingCredentialType =
+      existingServer && "url" in existingServer.config
+        ? (existingServer.config as any).credentialType || "personal"
+        : "personal";
+
     await saveMcpClientAction({
       id: serverId,
       name: name,
       config: {
         url: url,
+        credentialType: existingCredentialType,
       },
       userId: "",
     });
@@ -213,7 +331,16 @@ export default function IntegrationsPage() {
 
   const handleAuthorizeServer = async (serverId: string) => {
     try {
-      const result = await authorizeServerAction(serverId);
+      // Get server credential type
+      const server = mcpServers?.find(
+        (s: McpServerWithId) => s.id === serverId,
+      );
+      const credentialType =
+        server && "url" in server.config
+          ? (server.config as any).credentialType || "personal"
+          : "personal";
+
+      const result = await authorizeServerAction(serverId, credentialType);
       if (result.success && result.authorizationUrl) {
         // Open authorization URL in new tab
         window.open(result.authorizationUrl, "_blank", "noopener,noreferrer");
@@ -229,14 +356,20 @@ export default function IntegrationsPage() {
 
   const handleRevokeAuthorization = async (serverId: string) => {
     try {
-      const result = await revokeAuthorizationAction(serverId);
+      // Get server credential type
+      const server = mcpServers?.find(
+        (s: McpServerWithId) => s.id === serverId,
+      );
+      const credentialType =
+        server && "url" in server.config
+          ? (server.config as any).credentialType || "personal"
+          : "personal";
+
+      const result = await revokeAuthorizationAction(serverId, credentialType);
       if (result.success) {
         toast.success("Authorization revoked successfully");
-        // Update auth status
-        setAuthStatuses((prev) => ({
-          ...prev,
-          [serverId]: { isAuthorized: false, hasToken: false },
-        }));
+        // Refresh server data to update OAuth status
+        mutate();
       } else {
         toast.error(result.error || "Failed to revoke authorization");
       }
@@ -265,9 +398,9 @@ export default function IntegrationsPage() {
             </div>
           )}
 
-          {!isLoadingData && mcpServers && mcpServers.length > 0 && (
+          {!isLoadingData && displayServers && displayServers.length > 0 && (
             <div className="space-y-4">
-              {mcpServers.map((server: McpServerWithId) => (
+              {displayServers.map((server: McpServerWithId) => (
                 <ServerCard
                   key={server.id}
                   server={server}
@@ -278,27 +411,32 @@ export default function IntegrationsPage() {
                   onEdit={handleEditServer}
                   onAuthorize={handleAuthorizeServer}
                   onRevokeAuth={handleRevokeAuthorization}
-                  authStatus={authStatuses[server.id]}
-                  oauthRequired={server.oauthRequired}
+                  onConnect={
+                    server.isDefault && server.defaultConfig
+                      ? () => handleConnectDefaultServer(server.defaultConfig!)
+                      : undefined
+                  }
                 />
               ))}
             </div>
           )}
 
-          {!isLoadingData && (!mcpServers || mcpServers.length === 0) && (
-            <div className="text-center py-12">
-              <Settings className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-foreground mb-2">
-                No servers configured
-              </h3>
-              <p className="text-muted-foreground mb-6">
-                Add your first MCP server to get started with integrations
-              </p>
-            </div>
-          )}
+          {!isLoadingData &&
+            (!mcpServers || mcpServers.length === 0) &&
+            !isAdmin && (
+              <div className="text-center py-12">
+                <Settings className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-foreground mb-2">
+                  No integrations available
+                </h3>
+                <p className="text-muted-foreground mb-6">
+                  Contact your administrator to set up MCP server integrations
+                </p>
+              </div>
+            )}
 
           {/* Add Server Button */}
-          {!isLoadingData && (
+          {!isLoadingData && isAdmin && (
             <div className="flex justify-center">
               <Button
                 onClick={handleAddServerClick}
@@ -306,11 +444,7 @@ export default function IntegrationsPage() {
                 size="lg"
                 className="border-2 border-dashed border-muted-foreground/25 hover:border-muted-foreground/50 bg-transparent hover:bg-muted/30 text-muted-foreground hover:text-foreground transition-colors"
               >
-                {isAdmin ? (
-                  <Plus className="h-5 w-5 mr-2" />
-                ) : (
-                  <Lock className="h-5 w-5 mr-2" />
-                )}
+                <Plus className="h-5 w-5 mr-2" />
                 Add New Server
               </Button>
             </div>
@@ -347,6 +481,45 @@ export default function IntegrationsPage() {
                     onChange={(e) => setNewServerUrl(e.target.value)}
                   />
                 </div>
+                {isOrganizationWorkspace && isAdmin && (
+                  <div className="space-y-2">
+                    <Label htmlFor="credential-type">Credential Type</Label>
+                    <Select
+                      value={newServerCredentialType}
+                      onValueChange={(value) =>
+                        setNewServerCredentialType(
+                          value as "personal" | "shared",
+                        )
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue>
+                          {newServerCredentialType === "personal"
+                            ? "Personal"
+                            : "Shared"}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="personal">
+                          <div className="space-y-1">
+                            <div className="font-medium">Personal</div>
+                            <div className="text-xs text-muted-foreground">
+                              Each user manages their own credentials
+                            </div>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="shared">
+                          <div className="space-y-1">
+                            <div className="font-medium">Shared</div>
+                            <div className="text-xs text-muted-foreground">
+                              Administrators manage credentials for all users
+                            </div>
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
               <DialogFooter>
                 <Button
@@ -355,6 +528,7 @@ export default function IntegrationsPage() {
                     setAddServerModalOpen(false);
                     setNewServerName("");
                     setNewServerUrl("");
+                    setNewServerCredentialType("personal");
                   }}
                   disabled={isAddingServer}
                 >
@@ -365,6 +539,86 @@ export default function IntegrationsPage() {
                     <Loader className="h-4 w-4 animate-spin mr-2" />
                   )}
                   Add Server
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Default Server Connect Modal */}
+          <Dialog
+            open={defaultServerModalOpen}
+            onOpenChange={setDefaultServerModalOpen}
+          >
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle className="text-lg font-semibold">
+                  Add {selectedDefaultServer?.name}
+                </DialogTitle>
+                <DialogDescription className="mt-3 text-muted-foreground">
+                  Choose how credentials should be managed for the integration.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="default-server-credential-type">
+                    Credential Type
+                  </Label>
+                  <Select
+                    value={defaultServerCredentialType}
+                    onValueChange={(value) =>
+                      setDefaultServerCredentialType(
+                        value as "personal" | "shared",
+                      )
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue>
+                        {defaultServerCredentialType === "personal"
+                          ? "Personal"
+                          : "Shared"}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="personal">
+                        <div className="space-y-1">
+                          <div className="font-medium">Personal</div>
+                          <div className="text-xs text-muted-foreground">
+                            Each user manages their own credentials
+                          </div>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="shared">
+                        <div className="space-y-1">
+                          <div className="font-medium">Shared</div>
+                          <div className="text-xs text-muted-foreground">
+                            Administrators manage credentials for all users
+                          </div>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setDefaultServerModalOpen(false);
+                    setDefaultServerCredentialType("personal");
+                    setSelectedDefaultServer(null);
+                  }}
+                  disabled={isAddingServer}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleDefaultServerConnect}
+                  disabled={isAddingServer}
+                >
+                  {isAddingServer && (
+                    <Loader className="h-4 w-4 animate-spin mr-2" />
+                  )}
+                  Add
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -384,8 +638,7 @@ interface ServerCardProps {
   onEdit: (serverId: string, name: string, url: string) => void;
   onAuthorize: (serverId: string) => Promise<void>;
   onRevokeAuth: (serverId: string) => Promise<void>;
-  authStatus?: AuthorizationStatus;
-  oauthRequired?: boolean;
+  onConnect?: () => Promise<void>;
 }
 
 function ServerCard({
@@ -397,9 +650,11 @@ function ServerCard({
   onEdit,
   onAuthorize,
   onRevokeAuth,
-  authStatus,
-  oauthRequired,
+  onConnect,
 }: ServerCardProps) {
+  // Get organization context to determine if we should show credential type badge
+  const { data: activeOrganization } = useActiveOrganization();
+  const isOrganizationWorkspace = !!activeOrganization?.id;
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -421,12 +676,6 @@ function ServerCard({
     connected: "bg-green-500",
     disconnected: "bg-red-500",
     loading: "bg-yellow-500",
-  }[server.status];
-
-  const statusText = {
-    connected: "Connected",
-    disconnected: "Disconnected",
-    loading: "Connecting",
   }[server.status];
 
   // Obfuscate URL for non-admin users
@@ -504,120 +753,170 @@ function ServerCard({
               <div className={`w-3 h-3 rounded-full ${statusColor}`} />
               <CardTitle className="text-lg">{server.name}</CardTitle>
             </div>
-            <Badge variant="secondary" className="text-xs">
-              {statusText}
-            </Badge>
-            {/* Show OAuth authorization status for remote servers */}
-            {isMaybeRemoteConfig(server.config) &&
-              authStatus &&
-              oauthRequired && (
-                <Badge
-                  variant={authStatus.isAuthorized ? "default" : "outline"}
-                  className={`text-xs ${
-                    authStatus.isAuthorized
-                      ? "bg-green-100 text-green-800 hover:bg-green-100"
-                      : "bg-orange-100 text-orange-800 hover:bg-orange-100"
-                  }`}
-                >
-                  {authStatus.isAuthorized ? "Authorized" : "Not Authorized"}
-                </Badge>
-              )}
+            {/* Show credential type badge for servers in organization workspaces (but not for default servers) */}
+            {isOrganizationWorkspace && !server.isDefault && (
+              <Badge
+                variant="secondary"
+                className={`text-xs ${
+                  (server.config as any).credentialType === "shared"
+                    ? "bg-blue-100 text-blue-800"
+                    : "bg-gray-100 text-gray-800"
+                }`}
+              >
+                {(server.config as any).credentialType === "shared"
+                  ? "Shared Credentials"
+                  : "Personal Credentials"}
+              </Badge>
+            )}
+            {/* Show default badge for default servers */}
+            {server.isDefault && server.defaultConfig && (
+              <Badge
+                variant="outline"
+                className="text-xs bg-blue-50 text-blue-700 border-blue-200"
+              >
+                {server.defaultConfig.badgeText}
+              </Badge>
+            )}
+            {/* Show OAuth authorization status for servers */}
+            {server.oauthStatus.required && (
+              <Badge
+                variant={
+                  server.oauthStatus.isAuthorized ? "default" : "outline"
+                }
+                className={`text-xs ${
+                  server.oauthStatus.isAuthorized
+                    ? "bg-green-100 text-green-800 hover:bg-green-100"
+                    : "bg-orange-100 text-orange-800 hover:bg-orange-100"
+                }`}
+              >
+                {server.oauthStatus.isAuthorized
+                  ? "Authorized"
+                  : "Not Authorized"}
+              </Badge>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Show authorize button only for remote servers that require OAuth */}
-            {isMaybeRemoteConfig(server.config) && oauthRequired && (
+            {/* Show Connect button for default servers */}
+            {server.isDefault && onConnect && (
               <Button
-                variant="outline"
+                variant="default"
                 size="sm"
-                onClick={() => {
-                  if (authStatus?.isAuthorized) {
-                    onRevokeAuth(server.id);
-                  } else {
-                    onAuthorize(server.id);
-                  }
-                }}
-                className={
-                  authStatus?.isAuthorized
-                    ? "hover:bg-red-50 hover:text-red-600"
-                    : "hover:bg-green-50 hover:text-green-600"
-                }
-              >
-                {authStatus?.isAuthorized ? (
-                  <>
-                    <Lock className="h-4 w-4 mr-1" />
-                    Revoke
-                  </>
-                ) : (
-                  <>Connect</>
-                )}
-              </Button>
-            )}
-            {isAdmin && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setEditModalOpen(true)}
+                onClick={onConnect}
                 disabled={isLoading}
-                className="hover:bg-green-50 hover:text-green-600"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm border border-primary/20 hover:shadow-md transition-all duration-200"
               >
-                <Pencil className="h-4 w-4" />
+                <Plus className="h-4 w-4" />
+                Add
               </Button>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRefresh}
-              disabled={isRefreshing || isLoading}
-              className="hover:bg-blue-50 hover:text-blue-600"
-            >
-              <RefreshCw
-                className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
-              />
-            </Button>
-            {isAdmin && (
-              <Dialog
-                open={deleteDialogOpen}
-                onOpenChange={setDeleteDialogOpen}
-              >
-                <DialogTrigger asChild>
+
+            {/* Show regular action buttons for non-default servers */}
+            {!server.isDefault && (
+              <>
+                {/* Show authorize button only for servers that require OAuth and user has permission */}
+                {server.oauthStatus.required &&
+                  (() => {
+                    const isSharedCredentials =
+                      isOrganizationWorkspace &&
+                      (server.config as any).credentialType === "shared";
+                    // Only show button if: not shared credentials OR user is admin
+                    if (isSharedCredentials && !isAdmin) {
+                      return null;
+                    }
+
+                    return (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (server.oauthStatus.hasToken) {
+                            onRevokeAuth(server.id);
+                          } else {
+                            onAuthorize(server.id);
+                          }
+                        }}
+                        className={
+                          server.oauthStatus.hasToken
+                            ? "hover:bg-red-50 hover:text-red-600"
+                            : "hover:bg-green-50 hover:text-green-600"
+                        }
+                      >
+                        {server.oauthStatus.hasToken ? (
+                          <>Revoke</>
+                        ) : (
+                          <>Connect</>
+                        )}
+                      </Button>
+                    );
+                  })()}
+                {isAdmin && (
                   <Button
                     variant="outline"
                     size="sm"
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => setEditModalOpen(true)}
+                    disabled={isLoading}
+                    className="hover:bg-green-50 hover:text-green-600"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Pencil className="h-4 w-4" />
                   </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Delete Server</DialogTitle>
-                    <DialogDescription>
-                      Are you sure you want to delete {server.name}? This action
-                      cannot be undone.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <DialogFooter>
-                    <Button
-                      variant="outline"
-                      onClick={() => setDeleteDialogOpen(false)}
-                      disabled={isDeleting}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      onClick={handleDelete}
-                      disabled={isDeleting}
-                    >
-                      {isDeleting && (
-                        <Loader className="h-4 w-4 animate-spin mr-2" />
-                      )}
-                      Delete
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefresh}
+                  disabled={isRefreshing || isLoading}
+                  className="hover:bg-blue-50 hover:text-blue-600"
+                >
+                  <RefreshCw
+                    className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
+                  />
+                </Button>
+                {isAdmin && (
+                  <Dialog
+                    open={deleteDialogOpen}
+                    onOpenChange={setDeleteDialogOpen}
+                  >
+                    <DialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Delete Server</DialogTitle>
+                        <DialogDescription>
+                          Are you sure you want to delete {server.name}? This
+                          action cannot be undone.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <DialogFooter>
+                        <Button
+                          variant="outline"
+                          onClick={() => setDeleteDialogOpen(false)}
+                          disabled={isDeleting}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          onClick={handleDelete}
+                          disabled={isDeleting}
+                        >
+                          {isDeleting && (
+                            <Loader className="h-4 w-4 animate-spin mr-2" />
+                          )}
+                          Delete
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -702,8 +1001,8 @@ function ServerCard({
         </div>
       </CardContent>
 
-      {/* Edit Modal - Only render for admin users */}
-      {isAdmin && (
+      {/* Edit Modal - Only render for admin users and non-default servers */}
+      {isAdmin && !server.isDefault && (
         <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
           <DialogContent>
             <DialogHeader>

@@ -92,9 +92,14 @@ export class MCPClientsManager {
       const prevClient = this.clients.get(id)!;
       void prevClient.client.disconnect();
     }
+
+    // Extract credentialType from config - all servers are remote with URLs
+    const credentialType = (serverConfig as any).credentialType || "personal";
+
     const client = createMCPClient(name, serverConfig, {
       autoDisconnectSeconds: this.autoDisconnectSeconds,
       serverId: id, // Pass the server ID for OAuth token lookup
+      credentialType: credentialType, // Pass credential type for OAuth optimization
     });
     this.clients.set(id, { client, name });
     return client.connect();
