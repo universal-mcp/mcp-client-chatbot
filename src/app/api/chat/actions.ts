@@ -1,12 +1,6 @@
 "use server";
 
-import {
-  generateObject,
-  generateText,
-  jsonSchema,
-  LanguageModel,
-  type Message,
-} from "ai";
+import { generateObject, generateText, jsonSchema, type Message } from "ai";
 
 import {
   CREATE_THREAD_TITLE_PROMPT,
@@ -36,13 +30,15 @@ export async function getUserId() {
 
 export async function generateTitleFromUserMessageAction({
   message,
-  model,
-}: { message: Message; model: LanguageModel }) {
+}: { message: Message }) {
   await getSessionContext();
   const prompt = toAny(message.parts?.at(-1))?.text || "unknown";
-
+  const fixed_model = customModelProvider.getModel({
+    provider: "openai",
+    model: "gpt-4.1",
+  });
   const { text: title } = await generateText({
-    model,
+    model: fixed_model,
     system: CREATE_THREAD_TITLE_PROMPT,
     prompt,
     maxTokens: 30,

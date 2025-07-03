@@ -1,8 +1,6 @@
 import { chatRepository } from "lib/db/repository";
 import { NextRequest } from "next/server";
 import { generateTitleFromUserMessageAction } from "../actions";
-
-import { customModelProvider } from "lib/ai/models";
 import { getSessionContext } from "@/lib/auth/session-context";
 
 export async function POST(
@@ -11,7 +9,7 @@ export async function POST(
 ) {
   const { userId, organizationId } = await getSessionContext();
   const { threadId } = await params;
-  const { messages, chatModel, projectId } = await request.json();
+  const { messages, projectId } = await request.json();
 
   let thread = await chatRepository.selectThread(
     threadId,
@@ -21,7 +19,6 @@ export async function POST(
   if (!thread) {
     const title = await generateTitleFromUserMessageAction({
       message: messages[0],
-      model: customModelProvider.getModel(chatModel),
     });
     thread = await chatRepository.insertThread(
       {

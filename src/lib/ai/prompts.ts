@@ -7,11 +7,12 @@ import { createMCPToolId } from "./mcp/mcp-tool-id";
 
 export const CREATE_THREAD_TITLE_PROMPT = `\n
       - you will generate a short title based on the first message a user begins a conversation with
-      - ensure it is not more than 30 characters long
+      - ensure it is not more than 20 characters long
       - the title should be a summary of the user's message
       - do not use quotes or colons
       - absolutely ensure the title is not long, it should be a very short summary of the user's message (4-5 words at most)
-      - YOU ARE NOT IN CHARGE OF THE CONVERSATION, YOU ARE ONLY GENERATING A TITLE FOR THE CONVERSATION`;
+      - YOU ARE NOT IN CHARGE OF THE CONVERSATION, YOU ARE ONLY GENERATING A TITLE FOR THE CONVERSATION
+      - Do not respond with anything other than the title. Do not include any other text. Your response will be used as is for the title.`;
 
 export const buildUserSystemPrompt = (
   user?: User,

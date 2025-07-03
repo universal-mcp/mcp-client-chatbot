@@ -5,7 +5,7 @@ import { getSessionContext } from "@/lib/auth/session-context";
 import { redirect } from "next/navigation";
 
 export async function POST(request: Request) {
-  const { id, projectId, message, model } = await request.json();
+  const { id, projectId, message } = await request.json();
 
   const { userId, organizationId } = await getSessionContext();
 
@@ -15,7 +15,6 @@ export async function POST(request: Request) {
 
   const title = await generateTitleFromUserMessageAction({
     message,
-    model,
   });
 
   const newThread = await chatRepository.insertThread(

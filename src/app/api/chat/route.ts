@@ -77,7 +77,6 @@ export async function POST(request: Request) {
     if (!thread) {
       const title = await generateTitleFromUserMessageAction({
         message,
-        model,
       });
       const newThread = await chatRepository.insertThread(
         {
