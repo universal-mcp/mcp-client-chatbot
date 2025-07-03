@@ -11,16 +11,16 @@ import { ChatModel } from "app-types/chat";
 
 const staticModels = {
   openai: {
-    "4o-mini": openai("gpt-4o-mini", {}),
-    "4o": openai("gpt-4o"),
+    "gpt-4.1": openai("gpt-4.1"),
+    "gpt-4.1-mini": openai("gpt-4.1-mini"),
+  },
+  anthropic: {
+    "claude-3-5-sonnet": anthropic("claude-3-5-sonnet-latest"),
+    "claude-4-sonnet": anthropic("claude-sonnet-4-20250514"),
   },
   google: {
     "gemini-2.5-flash": google("gemini-2.5-flash-preview-04-17"),
     "gemini-2.5-pro": google("gemini-2.5-pro-preview-05-06"),
-  },
-  anthropic: {
-    "claude-3-5-sonnet": anthropic("claude-3-5-sonnet-latest"),
-    "claude-3-7-sonnet": anthropic("claude-3-7-sonnet-latest"),
   },
 };
 
