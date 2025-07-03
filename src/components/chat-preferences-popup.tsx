@@ -17,7 +17,7 @@ import {
   MCPInstructionsContent,
   UserInstructionsContent,
 } from "./chat-preferences-content";
-import { UserIcon, X } from "lucide-react";
+import { UserIcon, ArrowLeft } from "lucide-react";
 import { Button } from "ui/button";
 import { useTranslations } from "next-intl";
 import { MCPIcon } from "ui/mcp-icon";
@@ -90,27 +90,36 @@ export function ChatPreferencesPopup() {
           }}
           className="max-h-[100vh]! w-full h-full border-none rounded-none flex flex-col bg-card overflow-hidden p-4 md:p-6"
         >
-          <div className="flex items-center justify-end">
-            <Button variant="ghost" size="icon" onClick={handleClose}>
-              <X />
-            </Button>
-          </div>
           <DrawerTitle className="sr-only">Chat Preferences</DrawerTitle>
           <DrawerDescription className="sr-only" />
 
-          <div className="flex justify-center">
-            <div className="w-full mt-4 lg:w-5xl lg:mt-14">
-              {/* Mobile: Tabs as horizontal scroll */}
-              <div className="md:hidden">
-                <div className="flex gap-2 overflow-x-auto pb-2">
+          <div className="flex flex-1 items-center justify-center pt-8 pb-16">
+            <div className="w-full max-w-5xl">
+              {/* Header with Back Button and Tabs */}
+              <div className="flex flex-col gap-4 mb-6">
+                {/* Back Button */}
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleClose}
+                    className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    <span className="text-sm font-medium">Back</span>
+                  </Button>
+                </div>
+
+                {/* Horizontal Tabs */}
+                <div className="flex gap-2 border-b border-border">
                   {tabs.map((tabItem, index) => (
                     <button
                       key={index}
                       onClick={() => setTab(index)}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all duration-200 ${
+                      className={`flex items-center gap-2 px-4 py-3 rounded-t-lg text-sm font-medium transition-all duration-200 border-b-2 -mb-px ${
                         tab === index
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted/50 text-muted-foreground hover:text-foreground"
+                          ? "bg-primary/5 text-primary border-primary"
+                          : "text-muted-foreground hover:text-foreground border-transparent hover:bg-muted/30"
                       }`}
                     >
                       {tabItem.icon}
@@ -120,42 +129,20 @@ export function ChatPreferencesPopup() {
                 </div>
               </div>
 
-              <div className="flex flex-1 overflow-hidden">
-                {/* Desktop: Sidebar */}
-                <div className="hidden md:block w-64">
-                  <nav className="px-4 flex flex-col gap-2">
-                    {tabs.map((tabItem, index) => (
-                      <button
-                        key={index}
-                        onClick={() => setTab(index)}
-                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all duration-200 ${
-                          tab === index
-                            ? "bg-primary text-primary-foreground shadow-md"
-                            : "hover:bg-muted/50 text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        {tabItem.icon}
-                        <span className="font-medium">{tabItem.label}</span>
-                      </button>
-                    ))}
-                  </nav>
+              {/* Content */}
+              <AutoHeight className="w-full rounded-lg border max-h-[70vh] overflow-y-auto">
+                <div className="p-6 md:p-8">
+                  {openChatPreferences && (
+                    <>
+                      {tab == 0 ? (
+                        <UserInstructionsContent />
+                      ) : tab == 1 ? (
+                        <MCPInstructionsContent />
+                      ) : null}
+                    </>
+                  )}
                 </div>
-
-                {/* Content */}
-                <AutoHeight className="flex-1 rounded-lg border max-h-[80vh] overflow-y-auto">
-                  <div className="p-4 md:p-8">
-                    {openChatPreferences && (
-                      <>
-                        {tab == 0 ? (
-                          <UserInstructionsContent />
-                        ) : tab == 1 ? (
-                          <MCPInstructionsContent />
-                        ) : null}
-                      </>
-                    )}
-                  </div>
-                </AutoHeight>
-              </div>
+              </AutoHeight>
             </div>
           </div>
         </DrawerContent>
