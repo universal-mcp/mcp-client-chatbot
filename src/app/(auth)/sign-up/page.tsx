@@ -137,7 +137,7 @@ export default function SignUpPage() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="mcp@example.com"
+                  placeholder="jane@example.com"
                   disabled={isLoading}
                   autoFocus
                   value={formData.email}
@@ -160,7 +160,7 @@ export default function SignUpPage() {
                 <Input
                   id="name"
                   type="text"
-                  placeholder="Cgoing"
+                  placeholder="Jane Doe"
                   disabled={isLoading}
                   autoFocus
                   value={formData.name}
