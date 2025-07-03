@@ -14,27 +14,34 @@ import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import Image from "next/image";
-import { organization } from "@/lib/auth/client";
+import {
+  organization,
+  useActiveOrganization,
+  useListOrganizations,
+} from "@/lib/auth/client";
+import { appStore } from "@/app/store";
 import { useRouter } from "next/navigation";
 
 interface CreateOrganizationModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  refetchOrganizations?: () => void;
 }
 
 export const CreateOrganizationModal = ({
   open,
   onOpenChange,
-  refetchOrganizations,
 }: CreateOrganizationModalProps) => {
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [loading, setLoading] = useState(false);
   const [isSlugEdited, setIsSlugEdited] = useState(false);
   const [logo, setLogo] = useState<string | null>(null);
+  const handleSwitchOrganization = appStore(
+    (state) => state.handleSwitchOrganization,
+  );
+  const { refetch: refetchOrganizations } = useListOrganizations();
+  const { refetch: refetchActiveOrganization } = useActiveOrganization();
   const router = useRouter();
-
   useEffect(() => {
     if (!isSlugEdited) {
       const generatedSlug = name.trim().toLowerCase().replace(/\s+/g, "-");
@@ -132,15 +139,11 @@ export const CreateOrganizationModal = ({
                   onSuccess: async (ctx) => {
                     toast.success("Workspace created successfully");
                     onOpenChange(false);
-                    refetchOrganizations?.();
                     // Switch to the newly created workspace
-                    if (ctx.data?.id) {
-                      await organization.setActive({
-                        organizationId: ctx.data.id,
-                      });
-                      // Route to homepage after switching
-                      router.push("/");
-                    }
+                    await handleSwitchOrganization(ctx.data?.id || null);
+                    refetchOrganizations();
+                    refetchActiveOrganization();
+                    router.push("/");
                   },
                   onError: (error) => {
                     toast.error(error.error.message);

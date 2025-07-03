@@ -9,6 +9,7 @@ import {
 import { AllowedMCPServer, MCPServerInfo } from "app-types/mcp";
 import { OPENAI_VOICE } from "lib/ai/speech/open-ai/use-voice-chat.openai";
 import { mutate } from "swr";
+import { organization } from "@/lib/auth/client";
 
 export interface AppState {
   threadList: ChatThread[];
@@ -47,6 +48,10 @@ export interface AppState {
 export interface AppDispatch {
   mutate: (state: Mutate<AppState>) => void;
   invalidateOrganizationData: () => void;
+  handleSwitchOrganization: (
+    orgId: string | null,
+    currentActiveOrgId?: string | null,
+  ) => Promise<boolean>;
 }
 
 const initialState: AppState = {
@@ -79,7 +84,7 @@ const initialState: AppState = {
 
 export const appStore = create<AppState & AppDispatch>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       ...initialState,
       mutate: set,
       invalidateOrganizationData: () => {
@@ -98,6 +103,30 @@ export const appStore = create<AppState & AppDispatch>()(
           projectList: [],
           mcpList: [],
         });
+      },
+      handleSwitchOrganization: async (
+        orgId: string | null,
+        currentActiveOrgId?: string | null,
+      ) => {
+        try {
+          // Don't do anything if trying to switch to current org
+          if (orgId === currentActiveOrgId) {
+            return false;
+          }
+
+          // Set the new active organization
+          await organization.setActive({
+            organizationId: orgId,
+          });
+
+          // Invalidate organization data
+          get().invalidateOrganizationData();
+
+          return true;
+        } catch (error) {
+          console.error("Failed to switch organization:", error);
+          return false;
+        }
       },
     }),
     {

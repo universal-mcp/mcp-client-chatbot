@@ -9,11 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ChevronDown, Plus, Settings, Building2 } from "lucide-react";
-import {
-  organization,
-  useActiveOrganization,
-  useListOrganizations,
-} from "@/lib/auth/client";
+import { useActiveOrganization, useListOrganizations } from "@/lib/auth/client";
 import { useState } from "react";
 import { appStore } from "@/app/store";
 import { CreateOrganizationModal } from "@/components/organization/create-organization-modal";
@@ -23,31 +19,24 @@ import { cn } from "@/lib/utils";
 export const WorkspacePicker = () => {
   const { data: organizations, refetch: refetchOrganizations } =
     useListOrganizations();
-  const { data: activeOrganization } = useActiveOrganization();
-  const invalidateOrganizationData = appStore(
-    (state) => state.invalidateOrganizationData,
+  const { data: activeOrganization, refetch: refetchActiveOrganization } =
+    useActiveOrganization();
+  const handleSwitchOrganization = appStore(
+    (state) => state.handleSwitchOrganization,
   );
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const router = useRouter();
 
-  const handleSwitchOrganization = async (orgId: string | null) => {
-    try {
-      // Don't do anything if trying to switch to current org
-      if (orgId === activeOrganization?.id) {
-        return;
-      }
-
-      // Set the new active organization
-      await organization.setActive({
-        organizationId: orgId,
-      });
-
-      invalidateOrganizationData();
+  const onSwitchOrganization = async (orgId: string | null) => {
+    const success = await handleSwitchOrganization(
+      orgId,
+      activeOrganization?.id,
+    );
+    if (success) {
+      refetchOrganizations();
+      refetchActiveOrganization();
       // Refresh the router to update UI
       router.refresh();
-    } catch (error) {
-      console.error("Failed to switch organization:", error);
-      // Here you could add a toast notification or other error handling UI
     }
   };
 
@@ -86,7 +75,7 @@ export const WorkspacePicker = () => {
           <DropdownMenuContent align="start" className="w-64" sideOffset={8}>
             {/* Personal Workspace */}
             <DropdownMenuItem
-              onClick={() => handleSwitchOrganization(null)}
+              onClick={() => onSwitchOrganization(null)}
               className={cn(
                 "flex items-center gap-3 p-3 cursor-pointer",
                 !activeOrganization?.id && "bg-accent",
@@ -109,7 +98,7 @@ export const WorkspacePicker = () => {
             {organizations?.map((org) => (
               <DropdownMenuItem
                 key={org.id}
-                onClick={() => handleSwitchOrganization(org.id)}
+                onClick={() => onSwitchOrganization(org.id)}
                 className={cn(
                   "flex items-center gap-3 p-3 cursor-pointer",
                   org.id === activeOrganization?.id && "bg-accent",
@@ -163,7 +152,6 @@ export const WorkspacePicker = () => {
       <CreateOrganizationModal
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
-        refetchOrganizations={refetchOrganizations}
       />
     </div>
   );
