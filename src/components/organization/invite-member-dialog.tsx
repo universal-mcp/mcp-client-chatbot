@@ -29,11 +29,32 @@ import {
 
 export const InviteMemberDialog = ({
   activeOrganization,
+  isAdmin,
 }: {
   activeOrganization: ActiveOrganization | null;
+  isAdmin: boolean;
 }) => {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("member");
+
+  const handleInvite = async () => {
+    if (!isAdmin) {
+      toast.error("Only administrators can invite members");
+      return;
+    }
+
+    const invite = organization.inviteMember({
+      email: email,
+      role: role as "member",
+      organizationId: activeOrganization?.id,
+    });
+    toast.promise(invite, {
+      loading: "Inviting member...",
+      success: "Member invited successfully",
+      error: (error) => error.error.message,
+    });
+  };
+
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -47,6 +68,11 @@ export const InviteMemberDialog = ({
           <DialogTitle>Invite Member</DialogTitle>
           <DialogDescription>
             Invite a member to your organization.
+            {!isAdmin && (
+              <div className="mt-2 text-sm text-destructive">
+                Only administrators can invite members.
+              </div>
+            )}
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-2">
@@ -55,9 +81,10 @@ export const InviteMemberDialog = ({
             placeholder="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            disabled={!isAdmin}
           />
           <Label>Role</Label>
-          <Select value={role} onValueChange={setRole}>
+          <Select value={role} onValueChange={setRole} disabled={!isAdmin}>
             <SelectTrigger>
               <SelectValue placeholder="Select a role" />
             </SelectTrigger>
@@ -70,19 +97,8 @@ export const InviteMemberDialog = ({
         <DialogFooter>
           <DialogClose asChild>
             <Button
-              disabled={!email || !role}
-              onClick={async () => {
-                const invite = organization.inviteMember({
-                  email: email,
-                  role: role as "member",
-                  organizationId: activeOrganization?.id,
-                });
-                toast.promise(invite, {
-                  loading: "Inviting member...",
-                  success: "Member invited successfully",
-                  error: (error) => error.error.message,
-                });
-              }}
+              disabled={!email || !role || !isAdmin}
+              onClick={handleInvite}
             >
               Invite
             </Button>

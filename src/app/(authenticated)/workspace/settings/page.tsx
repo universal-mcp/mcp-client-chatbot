@@ -14,27 +14,43 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Building2, Users, Settings, Save } from "lucide-react";
-import {
-  useActiveOrganization,
-  organization,
-  useListOrganizations,
-} from "@/lib/auth/client";
+import { useActiveOrganization, organization } from "@/lib/auth/client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { OrganizationCard } from "@/components/organization/organization-card";
 import { CreateOrganizationModal } from "@/components/organization/create-organization-modal";
+import useSWR from "swr";
 
 export default function WorkspaceSettingsPage() {
   const { data: activeOrganization } = useActiveOrganization();
-  const { refetch: refetchOrganizations } = useListOrganizations();
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(activeOrganization?.name || "");
   const [loading, setLoading] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
+  // Fetch user role to check admin permissions
+  const { data: userRole, isLoading: isLoadingRole } = useSWR(
+    "user-role",
+    async () => {
+      const response = await fetch("/api/user/role");
+      if (!response.ok) {
+        throw new Error("Failed to fetch user role");
+      }
+      return response.json();
+    },
+  );
+
+  const isAdmin = userRole?.isAdmin ?? false;
+  const isLoadingData = isLoadingRole;
+
   const handleSave = async () => {
+    if (!isAdmin) {
+      toast.error("Only administrators can edit workspace details");
+      return;
+    }
+
     if (!activeOrganization?.id) {
       toast.error("Cannot update personal workspace name");
       return;
@@ -62,6 +78,14 @@ export default function WorkspaceSettingsPage() {
         },
       },
     );
+  };
+
+  const handleEditClick = () => {
+    if (!isAdmin) {
+      toast.error("Only administrators can edit workspace details");
+      return;
+    }
+    setIsEditing(!isEditing);
   };
 
   const isPersonalWorkspace = !activeOrganization?.id;
@@ -109,11 +133,18 @@ export default function WorkspaceSettingsPage() {
                   )}
                 </CardTitle>
               </div>
-              {!isPersonalWorkspace && (
+              {!isPersonalWorkspace && !isLoadingData && (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setIsEditing(!isEditing)}
+                  onClick={handleEditClick}
+                  disabled={!isAdmin}
+                  className={!isAdmin ? "opacity-50 cursor-not-allowed" : ""}
+                  title={
+                    !isAdmin
+                      ? "Only administrators can edit workspace details"
+                      : ""
+                  }
                 >
                   <Settings className="h-4 w-4 mr-2" />
                   {isEditing ? "Cancel" : "Edit"}
@@ -122,7 +153,7 @@ export default function WorkspaceSettingsPage() {
             </div>
           </CardHeader>
 
-          {!isPersonalWorkspace && isEditing && (
+          {!isPersonalWorkspace && isEditing && isAdmin && (
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="workspace-name">Workspace Name</Label>
@@ -163,7 +194,7 @@ export default function WorkspaceSettingsPage() {
                 Member Management
               </h2>
             </div>
-            <OrganizationCard />
+            <OrganizationCard isAdmin={isAdmin} />
           </div>
         </>
       )}
@@ -222,7 +253,6 @@ export default function WorkspaceSettingsPage() {
       <CreateOrganizationModal
         open={isCreateModalOpen}
         onOpenChange={setIsCreateModalOpen}
-        refetchOrganizations={refetchOrganizations}
       />
     </div>
   );

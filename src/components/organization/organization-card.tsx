@@ -23,12 +23,19 @@ function OrgMembers({
   activeOrganization,
   currentMember,
   session,
+  isAdmin,
 }: {
   activeOrganization: ActiveOrganization | null;
   currentMember: OrganizationMember | undefined;
   session: any;
+  isAdmin: boolean;
 }) {
   const handleRemoveMember = async (member: OrganizationMember) => {
+    if (!isAdmin) {
+      toast.error("Only administrators can remove members");
+      return;
+    }
+
     await organization.removeMember({
       memberIdOrEmail: member.id,
     });
@@ -77,8 +84,23 @@ function OrgMembers({
             {activeOrganization?.members.length || 1}
           </Badge>
         </div>
-        {activeOrganization?.id && (
-          <InviteMemberDialog activeOrganization={activeOrganization} />
+        {activeOrganization?.id && isAdmin && (
+          <InviteMemberDialog
+            activeOrganization={activeOrganization}
+            isAdmin={isAdmin}
+          />
+        )}
+        {activeOrganization?.id && !isAdmin && (
+          <Button
+            size="sm"
+            className="gap-2"
+            variant="secondary"
+            disabled
+            title="Only administrators can invite members"
+          >
+            <UserPlus size={14} />
+            <p>Invite Member</p>
+          </Button>
         )}
       </div>
 
@@ -117,7 +139,8 @@ function OrgMembers({
             </div>
             {member.role !== "owner" &&
               (currentMember?.role === "owner" ||
-                currentMember?.role === "admin") && (
+                currentMember?.role === "admin") &&
+              isAdmin && (
                 <Button
                   size="sm"
                   variant="destructive"
@@ -167,15 +190,43 @@ function Invites({
   isRevoking,
   setIsRevoking,
   inviteVariants,
+  isAdmin,
 }: {
   activeOrganization: ActiveOrganization | null;
   isRevoking: string[];
   setIsRevoking: (ids: string[]) => void;
   inviteVariants: any;
+  isAdmin: boolean;
 }) {
   const pendingInvites =
     activeOrganization?.invitations.filter((inv) => inv.status === "pending") ||
     [];
+
+  const handleRevokeInvitation = (invitationId: string) => {
+    if (!isAdmin) {
+      toast.error("Only administrators can revoke invitations");
+      return;
+    }
+
+    organization.cancelInvitation(
+      {
+        invitationId: invitationId,
+      },
+      {
+        onRequest: () => {
+          setIsRevoking([...isRevoking, invitationId]);
+        },
+        onSuccess: () => {
+          toast.message("Invitation revoked successfully");
+          setIsRevoking(isRevoking.filter((id) => id !== invitationId));
+        },
+        onError: (ctx) => {
+          toast.error(ctx.error.message);
+          setIsRevoking(isRevoking.filter((id) => id !== invitationId));
+        },
+      },
+    );
+  };
 
   if (!activeOrganization?.id) {
     return (
@@ -231,34 +282,14 @@ function Invites({
                   textToCopy={`${process.env.NEXT_PUBLIC_APP_URL}/accept-invitation/${invitation.id}`}
                 />
                 <Button
-                  disabled={isRevoking.includes(invitation.id)}
+                  disabled={isRevoking.includes(invitation.id) || !isAdmin}
                   size="sm"
                   variant="destructive"
                   className="h-8"
-                  onClick={() => {
-                    organization.cancelInvitation(
-                      {
-                        invitationId: invitation.id,
-                      },
-                      {
-                        onRequest: () => {
-                          setIsRevoking([...isRevoking, invitation.id]);
-                        },
-                        onSuccess: () => {
-                          toast.message("Invitation revoked successfully");
-                          setIsRevoking(
-                            isRevoking.filter((id) => id !== invitation.id),
-                          );
-                        },
-                        onError: (ctx) => {
-                          toast.error(ctx.error.message);
-                          setIsRevoking(
-                            isRevoking.filter((id) => id !== invitation.id),
-                          );
-                        },
-                      },
-                    );
-                  }}
+                  onClick={() => handleRevokeInvitation(invitation.id)}
+                  title={
+                    !isAdmin ? "Only administrators can revoke invitations" : ""
+                  }
                 >
                   {isRevoking.includes(invitation.id) ? (
                     <Loader2 className="animate-spin" size={16} />
@@ -283,7 +314,7 @@ function Invites({
   );
 }
 
-export function OrganizationCard() {
+export function OrganizationCard({ isAdmin }: { isAdmin: boolean }) {
   const { data: activeOrganization } = useActiveOrganization() as {
     data: ActiveOrganization | null;
   };
@@ -307,6 +338,7 @@ export function OrganizationCard() {
           activeOrganization={activeOrganization}
           currentMember={currentMember}
           session={session}
+          isAdmin={isAdmin}
         />
 
         <Separator />
@@ -316,6 +348,7 @@ export function OrganizationCard() {
           isRevoking={isRevoking}
           setIsRevoking={setIsRevoking}
           inviteVariants={inviteVariants}
+          isAdmin={isAdmin}
         />
       </CardContent>
     </Card>
