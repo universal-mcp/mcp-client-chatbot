@@ -14,6 +14,15 @@ export async function middleware(request: NextRequest) {
   const sessionCookie = getSessionCookie(request);
 
   if (!sessionCookie) {
+    // Check if this is an invitation URL and extract the invitation ID
+    const invitationMatch = pathname.match(/^\/accept-invitation\/(.+)$/);
+    if (invitationMatch) {
+      const invitationId = invitationMatch[1];
+      const signInUrl = new URL("/sign-in", request.url);
+      signInUrl.searchParams.set("invite", invitationId);
+      return NextResponse.redirect(signInUrl);
+    }
+
     return NextResponse.redirect(new URL("/sign-in", request.url));
   }
   return NextResponse.next();

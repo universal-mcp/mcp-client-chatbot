@@ -21,16 +21,31 @@ import { toast } from "sonner";
 import { GithubIcon } from "ui/github-icon";
 import { GoogleIcon } from "ui/google-icon";
 import { useTranslations } from "next-intl";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function SignInPage() {
   const t = useTranslations("Auth.SignIn");
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [loading, setLoading] = useState(false);
+
+  // Get invitation ID from URL params
+  const invitationId = searchParams.get("invite");
 
   const [formData, setFormData] = useObjectState({
     email: "",
     password: "",
   });
+
+  const handlePostAuthRedirect = () => {
+    // Check if there's a pending invitation from URL params
+    if (invitationId) {
+      router.push(`/accept-invitation/${invitationId}`);
+    } else {
+      router.push("/");
+    }
+  };
 
   const emailAndPasswordSignIn = () => {
     setLoading(true);
@@ -45,6 +60,9 @@ export default function SignInPage() {
           onError(ctx) {
             toast.error(ctx.error.message || ctx.error.statusText);
           },
+          onSuccess() {
+            handlePostAuthRedirect();
+          },
         },
       ),
     )
@@ -55,9 +73,16 @@ export default function SignInPage() {
   const googleSignIn = () => {
     if (!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID)
       return toast.warning(t("oauthClientIdNotSet", { provider: "Google" }));
+
+    // Check if there's a pending invitation to include in the callback URL
+    const callbackURL = invitationId
+      ? `/accept-invitation/${invitationId}`
+      : "/";
+
     authClient.signIn
       .social({
         provider: "google",
+        callbackURL,
       })
       .catch((e) => {
         toast.error(e.error);
@@ -67,9 +92,16 @@ export default function SignInPage() {
   const githubSignIn = () => {
     if (!process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID)
       return toast.warning(t("oauthClientIdNotSet", { provider: "GitHub" }));
+
+    // Check if there's a pending invitation to include in the callback URL
+    const callbackURL = invitationId
+      ? `/accept-invitation/${invitationId}`
+      : "/";
+
     authClient.signIn
       .social({
         provider: "github",
+        callbackURL,
       })
       .catch((e) => {
         toast.error(e.error);
@@ -157,7 +189,12 @@ export default function SignInPage() {
 
           <div className="my-8 text-center text-sm text-muted-foreground">
             {t("noAccount")}
-            <Link href="/sign-up" className="underline-offset-4 text-primary">
+            <Link
+              href={
+                invitationId ? `/sign-up?invite=${invitationId}` : "/sign-up"
+              }
+              className="underline-offset-4 text-primary"
+            >
               {t("signUp")}
             </Link>
           </div>
