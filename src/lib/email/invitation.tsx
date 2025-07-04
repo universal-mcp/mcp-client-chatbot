@@ -33,7 +33,7 @@ export const InviteUserEmail = ({
   teamImage,
   inviteLink,
 }: BetterAuthInviteUserEmailProps) => {
-  const previewText = `Join ${invitedByUsername} on BetterAuth`;
+  const previewText = `Join ${invitedByUsername} on Wingmen`;
   return (
     <Html>
       <Head />
@@ -43,7 +43,7 @@ export const InviteUserEmail = ({
           <Container className="border border-solid border-[#eaeaea] rounded my-[40px] mx-auto p-[20px] max-w-[465px]">
             <Heading className="text-black text-[24px] font-normal text-center p-0 my-[30px] mx-0">
               Join <strong>{invitedByUsername}</strong> on{" "}
-              <strong>Better Auth.</strong>
+              <strong>Wingmen</strong>
             </Heading>
             <Text className="text-black text-[14px] leading-[24px]">
               Hello there,
@@ -56,8 +56,8 @@ export const InviteUserEmail = ({
               >
                 {invitedByEmail}
               </Link>
-              ) has invited you to the <strong>{teamName}</strong> team on{" "}
-              <strong>Better Auth</strong>.
+              ) has invited you to the <strong>{teamName}</strong> workspace on{" "}
+              <strong>Wingmen</strong>.
             </Text>
             <Section>
               {teamImage ? (
