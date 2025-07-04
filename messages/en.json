@@ -58,9 +58,9 @@
       "error": "An error occurred. Please try again."
     },
     "Invitation": {
-      "title": "Organization Invitation",
-      "description": "You've been invited to join an organization",
-      "invitedBy": "{inviter} has invited you to join {organization}.",
+      "title": "Workspace Invitation",
+      "description": "You've been invited to join a workspace",
+      "invitedBy": "{inviter} has invited you to join {organization}",
       "sentTo": "This invitation was sent to {email}.",
       "acceptButton": "Accept Invitation",
       "declineButton": "Decline",
