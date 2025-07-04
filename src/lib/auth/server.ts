@@ -1,11 +1,10 @@
 import { betterAuth } from "better-auth";
-import { organization, twoFactor, apiKey, oneTap } from "better-auth/plugins";
+import { organization } from "better-auth/plugins";
 import { reactInvitationEmail } from "@/lib/email/invitation";
 import { reactResetPasswordEmail } from "@/lib/email/reset-password";
 import { resend } from "@/lib/email/resend";
 
 import { nextCookies } from "better-auth/next-js";
-import { passkey } from "better-auth/plugins/passkey";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { pgDb } from "@/lib/db/pg/db.pg";
 import { emailHarmony } from "better-auth-harmony";
@@ -101,23 +100,8 @@ export const auth = betterAuth({
         });
       },
     }),
-    twoFactor({
-      otpOptions: {
-        async sendOTP({ user, otp }) {
-          await resend.emails.send({
-            from,
-            to: user.email,
-            subject: "Your OTP",
-            html: `Your OTP is ${otp}`,
-          });
-        },
-      },
-    }),
-    passkey(),
-    oneTap(),
     nextCookies(),
     emailHarmony(),
-    apiKey(),
   ],
   trustedOrigins: ["exp://"],
   advanced: {

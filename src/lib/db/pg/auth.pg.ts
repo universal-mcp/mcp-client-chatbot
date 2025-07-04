@@ -3,7 +3,6 @@ import {
   text,
   timestamp,
   boolean,
-  integer,
   uuid,
   json,
 } from "drizzle-orm/pg-core";
@@ -106,54 +105,4 @@ export const invitation = pgTable("invitation", {
   inviterId: uuid("inviter_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
-});
-
-export const twoFactor = pgTable("two_factor", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  secret: text("secret").notNull(),
-  backupCodes: text("backup_codes").notNull(),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-});
-
-export const passkey = pgTable("passkey", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: text("name"),
-  publicKey: text("public_key").notNull(),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  credentialID: text("credential_i_d").notNull(),
-  counter: integer("counter").notNull(),
-  deviceType: text("device_type").notNull(),
-  backedUp: boolean("backed_up").notNull(),
-  transports: text("transports"),
-  createdAt: timestamp("created_at"),
-});
-
-export const apikey = pgTable("apikey", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: text("name"),
-  start: text("start"),
-  prefix: text("prefix"),
-  key: text("key").notNull(),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  refillInterval: integer("refill_interval"),
-  refillAmount: integer("refill_amount"),
-  lastRefillAt: timestamp("last_refill_at"),
-  enabled: boolean("enabled").default(true),
-  rateLimitEnabled: boolean("rate_limit_enabled").default(true),
-  rateLimitTimeWindow: integer("rate_limit_time_window").default(86400000),
-  rateLimitMax: integer("rate_limit_max").default(10),
-  requestCount: integer("request_count"),
-  remaining: integer("remaining"),
-  lastRequest: timestamp("last_request"),
-  expiresAt: timestamp("expires_at"),
-  createdAt: timestamp("created_at").notNull(),
-  updatedAt: timestamp("updated_at").notNull(),
-  permissions: text("permissions"),
-  metadata: text("metadata"),
 });
