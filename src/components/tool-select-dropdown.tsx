@@ -407,13 +407,13 @@ function McpServerSelector() {
                     );
                   }}
                   onToolClick={(toolName, checked) => {
+                    const currentTools =
+                      allowedMcpServers?.[server.id]?.tools ?? [];
                     setMcpServerTool(
                       server.id,
                       checked
-                        ? [toolName]
-                        : server.tools
-                            .filter((t) => t.name !== toolName)
-                            .map((t) => t.name),
+                        ? [...currentTools, toolName]
+                        : currentTools.filter((name) => name !== toolName),
                     );
                   }}
                 />
@@ -455,6 +455,7 @@ function McpServerToolSelector({
         className="text-muted-foreground flex items-center gap-2"
         onClick={(e) => {
           e.preventDefault();
+          e.stopPropagation();
           onClickAllChecked(!checked);
         }}
       >
@@ -472,7 +473,14 @@ function McpServerToolSelector({
           className="placeholder:text-muted-foreground flex w-full text-xs   outline-hidden disabled:cursor-not-allowed disabled:opacity-50"
         />
         <div className="flex-1" />
-        <Switch checked={checked} />
+        <Switch
+          checked={checked}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onClickAllChecked(!checked);
+          }}
+        />
       </DropdownMenuLabel>
       <DropdownMenuSeparator />
       <div className="max-h-96 overflow-y-auto">
@@ -487,6 +495,7 @@ function McpServerToolSelector({
               className="flex items-center gap-2 cursor-pointer mb-1"
               onClick={(e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 onToolClick(tool.name, !tool.checked);
               }}
             >
