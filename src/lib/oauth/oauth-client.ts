@@ -315,14 +315,14 @@ export class MCPOAuthClient {
       );
 
       const registrationData = {
-        client_name: "MCP Client Chatbot",
+        client_name: "Wingmen",
         redirect_uris: [redirectUri],
         grant_types: ["authorization_code"],
         response_types: ["code"],
         token_endpoint_auth_method: "none", // Public client
         application_type: "web",
         // Additional security metadata
-        software_id: "mcp-client-chatbot",
+        software_id: "Wingmen",
         software_version: process.env.npm_package_version || "1.0.0",
       };
 
@@ -568,10 +568,7 @@ export class MCPOAuthClient {
    * Get redirect URI for OAuth callback
    */
   static getRedirectUri(): string {
-    const baseUrl =
-      typeof window !== "undefined"
-        ? window.location.origin
-        : process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     return `${baseUrl}${this.REDIRECT_PATH}`;
   }
 
