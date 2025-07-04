@@ -19,8 +19,7 @@ import { cn } from "@/lib/utils";
 export const WorkspacePicker = () => {
   const { data: organizations, refetch: refetchOrganizations } =
     useListOrganizations();
-  const { data: activeOrganization, refetch: refetchActiveOrganization } =
-    useActiveOrganization();
+  const { data: activeOrganization } = useActiveOrganization();
   const handleSwitchOrganization = appStore(
     (state) => state.handleSwitchOrganization,
   );
@@ -34,7 +33,6 @@ export const WorkspacePicker = () => {
     );
     if (success) {
       refetchOrganizations();
-      refetchActiveOrganization();
       // Refresh the router to update UI
       router.refresh();
     }
@@ -61,10 +59,10 @@ export const WorkspacePicker = () => {
                 </AvatarFallback>
               </Avatar>
               <div className="flex flex-col items-start min-w-0 flex-1">
-                <span className="text-sm font-medium truncate">
+                <span className="text-sm font-medium truncate w-full text-left">
                   {activeOrganization?.name || "Personal"}
                 </span>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-xs text-muted-foreground truncate">
                   {activeOrganization?.members?.length || 1} member
                   {(activeOrganization?.members?.length || 1) !== 1 ? "s" : ""}
                 </span>
@@ -86,9 +84,9 @@ export const WorkspacePicker = () => {
                   <Building2 className="h-4 w-4" />
                 </AvatarFallback>
               </Avatar>
-              <div className="flex flex-col">
-                <span className="text-sm font-medium">Personal</span>
-                <span className="text-xs text-muted-foreground">
+              <div className="flex flex-col min-w-0 flex-1">
+                <span className="text-sm font-medium truncate">Personal</span>
+                <span className="text-xs text-muted-foreground truncate">
                   Your personal workspace
                 </span>
               </div>
@@ -113,9 +111,11 @@ export const WorkspacePicker = () => {
                     {org.name?.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium">{org.name}</span>
-                  <span className="text-xs text-muted-foreground">
+                <div className="flex flex-col min-w-0 flex-1">
+                  <span className="text-sm font-medium truncate">
+                    {org.name}
+                  </span>
+                  <span className="text-xs text-muted-foreground truncate">
                     Organization workspace
                   </span>
                 </div>
