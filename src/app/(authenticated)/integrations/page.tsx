@@ -293,6 +293,25 @@ export default function IntegrationsPage() {
     }
   };
 
+  const handleKeyDownAddServer = (e: React.KeyboardEvent) => {
+    if (
+      e.key === "Enter" &&
+      !isAddingServer &&
+      newServerName.trim() &&
+      newServerUrl.trim()
+    ) {
+      e.preventDefault();
+      handleAddServer();
+    }
+  };
+
+  const handleKeyDownDefaultServer = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !isAddingServer && selectedDefaultServer) {
+      e.preventDefault();
+      handleDefaultServerConnect();
+    }
+  };
+
   const handleDeleteServer = async (serverId: string) => {
     await removeMcpClientAction(serverId);
     mutate();
@@ -455,7 +474,7 @@ export default function IntegrationsPage() {
             open={addServerModalOpen}
             onOpenChange={setAddServerModalOpen}
           >
-            <DialogContent>
+            <DialogContent onKeyDown={handleKeyDownAddServer}>
               <DialogHeader>
                 <DialogTitle>Add New Server</DialogTitle>
                 <DialogDescription>
@@ -549,7 +568,7 @@ export default function IntegrationsPage() {
             open={defaultServerModalOpen}
             onOpenChange={setDefaultServerModalOpen}
           >
-            <DialogContent>
+            <DialogContent onKeyDown={handleKeyDownDefaultServer}>
               <DialogHeader>
                 <DialogTitle className="text-lg font-semibold">
                   Add {selectedDefaultServer?.name}
@@ -735,6 +754,13 @@ function ServerCard({
       );
     } finally {
       setIsEditing(false);
+    }
+  };
+
+  const handleKeyDownEdit = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !isEditing && editName.trim() && editUrl.trim()) {
+      e.preventDefault();
+      handleEdit();
     }
   };
 
@@ -1004,7 +1030,7 @@ function ServerCard({
       {/* Edit Modal - Only render for admin users and non-default servers */}
       {isAdmin && !server.isDefault && (
         <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
-          <DialogContent>
+          <DialogContent onKeyDown={handleKeyDownEdit}>
             <DialogHeader>
               <DialogTitle>Edit Server</DialogTitle>
               <DialogDescription>
