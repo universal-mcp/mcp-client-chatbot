@@ -14,19 +14,39 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Building2, Users, Settings, Save } from "lucide-react";
-import { useActiveOrganization, organization } from "@/lib/auth/client";
+import {
+  useActiveOrganization,
+  organization,
+  useSession,
+} from "@/lib/auth/client";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { OrganizationCard } from "@/components/organization/organization-card";
 import { CreateOrganizationModal } from "@/components/organization/create-organization-modal";
 import useSWR from "swr";
 
+// Function to generate a short hash from user ID
+const generateUserHash = async (userId: string): Promise<string> => {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(userId);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = new Uint8Array(hashBuffer);
+  // Convert to hex and take first 8 characters for a short hash
+  const hashHex = Array.from(hashArray)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("")
+    .substring(0, 8);
+  return hashHex;
+};
+
 export default function WorkspaceSettingsPage() {
   const { data: activeOrganization } = useActiveOrganization();
+  const { data: session } = useSession();
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(activeOrganization?.name || "");
+  const [slug, setSlug] = useState("");
   const [loading, setLoading] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
@@ -45,6 +65,19 @@ export default function WorkspaceSettingsPage() {
   const isAdmin = userRole?.isAdmin ?? false;
   const isLoadingData = isLoadingRole;
 
+  // Generate slug when name changes during editing
+  useEffect(() => {
+    if (isEditing && name.trim() && session?.user?.id) {
+      const generateSlug = async () => {
+        const baseSlug = name.trim().toLowerCase().replace(/\s+/g, "-");
+        const userHash = await generateUserHash(session.user.id);
+        const generatedSlug = `${baseSlug}-${userHash}`;
+        setSlug(generatedSlug);
+      };
+      generateSlug();
+    }
+  }, [name, isEditing, session?.user?.id]);
+
   const handleSave = async () => {
     if (!isAdmin) {
       toast.error("Only administrators can edit workspace details");
@@ -62,6 +95,7 @@ export default function WorkspaceSettingsPage() {
         organizationId: activeOrganization.id,
         data: {
           name: name.trim(),
+          slug: slug.trim(),
         },
       },
       {
@@ -73,7 +107,7 @@ export default function WorkspaceSettingsPage() {
           setIsEditing(false);
         },
         onError: (_error) => {
-          toast.error("Failed to update workspace");
+          toast.error("Failed to update name, please check if it is unique.");
           setLoading(false);
         },
       },
