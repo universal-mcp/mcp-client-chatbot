@@ -22,6 +22,7 @@ import { CacheKeys } from "lib/cache/cache-keys";
 import { getSessionContext } from "@/lib/auth/session-context";
 import logger from "logger";
 import { redirect } from "next/navigation";
+import { initializeProjectMcpConfigAction } from "@/app/api/mcp/project-config/actions";
 
 export async function getUserId() {
   const { userId } = await getSessionContext();
@@ -177,6 +178,10 @@ export async function insertProjectAction({
     userId,
     organizationId,
   );
+
+  // Initialize MCP configurations for the new project
+  await initializeProjectMcpConfigAction(project.id);
+
   return project;
 }
 
@@ -201,6 +206,10 @@ export async function insertProjectWithThreadAction({
     userId,
     organizationId,
   );
+
+  // Initialize MCP configurations for the new project
+  await initializeProjectMcpConfigAction(project.id);
+
   await chatRepository.updateThread(
     threadId,
     {

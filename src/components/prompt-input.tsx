@@ -34,6 +34,7 @@ interface PromptInputProps {
   model?: ChatModel;
   setModel?: (model: ChatModel) => void;
   voiceDisabled?: boolean;
+  isInProjectContext?: boolean;
 }
 
 const MentionInput = dynamic(() => import("./mention-input"), {
@@ -54,6 +55,7 @@ export default function PromptInput({
   isLoading,
   toolDisabled,
   voiceDisabled,
+  isInProjectContext,
 }: PromptInputProps) {
   const t = useTranslations("Chat");
 
@@ -203,7 +205,7 @@ export default function PromptInput({
                   <Paperclip className="size-4" />
                 </div>
 
-                {!toolDisabled && (
+                {!toolDisabled && !isInProjectContext && (
                   <>
                     <ToolModeDropdown />
                     <ToolSelectDropdown align="start" side="top" />

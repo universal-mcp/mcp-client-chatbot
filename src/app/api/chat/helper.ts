@@ -75,6 +75,138 @@ export function filterToolsByAllowedMCPServers(
     );
   });
 }
+
+export function filterToolsByProjectConfig(
+  tools: Record<string, VercelAIMcpTool>,
+  projectConfig?: {
+    servers: Array<{ id: string; name: string; enabled: boolean }>;
+    tools: Map<
+      string,
+      {
+        mcpServerId: string;
+        toolName: string;
+        enabled: boolean;
+        mode: "auto" | "manual";
+      }
+    >;
+  },
+): Record<string, VercelAIMcpTool> {
+  if (!projectConfig) {
+    return tools;
+  }
+
+  // Filter out tools from disabled servers
+  const enabledServerIds = new Set(
+    projectConfig.servers
+      .filter((server) => server.enabled)
+      .map((server) => server.id),
+  );
+
+  return objectFlow(tools).filter((_tool) => {
+    // Check if server is enabled
+    if (!enabledServerIds.has(_tool._mcpServerId)) {
+      return false;
+    }
+
+    // Check if specific tool is enabled
+    const toolConfigKey = `${_tool._mcpServerId}:${_tool._originToolName}`;
+    const toolConfig = projectConfig.tools.get(toolConfigKey);
+
+    // If no specific config exists, default to enabled
+    return toolConfig?.enabled ?? true;
+  });
+}
+
+export function applyProjectToolModes(
+  tools: Record<string, VercelAIMcpTool>,
+  projectConfig?: {
+    servers: Array<{ id: string; name: string; enabled: boolean }>;
+    tools: Map<
+      string,
+      {
+        mcpServerId: string;
+        toolName: string;
+        enabled: boolean;
+        mode: "auto" | "manual";
+      }
+    >;
+  },
+): Record<string, VercelAIMcpTool> {
+  if (!projectConfig) {
+    return tools;
+  }
+
+  console.log("🔧 Processing tools for modes:", Object.keys(tools));
+
+  // Apply manual mode to individual tools based on their configuration
+  return objectFlow(tools).map((_tool, _toolName) => {
+    const toolConfigKey = `${_tool._mcpServerId}:${_tool._originToolName}`;
+    const toolConfig = projectConfig.tools.get(toolConfigKey);
+
+    console.log(`🔧 Tool ${_tool._originToolName}:`, {
+      toolConfigKey,
+      mode: toolConfig?.mode ?? "auto (default)",
+      hasExecute: !!_tool.execute,
+    });
+
+    // If tool is configured as manual, remove its execute function
+    if (toolConfig?.mode === "manual") {
+      console.log(`🔧 Converting ${_tool._originToolName} to manual mode`);
+      // Create a new tool without the execute function but preserve MCP metadata
+      const manualTool = createTool({
+        parameters: _tool.parameters,
+        description: _tool.description,
+      });
+
+      // Preserve the MCP metadata
+      const result = {
+        ...manualTool,
+        _mcpServerName: _tool._mcpServerName,
+        _mcpServerId: _tool._mcpServerId,
+        _originToolName: _tool._originToolName,
+      } as VercelAIMcpTool;
+
+      console.log(
+        `🔧 Manual tool ${_tool._originToolName} hasExecute:`,
+        !!result.execute,
+      );
+      return result;
+    }
+
+    console.log(
+      `🔧 Keeping ${_tool._originToolName} in auto mode, hasExecute:`,
+      !!_tool.execute,
+    );
+    return _tool;
+  });
+}
+
+export function getProjectToolMode(
+  toolName: string,
+  mcpServerId: string,
+  projectConfig?: {
+    servers: Array<{ id: string; name: string; enabled: boolean }>;
+    tools: Map<
+      string,
+      {
+        mcpServerId: string;
+        toolName: string;
+        enabled: boolean;
+        mode: "auto" | "manual";
+      }
+    >;
+  },
+): "auto" | "manual" {
+  if (!projectConfig) {
+    return "auto";
+  }
+
+  const toolConfigKey = `${mcpServerId}:${toolName}`;
+  const toolConfig = projectConfig.tools.get(toolConfigKey);
+
+  return toolConfig?.mode ?? "auto";
+}
+
 export function getAllowedDefaultToolkit(
   allowedAppDefaultToolkit?: string[],
 ): Record<string, Tool> {
@@ -96,6 +228,25 @@ export function excludeToolExecution(
       parameters: value.parameters,
       description: value.description,
     });
+  });
+}
+
+export function excludeMcpToolExecution(
+  tools: Record<string, VercelAIMcpTool>,
+): Record<string, VercelAIMcpTool> {
+  return objectFlow(tools).map((_tool) => {
+    const manualTool = createTool({
+      parameters: _tool.parameters,
+      description: _tool.description,
+    });
+
+    // Preserve the MCP metadata
+    return {
+      ...manualTool,
+      _mcpServerName: _tool._mcpServerName,
+      _mcpServerId: _tool._mcpServerId,
+      _originToolName: _tool._originToolName,
+    } as VercelAIMcpTool;
   });
 }
 

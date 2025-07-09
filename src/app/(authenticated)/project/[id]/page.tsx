@@ -3,6 +3,7 @@ import { selectProjectByIdAction } from "@/app/api/chat/actions";
 import { appStore } from "@/app/store";
 import { ProjectDropdown } from "@/components/project-dropdown";
 import { ProjectSystemMessagePopup } from "@/components/project-system-message-popup";
+import { ProjectMcpConfigPopup } from "@/components/project-mcp-config-popup";
 import PromptInput from "@/components/prompt-input";
 import { ThreadDropdown } from "@/components/thread-dropdown";
 import { useToRef } from "@/hooks/use-latest";
@@ -16,6 +17,7 @@ import {
   FileUp,
   Pencil,
   MessagesSquare,
+  Settings2,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
@@ -75,6 +77,7 @@ export default function ProjectPage() {
   const threadId = useMemo(() => generateUUID(), []);
 
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [showMcpConfig, setShowMcpConfig] = useState(false);
 
   const [
     appStoreMutate,
@@ -183,6 +186,7 @@ export default function ProjectPage() {
           setInput={setInput}
           isLoading={isLoading}
           onStop={stop}
+          isInProjectContext={true}
         />
         <div className="flex my-4 mx-2 gap-4">
           <FeatureCard
@@ -203,6 +207,12 @@ export default function ProjectPage() {
             onClick={() => {
               project && setSelectedProject(project);
             }}
+          />
+          <FeatureCard
+            title="Configure Tools"
+            description="Manage which MCP tools are available and how they behave"
+            icon={<Settings2 size={18} className="text-muted-foreground" />}
+            onClick={() => setShowMcpConfig(true)}
           />
         </div>
 
@@ -268,6 +278,11 @@ export default function ProjectPage() {
         onSave={() => {
           fetchProject();
         }}
+      />
+      <ProjectMcpConfigPopup
+        isOpen={showMcpConfig}
+        onOpenChange={setShowMcpConfig}
+        projectId={id as string}
       />
     </div>
   );

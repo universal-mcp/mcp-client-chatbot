@@ -327,6 +327,7 @@ function DrawerTemporaryContent({
           voiceDisabled
           isLoading={isLoading}
           onStop={stop}
+          isInProjectContext={false}
         />
       </div>
     </div>

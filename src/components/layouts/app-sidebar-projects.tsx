@@ -58,7 +58,8 @@ export function AppSidebarProjects() {
           <SidebarMenuItem>
             <SidebarGroupLabel className="">
               <h4 className="text-xs text-muted-foreground flex items-center gap-1 group-hover/projects:text-foreground transition-colors">
-                {t("projects")}
+                {/* {t("projects")} */}
+                Assistants
               </h4>
               <div className="flex-1" />
 

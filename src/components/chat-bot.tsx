@@ -99,6 +99,7 @@ export default function ChatBot({ threadId, initialMessages, slots }: Props) {
         allowedAppDefaultToolkit: latestRef.current.allowedAppDefaultToolkit,
         allowedMcpServers: latestRef.current.allowedMcpServers,
         message: lastMessage,
+        projectId: currentThread?.projectId ?? undefined,
       };
       return request;
     },
@@ -203,6 +204,10 @@ export default function ChatBot({ threadId, initialMessages, slots }: Props) {
     };
   }, [threadId]);
 
+  const currentThread = useMemo(() => {
+    return threadList.find((thread) => thread.id === threadId);
+  }, [threadList, threadId]);
+
   useEffect(() => {
     if (isInitialThreadEntry)
       containerRef.current?.scrollTo({
@@ -296,6 +301,7 @@ export default function ChatBot({ threadId, initialMessages, slots }: Props) {
           setInput={setInput}
           isLoading={isLoading || isPendingToolCall}
           onStop={stop}
+          isInProjectContext={!!currentThread?.projectId}
         />
         {slots?.inputBottomSlot}
       </div>
