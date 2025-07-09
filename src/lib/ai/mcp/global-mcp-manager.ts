@@ -406,10 +406,12 @@ class GlobalMCPManager {
 
 // Export singleton instance using global storage to ensure true singleton
 export const globalMCPManager = (() => {
-  if (!global.__globalMCPManagerInstance) {
-    global.__globalMCPManagerInstance = new GlobalMCPManager();
+  const key = "__globalMCPManagerInstance";
+  const g = global as any; // Type assertion to avoid TS errors
+  if (!g[key]) {
+    g[key] = new GlobalMCPManager();
   }
-  return global.__globalMCPManagerInstance;
+  return g[key];
 })();
 
 // Export function for getting manager (convenience)
