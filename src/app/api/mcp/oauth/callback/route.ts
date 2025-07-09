@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
   const state = searchParams.get("state");
   const error = searchParams.get("error");
   const errorDescription = searchParams.get("error_description");
+  const redirectUri = MCPOAuthClient.getRedirectUri();
 
   try {
     // Handle OAuth errors
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(
         new URL(
           `/integrations?error=${encodeURIComponent(error)}&error_description=${encodeURIComponent(errorDescription || "")}`,
-          request.url,
+          redirectUri,
         ),
       );
     }
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
     if (!code || !state) {
       logger.error("Missing required OAuth callback parameters");
       return NextResponse.redirect(
-        new URL("/integrations?error=invalid_request", request.url),
+        new URL("/integrations?error=invalid_request", redirectUri),
       );
     }
 
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
     if (!authState) {
       logger.error("Invalid or expired authorization state");
       return NextResponse.redirect(
-        new URL("/integrations?error=invalid_state", request.url),
+        new URL("/integrations?error=invalid_state", redirectUri),
       );
     }
 
@@ -54,7 +55,7 @@ export async function GET(request: NextRequest) {
       logger.error("Authorization state user/organization mismatch");
       await OAuthStateManager.clearState(); // Clear state on mismatch
       return NextResponse.redirect(
-        new URL("/integrations?error=invalid_state", request.url),
+        new URL("/integrations?error=invalid_state", redirectUri),
       );
     }
 
@@ -68,7 +69,7 @@ export async function GET(request: NextRequest) {
     if (!clientConfig) {
       logger.error("OAuth client configuration not found");
       return NextResponse.redirect(
-        new URL("/integrations?error=client_not_found", request.url),
+        new URL("/integrations?error=client_not_found", redirectUri),
       );
     }
 
@@ -85,7 +86,7 @@ export async function GET(request: NextRequest) {
     if (!tokenResponse) {
       logger.error("Failed to exchange authorization code for token");
       return NextResponse.redirect(
-        new URL("/integrations?error=token_exchange_failed", request.url),
+        new URL("/integrations?error=token_exchange_failed", redirectUri),
       );
     }
 
@@ -115,7 +116,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(
       new URL(
         `/integrations?success=authorized&server=${encodeURIComponent(authState.serverName)}`,
-        request.url,
+        redirectUri,
       ),
     );
   } catch (error) {
@@ -125,7 +126,7 @@ export async function GET(request: NextRequest) {
     await OAuthStateManager.clearState();
 
     return NextResponse.redirect(
-      new URL("/integrations?error=callback_error", request.url),
+      new URL("/integrations?error=callback_error", redirectUri),
     );
   }
 }
