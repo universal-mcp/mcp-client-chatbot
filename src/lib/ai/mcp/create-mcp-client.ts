@@ -21,12 +21,13 @@ import {
 } from "lib/utils";
 
 import { safe } from "ts-safe";
-import { getAccessTokenAction } from "@/app/api/mcp/oauth/actions";
 
 type ClientOptions = {
   autoDisconnectSeconds?: number;
   serverId?: string; // MCP server ID for OAuth token lookup
   credentialType?: "personal" | "shared"; // Credential type for OAuth optimization
+  accessToken?: string; // Pre-fetched access token to avoid redundant lookups
+  tokenExpiry?: Date; // Token expiry date for OAuth status tracking
 };
 
 /**
@@ -123,32 +124,20 @@ export class MCPClient {
       this.oauthStatus.hasToken = false;
       this.oauthStatus.tokenExpiry = undefined;
 
-      // Add OAuth authorization header if we have a server ID and access token
-      if (this.serverId) {
-        try {
-          const tokenResult = await getAccessTokenAction(
-            this.serverId,
-            this.options.credentialType,
-          );
-          if (tokenResult) {
-            headers["Authorization"] = `Bearer ${tokenResult.token}`;
-            headers["X-OAuth-Server-ID"] = this.serverId; // Add server ID for debugging
-            headers["X-Request-Source"] = "mcp-client-chatbot"; // Add source identifier
-            this.log.info("Added OAuth authorization header to request");
-            this.oauthStatus.hasToken = true;
-            this.oauthStatus.tokenExpiry = tokenResult.expiresAt;
-          } else {
-            this.log.warn(
-              `No valid OAuth token available for server: ${this.name}. Server may require authorization.`,
-            );
-            // Add a header to indicate we attempted OAuth but no token was available
-            headers["X-OAuth-Status"] = "no-token";
-          }
-        } catch (error) {
-          this.log.warn("Failed to get OAuth access token:", error);
-          headers["X-OAuth-Status"] = "error";
-          // Continue without authorization - the server will return 401 if auth is required
-        }
+      // Add OAuth authorization header if we have an access token
+      if (this.options.accessToken) {
+        headers["Authorization"] = `Bearer ${this.options.accessToken}`;
+        headers["X-OAuth-Server-ID"] = this.serverId || "unknown"; // Add server ID for debugging
+        headers["X-Request-Source"] = "mcp-client-chatbot"; // Add source identifier
+        this.log.info("Added OAuth authorization header to request");
+        this.oauthStatus.hasToken = true;
+        this.oauthStatus.tokenExpiry = this.options.tokenExpiry;
+      } else if (this.serverId) {
+        this.log.warn(
+          `No access token provided for server: ${this.name}. Server may require authorization.`,
+        );
+        // Add a header to indicate no token was provided
+        headers["X-OAuth-Status"] = "no-token";
       } else {
         // No server ID provided, likely a legacy configuration
         this.log.debug("No server ID provided for OAuth token lookup");
@@ -251,7 +240,12 @@ export class MCPClient {
     this.isConnected = false;
     const client = this.client;
     this.client = undefined;
-    await client?.close().catch((e) => this.log.error(e));
+    await client?.close().catch((e) => {
+      // AbortError is expected when closing SSE connections - don't log it as an error
+      if (e?.name !== "AbortError") {
+        this.log.error(e);
+      }
+    });
   }
 
   async callTool(toolName: string, input?: unknown) {

@@ -11,8 +11,7 @@ import {
 
 import { customModelProvider, isToolCallUnsupportedModel } from "lib/ai/models";
 
-import { createMCPClientsManager } from "lib/ai/mcp/create-mcp-clients-manager";
-import { createDbBasedMCPConfigsStorage } from "lib/ai/mcp/db-mcp-config-storage";
+import { globalMCPManager } from "lib/ai/mcp/global-mcp-manager";
 
 import { chatRepository } from "lib/db/repository";
 import logger from "logger";
@@ -31,7 +30,7 @@ import { errorIf, safe } from "ts-safe";
 
 import {
   appendAnnotations,
-  excludeToolExecution,
+  excludeMcpToolExecution,
   filterToolsByMentions,
   handleError,
   manualToolExecuteByLastMessage,
@@ -43,17 +42,19 @@ import {
   getAllowedDefaultToolkit,
   filterToolsByAllowedMCPServers,
   filterMcpServerCustomizations,
+  filterToolsByProjectConfig,
+  applyProjectToolModes,
 } from "./helper";
 import {
   generateTitleFromUserMessageAction,
   rememberMcpServerCustomizationsAction,
 } from "./actions";
 import { getSessionContext } from "auth/session-context";
+import { getProjectMcpConfigAction } from "../mcp/project-config/actions";
 
 export async function POST(request: Request) {
   try {
     const json = await request.json();
-
     const { userId, organizationId, user } = await getSessionContext();
 
     const {
@@ -110,11 +111,13 @@ export async function POST(request: Request) {
 
     const annotations = (message?.annotations as ChatMessageAnnotation[]) ?? [];
 
-    const storage = createDbBasedMCPConfigsStorage(userId, organizationId);
-    const manager = createMCPClientsManager(storage);
-    await manager.init();
-
+    const manager = await globalMCPManager.getManager(userId, organizationId);
     const mcpTools = manager.tools();
+
+    // Get project-specific MCP configurations
+    const projectMcpConfig = projectId
+      ? await getProjectMcpConfigAction(projectId)
+      : undefined;
 
     const mentions = annotations
       .flatMap((annotation) => annotation.mentions)
@@ -127,12 +130,29 @@ export async function POST(request: Request) {
     const tools = safe(mcpTools)
       .map(errorIf(() => !isToolCallAllowed && "Not allowed"))
       .map((tools) => {
-        // filter tools by mentions
-        if (mentions.length) {
-          return filterToolsByMentions(tools, mentions);
+        // First apply project config filters if in project context
+        let filteredTools = tools;
+
+        if (projectMcpConfig) {
+          // In project context: only use project-specific server/tool filtering
+          filteredTools = filterToolsByProjectConfig(
+            filteredTools,
+            projectMcpConfig,
+          );
+        } else {
+          // Outside project context: use global allowedMcpServers setting
+          filteredTools = filterToolsByAllowedMCPServers(
+            filteredTools,
+            allowedMcpServers,
+          );
         }
-        // filter tools by allowed mcp servers
-        return filterToolsByAllowedMCPServers(tools, allowedMcpServers);
+
+        // Handle mentions in both contexts (mentions can exist everywhere)
+        if (mentions.length) {
+          return filterToolsByMentions(filteredTools, mentions);
+        }
+
+        return filteredTools;
       })
       .orElse(undefined);
 
@@ -187,16 +207,33 @@ export async function POST(request: Request) {
             ? "required"
             : "auto";
 
-        const vercelAITooles = safe(tools)
+        const vercelAITools = safe(tools)
           .map((t) => {
             if (!t) return undefined;
-            const bindingTools =
-              toolChoice === "manual" ? excludeToolExecution(t) : t;
 
-            return {
+            let processedTools = t;
+
+            if (projectMcpConfig) {
+              // Step 1: In project context - ONLY use project-specific tool modes
+              // Ignore global toolChoice setting entirely
+              processedTools = applyProjectToolModes(
+                processedTools,
+                projectMcpConfig,
+              );
+            } else {
+              // Step 2: Outside project context - use global tool choice setting
+              // If global setting is "manual", ALL tools become manual
+              if (toolChoice === "manual") {
+                processedTools = excludeMcpToolExecution(t);
+              }
+            }
+
+            const finalTools = {
               ...getAllowedDefaultToolkit(allowedAppDefaultToolkit),
-              ...bindingTools,
+              ...processedTools,
             };
+
+            return finalTools;
           })
           .unwrap();
 
@@ -208,7 +245,7 @@ export async function POST(request: Request) {
           experimental_continueSteps: true,
           experimental_transform: smoothStream({ chunking: "word" }),
           maxRetries: 0,
-          tools: vercelAITooles,
+          tools: vercelAITools,
           toolChoice: computedToolChoice,
           onFinish: async ({ response, usage }) => {
             const appendMessages = appendResponseMessages({

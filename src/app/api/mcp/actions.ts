@@ -7,20 +7,14 @@ import {
   getSessionContext,
   checkAdminPermission,
 } from "@/lib/auth/session-context";
-import { createMCPClientsManager } from "lib/ai/mcp/create-mcp-clients-manager";
-import { createDbBasedMCPConfigsStorage } from "lib/ai/mcp/db-mcp-config-storage";
-
-// Create manager instance
-async function getMcpClientsManager() {
-  const { userId, organizationId } = await getSessionContext();
-  const storage = createDbBasedMCPConfigsStorage(userId, organizationId);
-  const manager = createMCPClientsManager(storage);
-  await manager.init();
-  return manager;
-}
+import { globalMCPManager } from "lib/ai/mcp/global-mcp-manager";
 
 export async function selectMcpClientsAction() {
-  const mcpClientsManager = await getMcpClientsManager();
+  const { userId, organizationId } = await getSessionContext();
+  const mcpClientsManager = await globalMCPManager.getManager(
+    userId,
+    organizationId,
+  );
   const list = await mcpClientsManager.getClients();
   return list.map(({ client, id }) => {
     return {
@@ -31,7 +25,11 @@ export async function selectMcpClientsAction() {
 }
 
 export async function selectMcpClientAction(id: string) {
-  const mcpClientsManager = await getMcpClientsManager();
+  const { userId, organizationId } = await getSessionContext();
+  const mcpClientsManager = await globalMCPManager.getManager(
+    userId,
+    organizationId,
+  );
   const client = await mcpClientsManager.getClient(id);
   if (!client) {
     throw new Error("Client not found");
@@ -65,12 +63,22 @@ export async function saveMcpClientAction(
     );
   }
 
-  const mcpClientsManager = await getMcpClientsManager();
-  await mcpClientsManager.persistClient(server);
+  const { userId, organizationId } = await getSessionContext();
+  const savedServer = await globalMCPManager.saveServer(
+    userId,
+    organizationId,
+    server,
+  );
+
+  return savedServer;
 }
 
 export async function existMcpClientByServerNameAction(serverName: string) {
-  const mcpClientsManager = await getMcpClientsManager();
+  const { userId, organizationId } = await getSessionContext();
+  const mcpClientsManager = await globalMCPManager.getManager(
+    userId,
+    organizationId,
+  );
   const client = await mcpClientsManager.getClients().then((clients) => {
     return clients.find(
       (client) => client.client.getInfo().name === serverName,
@@ -82,15 +90,15 @@ export async function existMcpClientByServerNameAction(serverName: string) {
 export async function removeMcpClientAction(id: string) {
   await checkAdminPermission();
 
-  const mcpClientsManager = await getMcpClientsManager();
-  await mcpClientsManager.removeClient(id);
+  const { userId, organizationId } = await getSessionContext();
+  await globalMCPManager.deleteServer(userId, organizationId, id);
 }
 
 export async function refreshMcpClientAction(id: string) {
   await checkAdminPermission();
 
-  const mcpClientsManager = await getMcpClientsManager();
-  await mcpClientsManager.refreshClient(id);
+  const { userId, organizationId } = await getSessionContext();
+  await globalMCPManager.refreshServer(userId, organizationId, id);
 }
 
 function safeCallToolResult(chain: Safe<any>) {
@@ -115,7 +123,11 @@ export async function callMcpToolAction(
   input?: unknown,
 ) {
   const chain = safe(async () => {
-    const mcpClientsManager = await getMcpClientsManager();
+    const { userId, organizationId } = await getSessionContext();
+    const mcpClientsManager = await globalMCPManager.getManager(
+      userId,
+      organizationId,
+    );
     const client = await mcpClientsManager.getClient(id);
     if (!client) {
       throw new Error("Client not found");
@@ -140,7 +152,11 @@ export async function callMcpToolByServerNameAction(
   input?: unknown,
 ) {
   const chain = safe(async () => {
-    const mcpClientsManager = await getMcpClientsManager();
+    const { userId, organizationId } = await getSessionContext();
+    const mcpClientsManager = await globalMCPManager.getManager(
+      userId,
+      organizationId,
+    );
     const client = await mcpClientsManager.getClients().then((clients) => {
       return clients.find(
         (client) => client.client.getInfo().name === serverName,

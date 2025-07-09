@@ -6,7 +6,6 @@ import {
 } from "@/lib/auth/session-context";
 import { MCPOAuthClient } from "lib/oauth/oauth-client";
 import { OAuthStateManager } from "lib/oauth/oauth-state-manager";
-import { serverCache } from "@/lib/cache";
 import {
   pgMcpOAuthClientRepository,
   pgMcpOAuthTokenRepository,
@@ -14,6 +13,7 @@ import {
 } from "@/lib/db/pg/repositories/mcp-repository.pg";
 import logger from "@/lib/logger";
 import { safe } from "ts-safe";
+import { globalMCPManager } from "@/lib/ai/mcp/global-mcp-manager";
 
 // Rate limiting for OAuth actions (per user)
 const OAUTH_ACTION_RATE_LIMIT = 5; // 5 actions per minute per user
@@ -223,16 +223,12 @@ export async function revokeAuthorizationAction(
       await checkAdminPermission();
     }
 
-    await pgMcpOAuthTokenRepository.deleteByServerId(
-      serverId,
+    await globalMCPManager.revokeAccessToken(
       userId,
       organizationId,
+      serverId,
       credentialType,
     );
-
-    // Clear token from cache
-    const cacheKey = `oauth:token:${userId}:${serverId}:${organizationId || "null"}`;
-    await serverCache.delete(cacheKey);
 
     logger.info(`Revoked OAuth authorization for server: ${serverId}`);
 
@@ -252,7 +248,8 @@ export async function revokeAuthorizationAction(
 }
 
 /**
- * Get access token for MCP server (with automatic refresh and caching)
+ * Get access token for MCP server (with automatic refresh)
+ * Note: Caching is now handled by the unified server cache
  */
 export async function getAccessTokenAction(
   serverId: string,
@@ -260,15 +257,6 @@ export async function getAccessTokenAction(
 ): Promise<AccessTokenResult | null> {
   return safe(async () => {
     const { userId, organizationId } = await getSessionContext();
-
-    // Create cache key for this user/server combination
-    const cacheKey = `oauth:token:${userId}:${serverId}:${organizationId || "null"}`;
-
-    // Try to get from cache first (for performance)
-    const cachedTokenData = await serverCache.get<AccessTokenResult>(cacheKey);
-    if (cachedTokenData) {
-      return cachedTokenData;
-    }
 
     const token = await pgMcpOAuthTokenRepository.findByServerId(
       serverId,
@@ -291,6 +279,7 @@ export async function getAccessTokenAction(
       token.expiresAt.getTime() - now.getTime() < expiryBuffer;
 
     let currentAccessToken = token.accessToken;
+    let currentExpiresAt = token.expiresAt;
 
     if (isExpiring && token.refreshToken) {
       logger.info(
@@ -331,20 +320,10 @@ export async function getAccessTokenAction(
             });
 
             currentAccessToken = refreshResult.access_token;
+            currentExpiresAt = newExpiresAt;
             logger.info(
               `Successfully refreshed access token for server: ${serverId}`,
             );
-
-            // Cache the new token (cache for 90% of its lifetime or 1 hour, whichever is shorter)
-            const cacheTimeMs = refreshResult.expires_in
-              ? Math.min(refreshResult.expires_in * 900, 3600000) // 90% of lifetime or 1 hour
-              : 3600000; // Default 1 hour
-
-            const tokenResult = {
-              token: currentAccessToken,
-              expiresAt: newExpiresAt || undefined,
-            };
-            await serverCache.set(cacheKey, tokenResult, cacheTimeMs);
           } else {
             logger.error(`Failed to refresh token for server: ${serverId}`);
             // Token refresh failed, return null to force re-authorization
@@ -368,28 +347,11 @@ export async function getAccessTokenAction(
         );
         return null;
       }
-    } else if (!isExpiring && token.expiresAt) {
-      // Token is still valid, cache it
-      const remainingTime = token.expiresAt.getTime() - now.getTime();
-      const cacheTime = Math.min(remainingTime * 0.9, 3600000); // 90% of remaining time or 1 hour
-
-      if (cacheTime > 60000) {
-        // Only cache if more than 1 minute remaining
-        const tokenResult = {
-          token: currentAccessToken,
-          expiresAt: token.expiresAt,
-        };
-        await serverCache.set(cacheKey, tokenResult, cacheTime);
-      }
-    } else if (!token.expiresAt) {
-      // Token doesn't expire, cache for 1 hour
-      const tokenResult = { token: currentAccessToken, expiresAt: undefined };
-      await serverCache.set(cacheKey, tokenResult, 3600000);
     }
 
     return {
       token: currentAccessToken,
-      expiresAt: token.expiresAt || undefined,
+      expiresAt: currentExpiresAt || undefined,
     };
   })
     .ifFail((error) => {

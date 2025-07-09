@@ -1,32 +1,8 @@
-import type {
-  MCPServerConfig,
-  McpServerInsert,
-  McpServerSelect,
-  VercelAIMcpTool,
-} from "app-types/mcp";
+import type { MCPServerConfig, VercelAIMcpTool } from "app-types/mcp";
 import { createMCPClient, type MCPClient } from "./create-mcp-client";
 import { Locker } from "lib/utils";
 import { safe } from "ts-safe";
-import { McpServerSchema } from "lib/db/pg/schema.pg";
 import { createMCPToolId } from "./mcp-tool-id";
-
-/**
- * Interface for storage of MCP server configurations.
- * Implementations should handle persistent storage of server configs.
- *
- * IMPORTANT: When implementing this interface, be aware that:
- * - Storage can be modified externally (e.g., file edited manually)
- * - Concurrent modifications may occur from multiple processes
- * - Implementations should either handle these scenarios or document limitations
- */
-export interface MCPConfigStorage {
-  init(): Promise<void>;
-  loadAll(): Promise<McpServerSelect[]>;
-  save(server: McpServerInsert): Promise<McpServerSelect>;
-  delete(id: string): Promise<void>;
-  has(id: string): Promise<boolean>;
-  get(id: string): Promise<McpServerSelect | null>;
-}
 
 export class MCPClientsManager {
   protected clients = new Map<
@@ -38,9 +14,7 @@ export class MCPClientsManager {
   >();
   private initializedLock = new Locker();
 
-  // Optional storage for persistent configurations
   constructor(
-    private storage?: MCPConfigStorage,
     private autoDisconnectSeconds: number = 60 * 30, // 30 minutes
   ) {
     process.on("SIGINT", this.cleanup.bind(this));
@@ -50,16 +24,6 @@ export class MCPClientsManager {
   async init() {
     return safe(() => this.initializedLock.lock())
       .ifOk(() => this.cleanup())
-      .ifOk(async () => {
-        if (this.storage) {
-          await this.storage.init();
-          const configs = await this.storage.loadAll();
-          // Initialize clients sequentially to avoid race conditions
-          for (const { id, name, config } of configs) {
-            await this.addClient(id, name, config);
-          }
-        }
-      })
       .watch(() => this.initializedLock.unlock())
       .unwrap();
   }
@@ -85,12 +49,19 @@ export class MCPClientsManager {
     );
   }
   /**
-   * Creates and adds a new client instance to memory only (no storage persistence)
+   * Creates and adds a new client instance
    */
-  async addClient(id: string, name: string, serverConfig: MCPServerConfig) {
+  async addClient(
+    id: string,
+    name: string,
+    serverConfig: MCPServerConfig,
+    accessToken?: string,
+    tokenExpiry?: Date,
+  ) {
     if (this.clients.has(id)) {
       const prevClient = this.clients.get(id)!;
-      void prevClient.client.disconnect();
+      // Properly await the disconnect to ensure clean state
+      await prevClient.client.disconnect();
     }
 
     // Extract credentialType from config - all servers are remote with URLs
@@ -100,56 +71,47 @@ export class MCPClientsManager {
       autoDisconnectSeconds: this.autoDisconnectSeconds,
       serverId: id, // Pass the server ID for OAuth token lookup
       credentialType: credentialType, // Pass credential type for OAuth optimization
+      accessToken: accessToken, // Pass the access token directly
+      tokenExpiry: tokenExpiry, // Pass token expiry for OAuth status tracking
     });
+
+    // Connect first before adding to the map to ensure consistent state
+    await client.connect();
+
+    // Only add to clients map after successful connection
     this.clients.set(id, { client, name });
-    return client.connect();
+
+    return client;
   }
 
   /**
-   * Persists a new client configuration to storage and adds the client instance to memory
-   */
-  async persistClient(server: typeof McpServerSchema.$inferInsert) {
-    let id = server.name;
-    if (this.storage) {
-      const entity = await this.storage.save(server);
-      id = entity.id;
-    }
-    return this.addClient(id, server.name, server.config);
-  }
-
-  /**
-   * Removes a client by name, disposing resources and removing from storage
+   * Removes a client by id, disconnecting it
    */
   async removeClient(id: string) {
-    if (this.storage) {
-      if (await this.storage.has(id)) {
-        await this.storage.delete(id);
-      }
-    }
     const client = this.clients.get(id);
     this.clients.delete(id);
     if (client) {
-      void client.client.disconnect();
+      await client.client.disconnect();
     }
   }
 
   /**
-   * Refreshes an existing client with a new configuration or its existing config
+   * Refreshes an existing client with a new configuration
    */
-  async refreshClient(id: string) {
+  async refreshClient(
+    id: string,
+    name: string,
+    serverConfig: MCPServerConfig,
+    accessToken?: string,
+    tokenExpiry?: Date,
+  ) {
     const prevClient = this.clients.get(id);
     if (!prevClient) {
       throw new Error(`Client ${id} not found`);
     }
-    const currentConfig = prevClient.client.getInfo().config;
-    if (this.storage) {
-      const server = await this.storage.get(id);
-      if (!server) {
-        throw new Error(`Client ${id} not found`);
-      }
-      return this.addClient(id, server.name, server.config);
-    }
-    return this.addClient(id, prevClient.name, currentConfig);
+    // Disconnect old client and wait for it to complete
+    await prevClient.client.disconnect();
+    return this.addClient(id, name, serverConfig, accessToken, tokenExpiry);
   }
 
   async cleanup() {
@@ -172,8 +134,7 @@ export class MCPClientsManager {
 }
 
 export function createMCPClientsManager(
-  storage?: MCPConfigStorage,
   autoDisconnectSeconds: number = 60 * 30, // 30 minutes
 ): MCPClientsManager {
-  return new MCPClientsManager(storage, autoDisconnectSeconds);
+  return new MCPClientsManager(autoDisconnectSeconds);
 }

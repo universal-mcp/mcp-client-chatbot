@@ -2,11 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { MCPOAuthClient } from "lib/oauth/oauth-client";
 import { OAuthStateManager } from "lib/oauth/oauth-state-manager";
 import { getSessionContext } from "@/lib/auth/session-context";
-import {
-  pgMcpOAuthClientRepository,
-  pgMcpOAuthTokenRepository,
-} from "@/lib/db/pg/repositories/mcp-repository.pg";
+import { pgMcpOAuthClientRepository } from "@/lib/db/pg/repositories/mcp-repository.pg";
 import logger from "@/lib/logger";
+import { globalMCPManager } from "@/lib/ai/mcp/global-mcp-manager";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -96,18 +94,16 @@ export async function GET(request: NextRequest) {
       ? new Date(Date.now() + tokenResponse.expires_in * 1000)
       : null;
 
-    // Store or update the access token
-    await pgMcpOAuthTokenRepository.save({
+    await globalMCPManager.saveAccessToken(
       userId,
       organizationId,
-      mcpServerId: authState.serverId,
-      accessToken: tokenResponse.access_token,
-      refreshToken: tokenResponse.refresh_token || null,
-      tokenType: tokenResponse.token_type,
-      scope: tokenResponse.scope || null,
+      authState.serverId,
+      tokenResponse.access_token,
+      tokenResponse.refresh_token || null,
+      tokenResponse.token_type,
+      tokenResponse.scope || null,
       expiresAt,
-    });
-
+    );
     logger.info(
       `Successfully stored OAuth token for server ${authState.serverName}`,
     );

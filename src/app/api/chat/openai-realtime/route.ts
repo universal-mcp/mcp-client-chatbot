@@ -12,11 +12,10 @@ import {
   buildProjectInstructionsSystemPrompt,
   buildSpeechSystemPrompt,
 } from "lib/ai/prompts";
-import { createMCPClientsManager } from "lib/ai/mcp/create-mcp-clients-manager";
 import { errorIf, safe } from "ts-safe";
 import { DEFAULT_VOICE_TOOLS } from "lib/ai/speech";
 import { rememberMcpServerCustomizationsAction } from "../actions";
-import { createDbBasedMCPConfigsStorage } from "lib/ai/mcp/db-mcp-config-storage";
+import { globalMCPManager } from "lib/ai/mcp/global-mcp-manager";
 
 export async function POST(request: NextRequest) {
   try {
@@ -41,8 +40,10 @@ export async function POST(request: NextRequest) {
         threadId?: string;
       };
 
-    const storage = createDbBasedMCPConfigsStorage(userId, organizationId);
-    const mcpClientsManager = createMCPClientsManager(storage);
+    const mcpClientsManager = await globalMCPManager.getManager(
+      userId,
+      organizationId,
+    );
     const mcpTools = mcpClientsManager.tools();
 
     const tools = safe(mcpTools)
@@ -74,7 +75,7 @@ export async function POST(request: NextRequest) {
       .orElse({});
 
     const openAITools = Object.entries(tools ?? {}).map(([name, tool]) => {
-      return vercelAIToolToOpenAITool(tool, name);
+      return vercelAIToolToOpenAITool(tool as VercelAIMcpTool, name);
     });
 
     const systemPrompt = mergeSystemPrompt(

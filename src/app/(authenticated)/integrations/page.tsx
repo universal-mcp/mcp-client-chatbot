@@ -695,7 +695,7 @@ function ServerCard({
     connected: "bg-green-500",
     disconnected: "bg-red-500",
     loading: "bg-yellow-500",
-  }[server.status];
+  }[server.oauthStatus.isAuthorized ? "connected" : "disconnected"];
 
   // Obfuscate URL for non-admin users
   const getDisplayUrl = (url: string) => {
