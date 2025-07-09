@@ -65,14 +65,14 @@ export async function POST(request: NextRequest) {
           organizationId,
         );
 
-    const mcpServerCustomizations = await safe()
-      .map(() => {
-        if (Object.keys(tools ?? {}).length === 0)
-          throw new Error("No tools found");
-        return rememberMcpServerCustomizationsAction(userId);
-      })
-      .map((v) => filterMcpServerCustomizations(tools!, v))
-      .orElse({});
+    // const mcpServerCustomizations = await safe()
+    //   .map(() => {
+    //     if (Object.keys(tools ?? {}).length === 0)
+    //       throw new Error("No tools found");
+    //     return rememberMcpServerCustomizationsAction(userId);
+    //   })
+    //   .map((v) => filterMcpServerCustomizations(tools, v))
+    //   .orElse({});
 
     const openAITools = Object.entries(tools ?? {}).map(([name, tool]) => {
       return vercelAIToolToOpenAITool(tool as VercelAIMcpTool, name);
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
     const systemPrompt = mergeSystemPrompt(
       buildSpeechSystemPrompt(user, userPreferences),
       buildProjectInstructionsSystemPrompt(instructions),
-      buildMcpServerCustomizationsSystemPrompt(mcpServerCustomizations),
+      // buildMcpServerCustomizationsSystemPrompt(mcpServerCustomizations),
     );
 
     const r = await fetch("https://api.openai.com/v1/realtime/sessions", {
