@@ -2,19 +2,13 @@ import { NextRequest } from "next/server";
 import { getSessionContext } from "@/lib/auth/session-context";
 import { AllowedMCPServer, VercelAIMcpTool } from "app-types/mcp";
 import { chatRepository } from "lib/db/repository";
+import { filterToolsByAllowedMCPServers, mergeSystemPrompt } from "../helper";
 import {
-  filterMcpServerCustomizations,
-  filterToolsByAllowedMCPServers,
-  mergeSystemPrompt,
-} from "../helper";
-import {
-  buildMcpServerCustomizationsSystemPrompt,
   buildProjectInstructionsSystemPrompt,
   buildSpeechSystemPrompt,
 } from "lib/ai/prompts";
 import { errorIf, safe } from "ts-safe";
 import { DEFAULT_VOICE_TOOLS } from "lib/ai/speech";
-import { rememberMcpServerCustomizationsAction } from "../actions";
 import { globalMCPManager } from "lib/ai/mcp/global-mcp-manager";
 
 export async function POST(request: NextRequest) {

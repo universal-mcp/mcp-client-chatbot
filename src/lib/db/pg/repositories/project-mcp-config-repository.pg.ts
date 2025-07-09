@@ -4,7 +4,7 @@ import {
   ProjectMcpToolConfigSchema,
   McpServerSchema,
 } from "../schema.pg";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { generateUUID } from "lib/utils";
 import { sql } from "drizzle-orm";
 import { isNull } from "drizzle-orm";
