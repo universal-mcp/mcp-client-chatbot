@@ -8,6 +8,7 @@ import {
   checkAdminPermission,
 } from "@/lib/auth/session-context";
 import { globalMCPManager } from "lib/ai/mcp/global-mcp-manager";
+import { pgProjectMcpConfigRepository } from "@/lib/db/pg/repositories/project-mcp-config-repository.pg";
 
 export async function selectMcpClientsAction() {
   const { userId, organizationId } = await getSessionContext();
@@ -85,6 +86,10 @@ export async function existMcpClientByServerNameAction(serverName: string) {
     );
   });
   return !!client;
+}
+
+export async function isMcpServerInUseAction(mcpServerId: string) {
+  return pgProjectMcpConfigRepository.isMcpServerInUse(mcpServerId);
 }
 
 export async function removeMcpClientAction(id: string) {

@@ -33,6 +33,7 @@ import {
   existMcpClientByServerNameAction,
   removeMcpClientAction,
   refreshMcpClientAction,
+  isMcpServerInUseAction,
 } from "@/app/api/mcp/actions";
 import {
   authorizeServerAction,
@@ -76,6 +77,7 @@ export default function IntegrationsPage() {
   const [isAddingServer, setIsAddingServer] = useState(false);
   const [newServerName, setNewServerName] = useState("");
   const [newServerUrl, setNewServerUrl] = useState("");
+  const [touched, setTouched] = useState({ name: false, url: false });
   const [newServerCredentialType, setNewServerCredentialType] = useState<
     "personal" | "shared"
   >("personal");
@@ -86,6 +88,29 @@ export default function IntegrationsPage() {
     useState<DefaultServerConfig | null>(null);
   const [defaultServerCredentialType, setDefaultServerCredentialType] =
     useState<"personal" | "shared">("personal");
+
+  const nameError = useMemo(() => {
+    if (!newServerName.trim()) return "Server name cannot be empty.";
+    if (/\s/.test(newServerName)) {
+      return "Server name cannot contain spaces.";
+    }
+    return null;
+  }, [newServerName]);
+
+  const urlError = useMemo(() => {
+    if (!newServerUrl.trim()) return "Server URL cannot be empty.";
+    try {
+      const url = new URL(newServerUrl);
+      if (!["http:", "https:"].includes(url.protocol)) {
+        return "URL must start with http:// or https://";
+      }
+    } catch (_e) {
+      return "Please enter a valid URL.";
+    }
+    return null;
+  }, [newServerUrl]);
+
+  const isFormValid = !nameError && !urlError;
 
   // Get organization context to determine if we're in a workspace
   const { data: activeOrganization } = useActiveOrganization();
@@ -180,8 +205,9 @@ export default function IntegrationsPage() {
       return;
     }
 
-    if (!newServerName.trim() || !newServerUrl.trim()) {
-      toast.error("Please fill in both server name and URL");
+    if (!isFormValid) {
+      setTouched({ name: true, url: true });
+      toast.error("Please fill all fields correctly.");
       return;
     }
 
@@ -213,6 +239,7 @@ export default function IntegrationsPage() {
       setNewServerUrl("");
       setNewServerCredentialType("personal");
       setAddServerModalOpen(false);
+      setTouched({ name: false, url: false });
       mutate();
     } catch (error) {
       toast.error(
@@ -294,12 +321,7 @@ export default function IntegrationsPage() {
   };
 
   const handleKeyDownAddServer = (e: React.KeyboardEvent) => {
-    if (
-      e.key === "Enter" &&
-      !isAddingServer &&
-      newServerName.trim() &&
-      newServerUrl.trim()
-    ) {
+    if (e.key === "Enter" && !isAddingServer && isFormValid) {
       e.preventDefault();
       handleAddServer();
     }
@@ -401,13 +423,21 @@ export default function IntegrationsPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto p-6">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">
-            Integrations
-          </h1>
-          <p className="text-muted-foreground">
-            Manage your Model Context Protocol (MCP) server connections
-          </p>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground mb-2">
+              Integrations
+            </h1>
+            <p className="text-muted-foreground">
+              Manage your Model Context Protocol (MCP) server connections
+            </p>
+          </div>
+          {!isLoadingData && isAdmin && (
+            <Button onClick={handleAddServerClick}>
+              <Plus className="h-4 w-4" />
+              Add Server
+            </Button>
+          )}
         </div>
 
         <div className="space-y-6">
@@ -454,21 +484,6 @@ export default function IntegrationsPage() {
               </div>
             )}
 
-          {/* Add Server Button */}
-          {!isLoadingData && isAdmin && (
-            <div className="flex justify-center">
-              <Button
-                onClick={handleAddServerClick}
-                variant="outline"
-                size="lg"
-                className="border-2 border-dashed border-muted-foreground/25 hover:border-muted-foreground/50 bg-transparent hover:bg-muted/30 text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <Plus className="h-5 w-5 mr-2" />
-                Add New Server
-              </Button>
-            </div>
-          )}
-
           {/* Add Server Modal */}
           <Dialog
             open={addServerModalOpen}
@@ -489,7 +504,11 @@ export default function IntegrationsPage() {
                     placeholder="my-server"
                     value={newServerName}
                     onChange={(e) => setNewServerName(e.target.value)}
+                    onBlur={() => setTouched((t) => ({ ...t, name: true }))}
                   />
+                  {touched.name && nameError && (
+                    <p className="text-sm text-destructive">{nameError}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="new-server-url">Server URL</Label>
@@ -498,7 +517,11 @@ export default function IntegrationsPage() {
                     placeholder="https://example.com/mcp"
                     value={newServerUrl}
                     onChange={(e) => setNewServerUrl(e.target.value)}
+                    onBlur={() => setTouched((t) => ({ ...t, url: true }))}
                   />
+                  {touched.url && urlError && (
+                    <p className="text-sm text-destructive">{urlError}</p>
+                  )}
                 </div>
                 {isOrganizationWorkspace && isAdmin && (
                   <div className="space-y-2">
@@ -548,12 +571,16 @@ export default function IntegrationsPage() {
                     setNewServerName("");
                     setNewServerUrl("");
                     setNewServerCredentialType("personal");
+                    setTouched({ name: false, url: false });
                   }}
                   disabled={isAddingServer}
                 >
                   Cancel
                 </Button>
-                <Button onClick={handleAddServer} disabled={isAddingServer}>
+                <Button
+                  onClick={handleAddServer}
+                  disabled={isAddingServer || !isFormValid}
+                >
                   {isAddingServer && (
                     <Loader className="h-4 w-4 animate-spin mr-2" />
                   )}
@@ -675,6 +702,8 @@ function ServerCard({
   const { data: activeOrganization } = useActiveOrganization();
   const isOrganizationWorkspace = !!activeOrganization?.id;
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isCheckingUsage, setIsCheckingUsage] = useState(false);
+  const [isServerInUse, setIsServerInUse] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [toolsModalOpen, setToolsModalOpen] = useState(false);
@@ -706,6 +735,23 @@ function ServerCard({
       "•".repeat(url.length - 16) +
       url.substring(url.length - 8)
     );
+  };
+
+  const handleOpenDeleteDialog = async () => {
+    setIsCheckingUsage(true);
+    try {
+      const inUse = await isMcpServerInUseAction(server.id);
+      setIsServerInUse(inUse);
+    } catch (error) {
+      toast.error(
+        `Failed to check server usage: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
+      // Default to not in use to allow deletion, but the user is notified of the check failure.
+      setIsServerInUse(false);
+    } finally {
+      setIsCheckingUsage(false);
+      setDeleteDialogOpen(true);
+    }
   };
 
   const handleDelete = async () => {
@@ -908,16 +954,37 @@ function ServerCard({
                         variant="outline"
                         size="sm"
                         className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={handleOpenDeleteDialog}
+                        disabled={isCheckingUsage || isDeleting}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        {isCheckingUsage ? (
+                          <Loader className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
                       </Button>
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
                         <DialogTitle>Delete Server</DialogTitle>
-                        <DialogDescription>
-                          Are you sure you want to delete {server.name}? This
-                          action cannot be undone.
+                        <DialogDescription asChild>
+                          <div>
+                            {isServerInUse ? (
+                              <div className="mb-4 rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
+                                <p className="font-bold">Warning</p>
+                                <p>
+                                  This server is used by one or more assistants
+                                  in your workspace. Please disable it from the
+                                  assistant settings before deleting it.
+                                </p>
+                              </div>
+                            ) : (
+                              <p>
+                                Are you sure you want to delete {server.name}?
+                                This action cannot be undone.
+                              </p>
+                            )}
+                          </div>
                         </DialogDescription>
                       </DialogHeader>
                       <DialogFooter>
@@ -931,7 +998,7 @@ function ServerCard({
                         <Button
                           variant="destructive"
                           onClick={handleDelete}
-                          disabled={isDeleting}
+                          disabled={isDeleting || isServerInUse}
                         >
                           {isDeleting && (
                             <Loader className="h-4 w-4 animate-spin mr-2" />
