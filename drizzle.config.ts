@@ -7,7 +7,7 @@ const url = process.env.POSTGRES_URL!;
 
 const schema = "./src/lib/db/pg/schema.pg.ts";
 
-const out = "./src/lib/db/migrations/pg";
+const out = "./src/lib/db/migrations";
 
 export default defineConfig({
   schema,

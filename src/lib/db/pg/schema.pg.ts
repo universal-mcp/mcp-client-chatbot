@@ -32,6 +32,7 @@ export const ChatThreadSchema = pgTable("chat_thread", {
     { onDelete: "cascade" },
   ),
   createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   projectId: uuid("project_id"),
 });
 

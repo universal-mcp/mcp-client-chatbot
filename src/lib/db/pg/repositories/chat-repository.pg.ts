@@ -18,7 +18,6 @@ import { and, desc, eq, gte, isNull, sql } from "drizzle-orm";
 import { pgUserRepository } from "./user-repository.pg";
 import { UserPreferences } from "app-types/user";
 import { pgProjectMcpConfigRepository } from "./project-mcp-config-repository.pg";
-import { ProjectEntity } from "../schema.pg";
 
 export const pgChatRepository: ChatRepository = {
   insertThread: async (
@@ -564,6 +563,10 @@ export const pgChatRepository: ChatRepository = {
       .leftJoin(
         ChatThreadSchema,
         eq(ProjectSchema.id, ChatThreadSchema.projectId),
+      )
+      .orderBy(
+        desc(ChatThreadSchema.updatedAt),
+        desc(ChatThreadSchema.createdAt),
       );
     const project = result[0] ? result[0].project : null;
     const threads = result.map((row) => row.thread!).filter(Boolean);
@@ -699,6 +702,10 @@ export const pgChatRepository: ChatRepository = {
       .insert(ChatMessageSchema)
       .values(messages)
       .returning();
+    await db
+      .update(ChatThreadSchema)
+      .set({ updatedAt: new Date() })
+      .where(eq(ChatThreadSchema.id, messages[0].threadId));
     return result as ChatMessage[];
   },
 };
