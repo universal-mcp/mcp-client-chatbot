@@ -78,6 +78,7 @@ export default function ProjectPage() {
 
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [showMcpConfig, setShowMcpConfig] = useState(false);
+  const [showAllThreads, setShowAllThreads] = useState(false);
 
   const [
     appStoreMutate,
@@ -222,7 +223,10 @@ export default function ProjectPage() {
               <span>{t("conversationList")}</span>
             </h3>
             <div className="flex flex-col gap-2 px-2">
-              {project.threads.map((thread) => (
+              {(showAllThreads
+                ? project.threads
+                : project.threads.slice(0, 10)
+              ).map((thread) => (
                 <div
                   className="flex gap-1 group/project-thread"
                   key={thread.id}
@@ -234,10 +238,7 @@ export default function ProjectPage() {
                   >
                     <MessagesSquare size={16} className="text-primary" />
                     <div className="flex-1 truncate">
-                      <div className="font-medium truncate">
-                        {thread.title}
-                        {thread.title}
-                      </div>
+                      <div className="font-medium truncate">{thread.title}</div>
                     </div>
                   </Link>
                   <ThreadDropdown
@@ -256,6 +257,16 @@ export default function ProjectPage() {
                 </div>
               ))}
             </div>
+            {project.threads.length > 10 && !showAllThreads && (
+              <div className="px-4 mt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowAllThreads(true)}
+                >
+                  View All Conversations
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
           !isLoading && (

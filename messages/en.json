@@ -197,7 +197,7 @@
       "provideCustomInstructionsForYourProjectAssistant": "Provide custom instructions for your assistant",
       "createProject": "Create Assistant",
       "whatIsAProject": "What is a assistant?",
-      "aProjectAllowsYouToOrganizeYourFilesAndCustomInstructionsInOneConvenientPlace": "An assistant allows you to organize your files and custom instructions in one convenient place.",
+      "aProjectAllowsYouToOrganizeYourFilesAndCustomInstructionsInOneConvenientPlace": "An assistant allows you to organize your files, custom instructions, and tools in one convenient place.",
       "failedToUpdateProject": "Failed to update assistant",
       "projectUpdated": "Assistant updated",
       "failedToDeleteProject": "Failed to delete assistant",

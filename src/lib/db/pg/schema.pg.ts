@@ -237,30 +237,6 @@ export const McpOAuthStateSchema = pgTable("mcp_oauth_state", {
   createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
-// Project-specific MCP server configuration
-export const ProjectMcpServerConfigSchema = pgTable(
-  "project_mcp_server_config",
-  {
-    id: uuid("id").primaryKey().notNull().defaultRandom(),
-    projectId: uuid("project_id")
-      .notNull()
-      .references(() => ProjectSchema.id, { onDelete: "cascade" }),
-    mcpServerId: uuid("mcp_server_id")
-      .notNull()
-      .references(() => McpServerSchema.id, { onDelete: "cascade" }),
-    enabled: boolean("enabled").notNull().default(true),
-    createdAt: timestamp("created_at")
-      .notNull()
-      .default(sql`CURRENT_TIMESTAMP`),
-    updatedAt: timestamp("updated_at")
-      .notNull()
-      .default(sql`CURRENT_TIMESTAMP`),
-  },
-  (table) => ({
-    uniqueConstraint: unique().on(table.projectId, table.mcpServerId),
-  }),
-);
-
 // Project-specific MCP tool configuration
 export const ProjectMcpToolConfigSchema = pgTable(
   "project_mcp_tool_config",
@@ -315,7 +291,5 @@ export type MemberEntity = typeof MemberSchema.$inferSelect;
 export type McpOAuthTokenEntity = typeof McpOAuthTokenSchema.$inferSelect;
 export type McpOAuthClientEntity = typeof McpOAuthClientSchema.$inferSelect;
 export type McpOAuthStateEntity = typeof McpOAuthStateSchema.$inferSelect;
-export type ProjectMcpServerConfigEntity =
-  typeof ProjectMcpServerConfigSchema.$inferSelect;
 export type ProjectMcpToolConfigEntity =
   typeof ProjectMcpToolConfigSchema.$inferSelect;

@@ -27,6 +27,18 @@ export type Project = {
   updatedAt: Date;
 };
 
+export type ProjectMcpServerConfig = {
+  mcpServerId: string;
+  enabled: boolean;
+};
+
+export type ProjectMcpToolConfig = {
+  mcpServerId: string;
+  toolName: string;
+  enabled: boolean;
+  mode: "auto" | "manual";
+};
+
 export type ChatMessage = {
   id: string;
   threadId: string;
@@ -199,6 +211,9 @@ export type ChatRepository = {
     project: Omit<Project, "id" | "createdAt" | "updatedAt">,
     userId: string,
     organizationId: string | null,
+    mcpConfig?: {
+      tools: ProjectMcpToolConfig[];
+    },
   ): Promise<Project>;
 
   selectProjectById(

@@ -112,8 +112,8 @@ export function filterToolsByProjectConfig(
     const toolConfigKey = `${_tool._mcpServerId}:${_tool._originToolName}`;
     const toolConfig = projectConfig.tools.get(toolConfigKey);
 
-    // If no specific config exists, default to enabled
-    return toolConfig?.enabled ?? true;
+    // If no specific config exists, default to disabled
+    return toolConfig?.enabled ?? false;
   });
 }
 

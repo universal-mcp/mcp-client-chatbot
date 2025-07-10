@@ -23,6 +23,8 @@ import { getSessionContext } from "@/lib/auth/session-context";
 import logger from "logger";
 import { redirect } from "next/navigation";
 import { initializeProjectMcpConfigAction } from "@/app/api/mcp/project-config/actions";
+import { pgChatRepository } from "@/lib/db/pg/repositories/chat-repository.pg";
+import type { ProjectMcpToolConfig } from "app-types/chat";
 
 export async function getUserId() {
   const { userId } = await getSessionContext();
@@ -159,30 +161,27 @@ export async function selectProjectListByUserIdAction() {
   return projects;
 }
 
-export async function insertProjectAction({
-  name,
-  instructions,
-}: {
+export async function insertProjectAction(project: {
   name: string;
   instructions?: Project["instructions"];
+  mcpConfig?: {
+    tools: ProjectMcpToolConfig[];
+  };
 }) {
   const { userId, organizationId } = await getSessionContext();
-  const project = await chatRepository.insertProject(
+
+  const newProject = await pgChatRepository.insertProject(
     {
-      name,
+      name: project.name,
+      instructions: project.instructions ?? { systemPrompt: "" },
       userId,
-      instructions: instructions ?? {
-        systemPrompt: "",
-      },
     },
     userId,
     organizationId,
+    project.mcpConfig,
   );
 
-  // Initialize MCP configurations for the new project
-  await initializeProjectMcpConfigAction(project.id);
-
-  return project;
+  return newProject;
 }
 
 export async function insertProjectWithThreadAction({

@@ -1,18 +1,9 @@
 import { pgDb as db } from "../db.pg";
-import {
-  ProjectMcpServerConfigSchema,
-  ProjectMcpToolConfigSchema,
-  McpServerSchema,
-} from "../schema.pg";
+import { ProjectMcpToolConfigSchema, McpServerSchema } from "../schema.pg";
 import { and, eq } from "drizzle-orm";
 import { generateUUID } from "lib/utils";
 import { sql } from "drizzle-orm";
 import { isNull } from "drizzle-orm";
-
-export type ProjectMcpServerConfig = {
-  mcpServerId: string;
-  enabled: boolean;
-};
 
 export type ProjectMcpToolConfig = {
   mcpServerId: string;
@@ -22,52 +13,6 @@ export type ProjectMcpToolConfig = {
 };
 
 export const pgProjectMcpConfigRepository = {
-  // --- Server Config Functions ---
-
-  async getProjectMcpServers(
-    projectId: string,
-  ): Promise<ProjectMcpServerConfig[]> {
-    const configs = await db
-      .select({
-        mcpServerId: ProjectMcpServerConfigSchema.mcpServerId,
-        enabled: ProjectMcpServerConfigSchema.enabled,
-      })
-      .from(ProjectMcpServerConfigSchema)
-      .where(eq(ProjectMcpServerConfigSchema.projectId, projectId));
-
-    return configs;
-  },
-
-  async bulkSetProjectMcpServerConfigs(
-    projectId: string,
-    configs: ProjectMcpServerConfig[],
-  ): Promise<void> {
-    if (configs.length === 0) return;
-
-    const values = configs.map((config) => ({
-      id: generateUUID(),
-      projectId,
-      mcpServerId: config.mcpServerId,
-      enabled: config.enabled,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }));
-
-    await db
-      .insert(ProjectMcpServerConfigSchema)
-      .values(values)
-      .onConflictDoUpdate({
-        target: [
-          ProjectMcpServerConfigSchema.projectId,
-          ProjectMcpServerConfigSchema.mcpServerId,
-        ],
-        set: {
-          enabled: sql`excluded.enabled`,
-          updatedAt: new Date(),
-        },
-      });
-  },
-
   async getProjectMcpTools(projectId: string): Promise<ProjectMcpToolConfig[]> {
     const configs = await db
       .select({
@@ -82,65 +27,18 @@ export const pgProjectMcpConfigRepository = {
     return configs;
   },
 
-  async getProjectMcpToolsByServer(
-    projectId: string,
-    mcpServerId: string,
-  ): Promise<ProjectMcpToolConfig[]> {
-    const configs = await db
-      .select({
-        mcpServerId: ProjectMcpToolConfigSchema.mcpServerId,
-        toolName: ProjectMcpToolConfigSchema.toolName,
-        enabled: ProjectMcpToolConfigSchema.enabled,
-        mode: ProjectMcpToolConfigSchema.mode,
-      })
-      .from(ProjectMcpToolConfigSchema)
-      .where(
-        and(
-          eq(ProjectMcpToolConfigSchema.projectId, projectId),
-          eq(ProjectMcpToolConfigSchema.mcpServerId, mcpServerId),
-        ),
-      );
-
-    return configs;
-  },
-
-  async setProjectMcpToolConfig(
-    projectId: string,
-    mcpServerId: string,
-    toolName: string,
-    config: { enabled: boolean; mode: "auto" | "manual" },
-  ): Promise<void> {
-    await db
-      .insert(ProjectMcpToolConfigSchema)
-      .values({
-        id: generateUUID(),
-        projectId,
-        mcpServerId,
-        toolName,
-        enabled: config.enabled,
-        mode: config.mode,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: [
-          ProjectMcpToolConfigSchema.projectId,
-          ProjectMcpToolConfigSchema.mcpServerId,
-          ProjectMcpToolConfigSchema.toolName,
-        ],
-        set: {
-          enabled: config.enabled,
-          mode: config.mode,
-          updatedAt: new Date(),
-        },
-      });
-  },
-
   async bulkSetProjectMcpToolConfigs(
     projectId: string,
     configs: ProjectMcpToolConfig[],
   ): Promise<void> {
-    if (configs.length === 0) return;
+    if (configs.length === 0) {
+      // If no configs are provided, it means all tools for this project should be disabled.
+      // So, we delete all existing configs for the project.
+      await db
+        .delete(ProjectMcpToolConfigSchema)
+        .where(eq(ProjectMcpToolConfigSchema.projectId, projectId));
+      return;
+    }
 
     const values = configs.map((config) => ({
       id: generateUUID(),
@@ -153,6 +51,7 @@ export const pgProjectMcpConfigRepository = {
       updatedAt: new Date(),
     }));
 
+    // Perform the bulk insert/update
     await db
       .insert(ProjectMcpToolConfigSchema)
       .values(values)
@@ -168,6 +67,21 @@ export const pgProjectMcpConfigRepository = {
           updatedAt: new Date(),
         },
       });
+
+    // Delete any tools that are not in the provided configs list for the affected servers
+    const serverIds = [...new Set(configs.map((c) => c.mcpServerId))];
+    if (serverIds.length > 0) {
+      const toolNames = configs.map((c) => c.toolName);
+      await db
+        .delete(ProjectMcpToolConfigSchema)
+        .where(
+          and(
+            eq(ProjectMcpToolConfigSchema.projectId, projectId),
+            sql`${ProjectMcpToolConfigSchema.mcpServerId} in ${serverIds}`,
+            sql`${ProjectMcpToolConfigSchema.toolName} not in ${toolNames}`,
+          ),
+        );
+    }
   },
 
   async getProjectMcpConfig(
@@ -175,7 +89,6 @@ export const pgProjectMcpConfigRepository = {
     userId: string,
     organizationId: string | null,
   ) {
-    // Get all MCP servers accessible in the current context
     const availableServers = await db
       .select({
         id: McpServerSchema.id,
@@ -191,58 +104,33 @@ export const pgProjectMcpConfigRepository = {
             ),
       );
 
-    // Get project-specific server configs
-    const serverConfigs = await this.getProjectMcpServers(projectId);
-    const serverConfigMap = new Map(
-      serverConfigs.map((c) => [c.mcpServerId, c]),
-    );
-
-    // Get project-specific tool configs
     const toolConfigs = await this.getProjectMcpTools(projectId);
     const toolConfigMap = new Map(
       toolConfigs.map((c) => [`${c.mcpServerId}:${c.toolName}`, c]),
     );
+    const enabledServerIds = new Set(toolConfigs.map((c) => c.mcpServerId));
 
-    // Combine available servers with their configs
     return {
       servers: availableServers.map((server) => ({
         id: server.id,
         name: server.name,
-        enabled: serverConfigMap.get(server.id)?.enabled ?? true, // Default to enabled
+        enabled: enabledServerIds.has(server.id),
       })),
       tools: toolConfigMap,
     };
   },
 
-  // Initialize default configs for a new project
-  async initializeProjectDefaults(
-    projectId: string,
-    userId: string,
-    organizationId: string | null,
-  ): Promise<void> {
-    // Get all available MCP servers
-    const availableServers = await db
-      .select({
-        id: McpServerSchema.id,
-      })
-      .from(McpServerSchema)
-      .where(
-        organizationId
-          ? eq(McpServerSchema.organizationId, organizationId)
-          : and(
-              eq(McpServerSchema.userId, userId),
-              isNull(McpServerSchema.organizationId),
-            ),
-      );
+  async initializeProjectDefaults(): Promise<void> {
+    return Promise.resolve();
+  },
 
-    // Create default configs (all servers enabled by default)
-    if (availableServers.length > 0) {
-      const serverConfigs = availableServers.map((server) => ({
-        mcpServerId: server.id,
-        enabled: true,
-      }));
+  async isMcpServerInUse(mcpServerId: string): Promise<boolean> {
+    const result = await db
+      .select({ id: ProjectMcpToolConfigSchema.id })
+      .from(ProjectMcpToolConfigSchema)
+      .where(eq(ProjectMcpToolConfigSchema.mcpServerId, mcpServerId))
+      .limit(1);
 
-      await this.bulkSetProjectMcpServerConfigs(projectId, serverConfigs);
-    }
+    return result.length > 0;
   },
 };

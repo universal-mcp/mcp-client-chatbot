@@ -2,10 +2,7 @@
 
 import { getSessionContext } from "@/lib/auth/session-context";
 import { pgProjectMcpConfigRepository } from "@/lib/db/pg/repositories/project-mcp-config-repository.pg";
-import type {
-  ProjectMcpServerConfig,
-  ProjectMcpToolConfig,
-} from "@/lib/db/pg/repositories/project-mcp-config-repository.pg";
+import type { ProjectMcpToolConfig } from "@/lib/db/pg/repositories/project-mcp-config-repository.pg";
 
 export async function getProjectMcpConfigAction(projectId: string) {
   const { userId, organizationId } = await getSessionContext();
@@ -15,18 +12,6 @@ export async function getProjectMcpConfigAction(projectId: string) {
     userId,
     organizationId,
   );
-}
-
-export async function bulkUpdateProjectMcpServersAction(
-  projectId: string,
-  configs: ProjectMcpServerConfig[],
-) {
-  await pgProjectMcpConfigRepository.bulkSetProjectMcpServerConfigs(
-    projectId,
-    configs,
-  );
-
-  return { success: true };
 }
 
 export async function bulkUpdateProjectMcpToolsAction(
@@ -41,14 +26,8 @@ export async function bulkUpdateProjectMcpToolsAction(
   return { success: true };
 }
 
-export async function initializeProjectMcpConfigAction(projectId: string) {
-  const { userId, organizationId } = await getSessionContext();
-
-  await pgProjectMcpConfigRepository.initializeProjectDefaults(
-    projectId,
-    userId,
-    organizationId,
-  );
+export async function initializeProjectMcpConfigAction(_projectId: string) {
+  await pgProjectMcpConfigRepository.initializeProjectDefaults();
 
   return { success: true };
 }

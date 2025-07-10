@@ -3,6 +3,7 @@ import {
   ChatRepository,
   ChatThread,
   Project,
+  ProjectMcpToolConfig,
 } from "app-types/chat";
 
 import { pgDb as db } from "../db.pg";
@@ -16,6 +17,8 @@ import {
 import { and, desc, eq, gte, isNull, sql } from "drizzle-orm";
 import { pgUserRepository } from "./user-repository.pg";
 import { UserPreferences } from "app-types/user";
+import { pgProjectMcpConfigRepository } from "./project-mcp-config-repository.pg";
+import { ProjectEntity } from "../schema.pg";
 
 export const pgChatRepository: ChatRepository = {
   insertThread: async (
@@ -514,18 +517,23 @@ export const pgChatRepository: ChatRepository = {
     project: Omit<Project, "id" | "createdAt" | "updatedAt">,
     userId: string,
     organizationId: string | null,
+    mcpConfig?: {
+      tools: ProjectMcpToolConfig[];
+    },
   ): Promise<Project> => {
-    const result = await db
+    const [newProject] = await db
       .insert(ProjectSchema)
-      .values({
-        ...project,
-        userId,
-        organizationId,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })
+      .values({ ...project, userId, organizationId })
       .returning();
-    return result[0] as Project;
+
+    if (mcpConfig && mcpConfig.tools.length > 0) {
+      await pgProjectMcpConfigRepository.bulkSetProjectMcpToolConfigs(
+        newProject.id,
+        mcpConfig.tools,
+      );
+    }
+
+    return newProject as Project;
   },
 
   selectProjectById: async (
