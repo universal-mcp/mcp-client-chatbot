@@ -1,5 +1,10 @@
 import { pgDb as db } from "../db.pg";
-import { ProjectMcpToolConfigSchema, McpServerSchema } from "../schema.pg";
+import {
+  ProjectMcpToolConfigSchema,
+  McpServerSchema,
+  ProjectSchema,
+  UserSchema,
+} from "../schema.pg";
 import { and, eq } from "drizzle-orm";
 import { generateUUID } from "lib/utils";
 import { sql } from "drizzle-orm";
@@ -132,5 +137,24 @@ export const pgProjectMcpConfigRepository = {
       .limit(1);
 
     return result.length > 0;
+  },
+
+  async getProjectsUsingMcpServer(
+    mcpServerId: string,
+  ): Promise<{ name: string; userEmail: string | null }[]> {
+    const result = await db
+      .selectDistinct({
+        name: ProjectSchema.name,
+        userEmail: UserSchema.email,
+      })
+      .from(ProjectMcpToolConfigSchema)
+      .innerJoin(
+        ProjectSchema,
+        eq(ProjectMcpToolConfigSchema.projectId, ProjectSchema.id),
+      )
+      .innerJoin(UserSchema, eq(ProjectSchema.userId, UserSchema.id))
+      .where(eq(ProjectMcpToolConfigSchema.mcpServerId, mcpServerId));
+
+    return result;
   },
 };

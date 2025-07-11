@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import {
   Loader,
   Plus,
@@ -23,7 +24,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import useSWR from "swr";
 import { toast } from "sonner";
@@ -33,7 +33,7 @@ import {
   existMcpClientByServerNameAction,
   removeMcpClientAction,
   refreshMcpClientAction,
-  isMcpServerInUseAction,
+  getProjectsUsingMcpServerAction,
 } from "@/app/api/mcp/actions";
 import {
   authorizeServerAction,
@@ -91,8 +91,8 @@ export default function IntegrationsPage() {
 
   const nameError = useMemo(() => {
     if (!newServerName.trim()) return "Server name cannot be empty.";
-    if (/\s/.test(newServerName)) {
-      return "Server name cannot contain spaces.";
+    if (!/^[a-zA-Z0-9\-]+$/.test(newServerName)) {
+      return "Name must contain only alphanumeric characters and hyphens.";
     }
     return null;
   }, [newServerName]);
@@ -703,16 +703,43 @@ function ServerCard({
   const isOrganizationWorkspace = !!activeOrganization?.id;
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isCheckingUsage, setIsCheckingUsage] = useState(false);
-  const [isServerInUse, setIsServerInUse] = useState(false);
+  const [projectsInUse, setProjectsInUse] = useState<
+    { name: string; userEmail: string | null }[]
+  >([]);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [toolsModalOpen, setToolsModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [showFullProjectList, setShowFullProjectList] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(server.name);
   const [editUrl, setEditUrl] = useState(
     "url" in server.config ? server.config.url : "",
   );
+  const [editTouched, setEditTouched] = useState({ name: false, url: false });
+
+  const editNameError = useMemo(() => {
+    if (!editName.trim()) return "Server name cannot be empty.";
+    if (!/^[a-zA-Z0-9\-]+$/.test(editName)) {
+      return "Name must contain only alphanumeric characters and hyphens.";
+    }
+    return null;
+  }, [editName]);
+
+  const editUrlError = useMemo(() => {
+    if (!editUrl.trim()) return "Server URL cannot be empty.";
+    try {
+      const url = new URL(editUrl);
+      if (!["http:", "https:"].includes(url.protocol)) {
+        return "URL must start with http:// or https://";
+      }
+    } catch (_e) {
+      return "Please enter a valid URL.";
+    }
+    return null;
+  }, [editUrl]);
+
+  const isEditFormValid = !editNameError && !editUrlError;
 
   // Update form values when server changes (e.g., after edit)
   useEffect(() => {
@@ -740,14 +767,13 @@ function ServerCard({
   const handleOpenDeleteDialog = async () => {
     setIsCheckingUsage(true);
     try {
-      const inUse = await isMcpServerInUseAction(server.id);
-      setIsServerInUse(inUse);
+      const projects = await getProjectsUsingMcpServerAction(server.id);
+      setProjectsInUse(projects);
     } catch (error) {
       toast.error(
         `Failed to check server usage: ${error instanceof Error ? error.message : "Unknown error"}`,
       );
-      // Default to not in use to allow deletion, but the user is notified of the check failure.
-      setIsServerInUse(false);
+      setProjectsInUse([]);
     } finally {
       setIsCheckingUsage(false);
       setDeleteDialogOpen(true);
@@ -784,8 +810,9 @@ function ServerCard({
   };
 
   const handleEdit = async () => {
-    if (!editName.trim() || !editUrl.trim()) {
-      toast.error("Please fill in both server name and URL");
+    if (!isEditFormValid) {
+      setEditTouched({ name: true, url: true });
+      toast.error("Please fill all fields correctly.");
       return;
     }
 
@@ -804,7 +831,7 @@ function ServerCard({
   };
 
   const handleKeyDownEdit = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !isEditing && editName.trim() && editUrl.trim()) {
+    if (e.key === "Enter" && !isEditing && isEditFormValid) {
       e.preventDefault();
       handleEdit();
     }
@@ -945,69 +972,118 @@ function ServerCard({
                   />
                 </Button>
                 {isAdmin && (
-                  <Dialog
-                    open={deleteDialogOpen}
-                    onOpenChange={setDeleteDialogOpen}
-                  >
-                    <DialogTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={handleOpenDeleteDialog}
-                        disabled={isCheckingUsage || isDeleting}
-                      >
-                        {isCheckingUsage ? (
-                          <Loader className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Delete Server</DialogTitle>
-                        <DialogDescription asChild>
-                          <div>
-                            {isServerInUse ? (
-                              <div className="mb-4 rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
-                                <p className="font-bold">Warning</p>
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={handleOpenDeleteDialog}
+                      disabled={isCheckingUsage || isDeleting}
+                    >
+                      {isCheckingUsage ? (
+                        <Loader className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <Dialog
+                      open={deleteDialogOpen}
+                      onOpenChange={setDeleteDialogOpen}
+                    >
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Delete Server</DialogTitle>
+                          <DialogDescription asChild>
+                            <div>
+                              {projectsInUse.length > 0 ? (
+                                <div className="mb-4 rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
+                                  <p className="font-bold">Warning</p>
+                                  <p>
+                                    This server is used by the following
+                                    assistant(s).
+                                  </p>
+                                  <ul className="list-disc pl-5 mt-2">
+                                    {projectsInUse.slice(0, 3).map((p) => (
+                                      <li key={p.name}>
+                                        {p.name} (user: {p.userEmail})
+                                      </li>
+                                    ))}
+                                  </ul>
+                                  {projectsInUse.length > 3 && (
+                                    <Button
+                                      variant="link"
+                                      size="sm"
+                                      onClick={() =>
+                                        setShowFullProjectList(true)
+                                      }
+                                      className="text-destructive"
+                                    >
+                                      ... and {projectsInUse.length - 3} more
+                                    </Button>
+                                  )}
+                                  <Separator className="my-2 bg-destructive/20" />
+                                  <p>
+                                    Please disable it from the assistant
+                                    settings before deleting.
+                                  </p>
+                                </div>
+                              ) : (
                                 <p>
-                                  This server is used by one or more assistants
-                                  in your workspace. Please disable it from the
-                                  assistant settings before deleting it.
+                                  Are you sure you want to delete {server.name}?
+                                  This action cannot be undone.
                                 </p>
-                              </div>
-                            ) : (
-                              <p>
-                                Are you sure you want to delete {server.name}?
-                                This action cannot be undone.
-                              </p>
+                              )}
+                            </div>
+                          </DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter>
+                          <Button
+                            variant="outline"
+                            onClick={() => setDeleteDialogOpen(false)}
+                            disabled={isDeleting}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            onClick={handleDelete}
+                            disabled={isDeleting || projectsInUse.length > 0}
+                          >
+                            {isDeleting && (
+                              <Loader className="h-4 w-4 animate-spin mr-2" />
                             )}
-                          </div>
-                        </DialogDescription>
-                      </DialogHeader>
-                      <DialogFooter>
-                        <Button
-                          variant="outline"
-                          onClick={() => setDeleteDialogOpen(false)}
-                          disabled={isDeleting}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          onClick={handleDelete}
-                          disabled={isDeleting || isServerInUse}
-                        >
-                          {isDeleting && (
-                            <Loader className="h-4 w-4 animate-spin mr-2" />
-                          )}
-                          Delete
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
+                            Delete
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                    <Dialog
+                      open={showFullProjectList}
+                      onOpenChange={setShowFullProjectList}
+                    >
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>
+                            Assistants using this server
+                          </DialogTitle>
+                        </DialogHeader>
+                        <ScrollArea className="h-60">
+                          <ul className="list-disc pl-5 mt-2">
+                            {projectsInUse.map((p) => (
+                              <li key={p.name}>
+                                {p.name} (user: {p.userEmail})
+                              </li>
+                            ))}
+                          </ul>
+                        </ScrollArea>
+                        <DialogFooter>
+                          <Button onClick={() => setShowFullProjectList(false)}>
+                            Close
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </>
                 )}
               </>
             )}
@@ -1112,7 +1188,11 @@ function ServerCard({
                   placeholder="my-server"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
+                  onBlur={() => setEditTouched((t) => ({ ...t, name: true }))}
                 />
+                {editTouched.name && editNameError && (
+                  <p className="text-sm text-destructive">{editNameError}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-server-url">Server URL</Label>
@@ -1121,7 +1201,11 @@ function ServerCard({
                   placeholder="https://example.com/mcp"
                   value={editUrl}
                   onChange={(e) => setEditUrl(e.target.value)}
+                  onBlur={() => setEditTouched((t) => ({ ...t, url: true }))}
                 />
+                {editTouched.url && editUrlError && (
+                  <p className="text-sm text-destructive">{editUrlError}</p>
+                )}
               </div>
             </div>
             <DialogFooter>
@@ -1132,12 +1216,16 @@ function ServerCard({
                   // Reset form to original values
                   setEditName(server.name);
                   setEditUrl("url" in server.config ? server.config.url : "");
+                  setEditTouched({ name: false, url: false });
                 }}
                 disabled={isEditing}
               >
                 Cancel
               </Button>
-              <Button onClick={handleEdit} disabled={isEditing}>
+              <Button
+                onClick={handleEdit}
+                disabled={isEditing || !isEditFormValid}
+              >
                 {isEditing && <Loader className="h-4 w-4 animate-spin mr-2" />}
                 Save Changes
               </Button>
