@@ -51,6 +51,7 @@ export const EditOrganizationModal = ({
   const [logo, setLogo] = useState<string | null>(null);
   const [logoFileName, setLogoFileName] = useState<string | null>(null);
   const [slug, setSlug] = useState("");
+  const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
     if (open && activeOrganization) {
@@ -59,6 +60,15 @@ export const EditOrganizationModal = ({
       setLogoFileName(null);
     }
   }, [open, activeOrganization]);
+
+  useEffect(() => {
+    if (activeOrganization) {
+      const isNameChanged =
+        name.trim() !== (activeOrganization.name || "").trim();
+      const isLogoChanged = logo !== activeOrganization.logo;
+      setHasChanges(isNameChanged || isLogoChanged);
+    }
+  }, [name, logo, activeOrganization]);
 
   useEffect(() => {
     if (name.trim() && session?.user?.id) {
@@ -97,19 +107,14 @@ export const EditOrganizationModal = ({
   };
 
   const handleSaveChanges = async () => {
-    if (loading || !name.trim() || !activeOrganization?.id) return;
+    if (loading || !name.trim() || !activeOrganization?.id || !hasChanges)
+      return;
 
     setLoading(true);
 
     const isNameChanged =
       name.trim() !== (activeOrganization.name || "").trim();
     const isLogoChanged = logo !== activeOrganization.logo;
-
-    if (!isNameChanged && !isLogoChanged) {
-      setLoading(false);
-      onOpenChange(false);
-      return;
-    }
 
     const updateData: {
       name?: string;
@@ -129,7 +134,7 @@ export const EditOrganizationModal = ({
     await organization.update(
       {
         organizationId: activeOrganization.id,
-        data: { ...updateData, logo: logo || undefined },
+        data: { ...updateData, logo: logo || "" },
       },
       {
         onResponse: () => {
@@ -141,6 +146,7 @@ export const EditOrganizationModal = ({
           await refetchActiveOrganization();
         },
         onError: (_error) => {
+          console.error(_error);
           toast.error("Failed to update name, please check if it is unique.");
           setLoading(false);
         },
@@ -236,7 +242,7 @@ export const EditOrganizationModal = ({
             Cancel
           </Button>
           <Button
-            disabled={loading || !name.trim()}
+            disabled={loading || !name.trim() || !hasChanges}
             onClick={handleSaveChanges}
           >
             {loading ? (
