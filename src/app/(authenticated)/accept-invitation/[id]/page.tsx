@@ -11,14 +11,9 @@ import {
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  authClient,
-  organization,
-  useListOrganizations,
-} from "@/lib/auth/client";
+import { authClient, organization } from "@/lib/auth/client";
 import { InvitationError } from "./invitation-error";
 import { useTranslations } from "next-intl";
-import { appStore } from "@/app/store";
 import { toast } from "sonner";
 
 export default function InvitationPage() {
@@ -27,12 +22,6 @@ export default function InvitationPage() {
   }>();
   const router = useRouter();
   const t = useTranslations("Auth.Invitation");
-
-  // Get refetch functions to refresh organization data
-  const { refetch: refetchOrganizations } = useListOrganizations();
-  const invalidateOrganizationData = appStore(
-    (state) => state.invalidateOrganizationData,
-  );
 
   const handleAccept = async () => {
     await organization
@@ -44,17 +33,16 @@ export default function InvitationPage() {
           setError(res.error.message || "An error occurred");
           toast.error(res.error.message || "An error occurred");
         } else {
-          // Refresh organization data to show the newly accepted organization
-          await Promise.all([refetchOrganizations()]);
-          invalidateOrganizationData();
-
           toast.success(
             t("acceptedTitle", {
               organization: invitation?.organizationName || "",
             }),
           );
-
-          router.push(`/`);
+          // Set the new org as active and reload
+          await organization.setActive({
+            organizationId: invitation?.organizationId,
+          });
+          window.location.href = "/";
         }
       });
   };

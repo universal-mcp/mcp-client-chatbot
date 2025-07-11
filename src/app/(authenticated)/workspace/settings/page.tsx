@@ -17,15 +17,17 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { OrganizationCard } from "@/components/organization/organization-card";
-import { CreateOrganizationModal } from "@/components/organization/create-organization-modal";
 import useSWR from "swr";
 import { EditOrganizationModal } from "@/components/organization/edit-organization-modal";
+import { SwitchWorkspaceModal } from "@/components/organization/switch-workspace-modal";
+import { DeleteWorkspaceModal } from "@/components/organization/delete-workspace-modal";
 
 export default function WorkspaceSettingsPage() {
   const { data: activeOrganization } = useActiveOrganization();
   const router = useRouter();
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isSwitchModalOpen, setIsSwitchModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   // Fetch user role to check admin permissions
   const { data: userRole, isLoading: isLoadingRole } = useSWR(
@@ -133,6 +135,35 @@ export default function WorkspaceSettingsPage() {
             </div>
             <OrganizationCard isAdmin={isAdmin} />
           </div>
+
+          <Separator />
+          {/* Danger Zone */}
+          <div className="space-y-4 rounded-lg border border-destructive/50 p-4">
+            <h3 className="text-lg font-semibold text-destructive">
+              Danger Zone
+            </h3>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium">Delete Workspace</p>
+                <p className="text-sm text-muted-foreground">
+                  Permanently delete this workspace and all of its data.
+                </p>
+              </div>
+              <Button
+                variant="destructive"
+                onClick={() => setIsDeleteModalOpen(true)}
+                disabled={!isAdmin}
+                className={!isAdmin ? "opacity-50 cursor-not-allowed" : ""}
+                title={
+                  !isAdmin
+                    ? "Only administrators can delete a workspace"
+                    : "Delete Workspace"
+                }
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
         </>
       )}
 
@@ -168,16 +199,16 @@ export default function WorkspaceSettingsPage() {
                   <div className="space-y-2">
                     <h3 className="font-semibold">Ready to collaborate?</h3>
                     <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-                      Create a workspace to invite team members and work
-                      together on projects.
+                      Create a workspace or switch to one to invite team members
+                      and work together.
                     </p>
                   </div>
                   <Button
-                    onClick={() => setIsCreateModalOpen(true)}
+                    onClick={() => setIsSwitchModalOpen(true)}
                     className="mt-4"
                   >
                     <Building2 className="h-4 w-4 mr-2" />
-                    Create Workspace
+                    Switch Workspace
                   </Button>
                 </div>
               </CardContent>
@@ -186,16 +217,24 @@ export default function WorkspaceSettingsPage() {
         </>
       )}
 
-      {/* Create Organization Modal */}
-      <CreateOrganizationModal
-        open={isCreateModalOpen}
-        onOpenChange={setIsCreateModalOpen}
+      {/* Switch Workspace Modal */}
+      <SwitchWorkspaceModal
+        open={isSwitchModalOpen}
+        onOpenChange={setIsSwitchModalOpen}
       />
       {/* Edit Organization Modal */}
       <EditOrganizationModal
         open={isEditModalOpen}
         onOpenChange={setIsEditModalOpen}
       />
+      {/* Delete Workspace Modal */}
+      {activeOrganization && (
+        <DeleteWorkspaceModal
+          open={isDeleteModalOpen}
+          onOpenChange={setIsDeleteModalOpen}
+          workspace={activeOrganization}
+        />
+      )}
     </div>
   );
 }

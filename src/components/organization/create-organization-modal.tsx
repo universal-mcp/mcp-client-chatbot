@@ -14,13 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import Image from "next/image";
-import {
-  organization,
-  useListOrganizations,
-  useSession,
-} from "@/lib/auth/client";
-import { appStore } from "@/app/store";
-import { useRouter } from "next/navigation";
+import { organization, useSession } from "@/lib/auth/client";
 
 interface CreateOrganizationModalProps {
   open: boolean;
@@ -49,12 +43,7 @@ export const CreateOrganizationModal = ({
   const [loading, setLoading] = useState(false);
   const [logo, setLogo] = useState<string | null>(null);
   const [logoFileName, setLogoFileName] = useState<string | null>(null);
-  const handleSwitchOrganization = appStore(
-    (state) => state.handleSwitchOrganization,
-  );
-  const { refetch: refetchOrganizations } = useListOrganizations();
   const { data: session } = useSession();
-  const router = useRouter();
 
   useEffect(() => {
     if (open) {
@@ -112,9 +101,10 @@ export const CreateOrganizationModal = ({
           toast.success("Workspace created successfully");
           onOpenChange(false);
           // Switch to the newly created workspace
-          await handleSwitchOrganization(ctx.data?.id || null);
-          refetchOrganizations();
-          router.push("/");
+          await organization.setActive({
+            organizationId: ctx.data?.id || null,
+          });
+          window.location.href = "/";
         },
         onError: (error) => {
           toast.error(

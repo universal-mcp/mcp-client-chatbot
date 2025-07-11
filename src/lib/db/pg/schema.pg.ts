@@ -40,7 +40,7 @@ export const ChatMessageSchema = pgTable("chat_message", {
   id: text("id").primaryKey().notNull(),
   threadId: uuid("thread_id")
     .notNull()
-    .references(() => ChatThreadSchema.id),
+    .references(() => ChatThreadSchema.id, { onDelete: "cascade" }),
   role: text("role").notNull().$type<ChatMessage["role"]>(),
   parts: json("parts").notNull().array(),
   attachments: json("attachments").array(),
