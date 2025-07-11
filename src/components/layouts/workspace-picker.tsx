@@ -8,13 +8,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  ChevronDown,
-  Settings,
-  Building2,
-  Replace,
-  ChevronsUpDown,
-} from "lucide-react";
+import { Settings, Building2, Replace, ChevronsUpDown } from "lucide-react";
 import { useActiveOrganization } from "@/lib/auth/client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";

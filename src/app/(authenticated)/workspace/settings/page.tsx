@@ -136,34 +136,31 @@ export default function WorkspaceSettingsPage() {
             <OrganizationCard isAdmin={isAdmin} />
           </div>
 
-          <Separator />
-          {/* Danger Zone */}
-          <div className="space-y-4 rounded-lg border border-destructive/50 p-4">
-            <h3 className="text-lg font-semibold text-destructive">
-              Danger Zone
-            </h3>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Delete Workspace</p>
-                <p className="text-sm text-muted-foreground">
-                  Permanently delete this workspace and all of its data.
-                </p>
+          {isAdmin && (
+            <>
+              <Separator />
+              {/* Danger Zone */}
+              <div className="space-y-4 rounded-lg border border-destructive/50 p-4">
+                <h3 className="text-lg font-semibold text-destructive">
+                  Danger Zone
+                </h3>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">Delete Workspace</p>
+                    <p className="text-sm text-muted-foreground">
+                      Permanently delete this workspace and all of its data.
+                    </p>
+                  </div>
+                  <Button
+                    variant="destructive"
+                    onClick={() => setIsDeleteModalOpen(true)}
+                  >
+                    Delete
+                  </Button>
+                </div>
               </div>
-              <Button
-                variant="destructive"
-                onClick={() => setIsDeleteModalOpen(true)}
-                disabled={!isAdmin}
-                className={!isAdmin ? "opacity-50 cursor-not-allowed" : ""}
-                title={
-                  !isAdmin
-                    ? "Only administrators can delete a workspace"
-                    : "Delete Workspace"
-                }
-              >
-                Delete
-              </Button>
-            </div>
-          </div>
+            </>
+          )}
         </>
       )}
 
