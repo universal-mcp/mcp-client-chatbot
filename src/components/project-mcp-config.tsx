@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
@@ -62,6 +63,7 @@ export function ProjectMcpConfig({
   const [selectedServer, setSelectedServer] = useState<MCPServerWithId | null>(
     null,
   );
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [originalServerConfigs, setOriginalServerConfigs] = useState<
     LocalServerConfig[]
@@ -78,6 +80,10 @@ export function ProjectMcpConfig({
   const [hasChanges, setHasChanges] = useState(false);
 
   const isCreateMode = !projectId;
+
+  useEffect(() => {
+    setSearchQuery("");
+  }, [selectedServer]);
 
   useEffect(() => {
     async function loadData() {
@@ -255,6 +261,12 @@ export function ProjectMcpConfig({
     );
   };
 
+  const filteredTools = selectedServer
+    ? selectedServer.toolInfo.filter((tool) =>
+        tool.name.toLowerCase().includes(searchQuery.toLowerCase()),
+      )
+    : [];
+
   const serverListView = (
     <div>
       <div className="space-y-2">
@@ -352,6 +364,14 @@ export function ProjectMcpConfig({
           />
         </div>
       </div>
+      <div className="relative my-4">
+        <Input
+          placeholder="Search for a tool..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full bg-background pl-10"
+        />
+      </div>
       <div className="flex justify-between items-center px-4 pb-2 border-b">
         <h5 className="text-sm font-medium text-muted-foreground">Tool</h5>
         <div className="w-[120px] flex justify-center">
@@ -376,51 +396,57 @@ export function ProjectMcpConfig({
       </div>
       <ScrollArea className="h-[420px] pr-4">
         <div className="space-y-3 pt-3">
-          {selectedServer.toolInfo.map((tool) => {
-            const toolConfig = getToolConfig(selectedServer.id, tool.name);
+          {filteredTools.length > 0 ? (
+            filteredTools.map((tool) => {
+              const toolConfig = getToolConfig(selectedServer.id, tool.name);
 
-            return (
-              <div
-                key={tool.name}
-                className="flex items-start justify-between gap-4 rounded-md border p-3"
-              >
-                <div className="flex items-start gap-4 flex-1">
-                  <Switch
-                    id={`tool-enabled-${selectedServer.id}-${tool.name}`}
-                    checked={toolConfig.enabled}
-                    onCheckedChange={(checked) =>
-                      handleToolUpdate(selectedServer.id, tool.name, {
-                        enabled: checked,
-                      })
-                    }
-                  />
-                  <div className="space-y-1 mt-[-2px]">
-                    <Label
-                      htmlFor={`tool-enabled-${selectedServer.id}-${tool.name}`}
-                      className="font-medium cursor-pointer"
-                    >
-                      {tool.name}
-                    </Label>
-                    <p className="text-xs text-muted-foreground">
-                      {tool.description}
-                    </p>
+              return (
+                <div
+                  key={tool.name}
+                  className="flex items-start justify-between gap-4 rounded-md border p-3"
+                >
+                  <div className="flex items-start gap-4 flex-1">
+                    <Switch
+                      id={`tool-enabled-${selectedServer.id}-${tool.name}`}
+                      checked={toolConfig.enabled}
+                      onCheckedChange={(checked) =>
+                        handleToolUpdate(selectedServer.id, tool.name, {
+                          enabled: checked,
+                        })
+                      }
+                    />
+                    <div className="space-y-1 mt-[-2px]">
+                      <Label
+                        htmlFor={`tool-enabled-${selectedServer.id}-${tool.name}`}
+                        className="font-medium cursor-pointer"
+                      >
+                        {tool.name}
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        {tool.description}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="w-[120px] flex justify-center">
+                    <Checkbox
+                      checked={toolConfig.mode === "auto"}
+                      onCheckedChange={(checked) =>
+                        handleToolUpdate(selectedServer.id, tool.name, {
+                          mode: checked ? "auto" : "manual",
+                        })
+                      }
+                      disabled={!toolConfig.enabled}
+                    />
                   </div>
                 </div>
-
-                <div className="w-[120px] flex justify-center">
-                  <Checkbox
-                    checked={toolConfig.mode === "auto"}
-                    onCheckedChange={(checked) =>
-                      handleToolUpdate(selectedServer.id, tool.name, {
-                        mode: checked ? "auto" : "manual",
-                      })
-                    }
-                    disabled={!toolConfig.enabled}
-                  />
-                </div>
-              </div>
-            );
-          })}
+              );
+            })
+          ) : (
+            <div className="flex justify-center items-center h-40">
+              <p className="text-muted-foreground">No tools found.</p>
+            </div>
+          )}
         </div>
       </ScrollArea>
     </div>
