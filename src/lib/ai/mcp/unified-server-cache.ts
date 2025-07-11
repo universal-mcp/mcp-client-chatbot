@@ -13,6 +13,12 @@ export interface CachedServerData {
     refreshToken?: string;
   };
   cachedAt: number;
+  orgCacheVersion?: number;
+}
+
+interface CachedAllServers {
+  servers: McpServerSelect[];
+  orgCacheVersion?: number;
 }
 
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes for config
@@ -44,6 +50,10 @@ export class UnifiedServerCache {
     return `mcp:unified:${userId}:${orgId || "personal"}:all`;
   }
 
+  private getOrgCacheVersionKey(orgId: UUID): string {
+    return `mcp:org-version:${orgId}`;
+  }
+
   /**
    * Get server data including config and token.
    * This method implements a cache-aside pattern. If the data is in the cache and valid, it's returned.
@@ -57,22 +67,37 @@ export class UnifiedServerCache {
     credentialType?: "personal" | "shared",
   ): Promise<CachedServerData | null> {
     const cacheKey = this.getCacheKey(userId, organizationId, serverId);
+    const orgCacheVersion = organizationId
+      ? await this.getOrganizationCacheVersion(organizationId)
+      : undefined;
 
     let cached: CachedServerData | null = null;
     try {
       cached = (await this.cache.get<CachedServerData>(cacheKey)) || null;
 
-      if (cached?.token) {
-        // Check if token is still valid (non-expiring or not expired yet)
-        const isTokenValid =
-          !cached.token.expiresAt ||
-          new Date(cached.token.expiresAt).getTime() - TOKEN_BUFFER_MS >
-            Date.now();
-        if (isTokenValid) {
+      if (cached) {
+        // If part of an org, check if the org version matches
+        if (organizationId && cached.orgCacheVersion !== orgCacheVersion) {
+          this.log.debug(
+            `Organization cache version mismatch for server ${serverId}. Invalidating.`,
+          );
+          cached = null; // Treat as cache miss
+        } else if (cached.token) {
+          // Check if token is still valid
+          const isTokenValid =
+            !cached.token.expiresAt ||
+            new Date(cached.token.expiresAt).getTime() - TOKEN_BUFFER_MS >
+              Date.now();
+          if (isTokenValid) {
+            this.log.debug(`Cache hit for server ${serverId}`);
+            return cached;
+          }
+          this.log.debug(`Cached token expired for server ${serverId}`);
+        } else if (!organizationId) {
+          // Personal workspace cache hit
           this.log.debug(`Cache hit for server ${serverId}`);
           return cached;
         }
-        this.log.debug(`Cached token expired for server ${serverId}`);
       }
     } catch (error) {
       this.log.warn(`Cache error for server ${serverId}:`, error);
@@ -105,6 +130,7 @@ export class UnifiedServerCache {
           }
         : undefined,
       cachedAt: Date.now(),
+      orgCacheVersion,
     };
 
     // Cache the fresh data
@@ -131,12 +157,27 @@ export class UnifiedServerCache {
     organizationId: UUID | null,
   ): Promise<McpServerSelect[]> {
     const cacheKey = this.getAllServersCacheKey(userId, organizationId);
+    const orgCacheVersion = organizationId
+      ? await this.getOrganizationCacheVersion(organizationId)
+      : undefined;
 
     try {
-      const cached = await this.cache.get<McpServerSelect[]>(cacheKey);
+      const cached = await this.cache.get<CachedAllServers>(cacheKey);
       if (cached) {
-        this.log.debug("Cache hit for getAllServers");
-        return cached;
+        if (organizationId) {
+          if (cached.orgCacheVersion === orgCacheVersion) {
+            this.log.debug(
+              `Cache hit for getAllServers for org ${organizationId}`,
+            );
+            return cached.servers;
+          }
+          this.log.debug(
+            `Org version mismatch for getAllServers for org ${organizationId}. Cache miss.`,
+          );
+        } else {
+          this.log.debug("Cache hit for getAllServers for personal workspace");
+          return cached.servers;
+        }
       }
     } catch (error) {
       this.log.warn("Cache error on getAllServers:", error);
@@ -145,8 +186,13 @@ export class UnifiedServerCache {
     this.log.debug("Cache miss for getAllServers, loading from DB");
     const servers = await pgMcpRepository.selectAll(userId, organizationId);
 
+    const dataToCache: CachedAllServers = {
+      servers,
+      orgCacheVersion,
+    };
+
     try {
-      await this.cache.set(cacheKey, servers, CACHE_TTL_MS);
+      await this.cache.set(cacheKey, dataToCache, CACHE_TTL_MS);
     } catch (error) {
       this.log.warn("Failed to cache getAllServers result:", error);
     }
@@ -228,6 +274,54 @@ export class UnifiedServerCache {
         error,
       );
     }
+  }
+
+  /**
+   * Invalidates the cache for an entire organization by updating its version.
+   * This will cause all subsequent requests for this org's data to miss the cache.
+   */
+  async invalidateOrganizationCache(organizationId: UUID) {
+    const cacheKey = this.getOrgCacheVersionKey(organizationId);
+    const newVersion = Date.now();
+    try {
+      await this.cache.set(cacheKey, newVersion, 24 * 60 * 60 * 1000); // 24 hours
+      this.log.info(
+        `Invalidated organization cache for ${organizationId} with new version ${newVersion}`,
+      );
+    } catch (error) {
+      this.log.warn(
+        `Failed to invalidate organization cache for ${organizationId}:`,
+        error,
+      );
+    }
+  }
+
+  private async getOrganizationCacheVersion(
+    organizationId: UUID,
+  ): Promise<number> {
+    const cacheKey = this.getOrgCacheVersionKey(organizationId);
+    try {
+      const version = await this.cache.get<number>(cacheKey);
+      if (version) {
+        return version;
+      }
+    } catch (error) {
+      this.log.warn(
+        `Could not retrieve organization cache version for ${organizationId}:`,
+        error,
+      );
+    }
+    // If no version is found, create one.
+    const newVersion = Date.now();
+    try {
+      await this.cache.set(cacheKey, newVersion, 24 * 60 * 60 * 1000); // 24 hours
+    } catch (error) {
+      this.log.warn(
+        `Failed to set initial organization cache version for ${organizationId}:`,
+        error,
+      );
+    }
+    return newVersion;
   }
 
   /**

@@ -9,7 +9,7 @@ import {
 } from "lib/ai/prompts";
 import { errorIf, safe } from "ts-safe";
 import { DEFAULT_VOICE_TOOLS } from "lib/ai/speech";
-import { globalMCPManager } from "lib/ai/mcp/global-mcp-manager";
+import { mcpGateway } from "lib/ai/mcp/mcp-gateway";
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
         threadId?: string;
       };
 
-    const mcpClientsManager = await globalMCPManager.getManager(
+    const mcpClientsManager = await mcpGateway.getManager(
       userId,
       organizationId,
     );

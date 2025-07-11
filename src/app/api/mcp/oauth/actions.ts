@@ -13,7 +13,7 @@ import {
 } from "@/lib/db/pg/repositories/mcp-repository.pg";
 import logger from "@/lib/logger";
 import { safe } from "ts-safe";
-import { globalMCPManager } from "@/lib/ai/mcp/global-mcp-manager";
+import { mcpGateway } from "@/lib/ai/mcp/mcp-gateway";
 
 // Rate limiting for OAuth actions (per user)
 const OAUTH_ACTION_RATE_LIMIT = 5; // 5 actions per minute per user
@@ -223,7 +223,7 @@ export async function revokeAuthorizationAction(
       await checkAdminPermission();
     }
 
-    await globalMCPManager.revokeAccessToken(
+    await mcpGateway.revokeAccessToken(
       userId,
       organizationId,
       serverId,

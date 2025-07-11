@@ -7,15 +7,12 @@ import {
   getSessionContext,
   checkAdminPermission,
 } from "@/lib/auth/session-context";
-import { globalMCPManager } from "lib/ai/mcp/global-mcp-manager";
+import { mcpGateway } from "lib/ai/mcp/mcp-gateway";
 import { pgProjectMcpConfigRepository } from "@/lib/db/pg/repositories/project-mcp-config-repository.pg";
 
 export async function selectMcpClientsAction() {
   const { userId, organizationId } = await getSessionContext();
-  const mcpClientsManager = await globalMCPManager.getManager(
-    userId,
-    organizationId,
-  );
+  const mcpClientsManager = await mcpGateway.getManager(userId, organizationId);
   const list = await mcpClientsManager.getClients();
   return list.map(({ client, id }) => {
     return {
@@ -27,10 +24,7 @@ export async function selectMcpClientsAction() {
 
 export async function selectMcpClientAction(id: string) {
   const { userId, organizationId } = await getSessionContext();
-  const mcpClientsManager = await globalMCPManager.getManager(
-    userId,
-    organizationId,
-  );
+  const mcpClientsManager = await mcpGateway.getManager(userId, organizationId);
   const client = await mcpClientsManager.getClient(id);
   if (!client) {
     throw new Error("Client not found");
@@ -65,7 +59,7 @@ export async function saveMcpClientAction(
   }
 
   const { userId, organizationId } = await getSessionContext();
-  const savedServer = await globalMCPManager.saveServer(
+  const savedServer = await mcpGateway.saveServer(
     userId,
     organizationId,
     server,
@@ -76,10 +70,7 @@ export async function saveMcpClientAction(
 
 export async function existMcpClientByServerNameAction(serverName: string) {
   const { userId, organizationId } = await getSessionContext();
-  const mcpClientsManager = await globalMCPManager.getManager(
-    userId,
-    organizationId,
-  );
+  const mcpClientsManager = await mcpGateway.getManager(userId, organizationId);
   const client = await mcpClientsManager.getClients().then((clients) => {
     return clients.find(
       (client) => client.client.getInfo().name === serverName,
@@ -92,18 +83,22 @@ export async function isMcpServerInUseAction(mcpServerId: string) {
   return pgProjectMcpConfigRepository.isMcpServerInUse(mcpServerId);
 }
 
+export async function getProjectsUsingMcpServerAction(mcpServerId: string) {
+  return pgProjectMcpConfigRepository.getProjectsUsingMcpServer(mcpServerId);
+}
+
 export async function removeMcpClientAction(id: string) {
   await checkAdminPermission();
 
   const { userId, organizationId } = await getSessionContext();
-  await globalMCPManager.deleteServer(userId, organizationId, id);
+  await mcpGateway.deleteServer(userId, organizationId, id);
 }
 
 export async function refreshMcpClientAction(id: string) {
   await checkAdminPermission();
 
   const { userId, organizationId } = await getSessionContext();
-  await globalMCPManager.refreshServer(userId, organizationId, id);
+  await mcpGateway.refreshServer(userId, organizationId, id);
 }
 
 function safeCallToolResult(chain: Safe<any>) {
@@ -129,7 +124,7 @@ export async function callMcpToolAction(
 ) {
   const chain = safe(async () => {
     const { userId, organizationId } = await getSessionContext();
-    const mcpClientsManager = await globalMCPManager.getManager(
+    const mcpClientsManager = await mcpGateway.getManager(
       userId,
       organizationId,
     );
@@ -158,7 +153,7 @@ export async function callMcpToolByServerNameAction(
 ) {
   const chain = safe(async () => {
     const { userId, organizationId } = await getSessionContext();
-    const mcpClientsManager = await globalMCPManager.getManager(
+    const mcpClientsManager = await mcpGateway.getManager(
       userId,
       organizationId,
     );

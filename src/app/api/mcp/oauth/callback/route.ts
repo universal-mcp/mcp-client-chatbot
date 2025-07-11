@@ -4,7 +4,7 @@ import { OAuthStateManager } from "lib/oauth/oauth-state-manager";
 import { getSessionContext } from "@/lib/auth/session-context";
 import { pgMcpOAuthClientRepository } from "@/lib/db/pg/repositories/mcp-repository.pg";
 import logger from "@/lib/logger";
-import { globalMCPManager } from "@/lib/ai/mcp/global-mcp-manager";
+import { mcpGateway } from "@/lib/ai/mcp/mcp-gateway";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
       ? new Date(Date.now() + tokenResponse.expires_in * 1000)
       : null;
 
-    await globalMCPManager.saveAccessToken(
+    await mcpGateway.saveAccessToken(
       userId,
       organizationId,
       authState.serverId,

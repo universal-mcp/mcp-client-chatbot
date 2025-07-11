@@ -11,7 +11,7 @@ import {
 
 import { customModelProvider, isToolCallUnsupportedModel } from "lib/ai/models";
 
-import { globalMCPManager } from "lib/ai/mcp/global-mcp-manager";
+import { mcpGateway } from "lib/ai/mcp/mcp-gateway";
 
 import { chatRepository } from "lib/db/repository";
 import logger from "logger";
@@ -111,7 +111,7 @@ export async function POST(request: Request) {
 
     const annotations = (message?.annotations as ChatMessageAnnotation[]) ?? [];
 
-    const manager = await globalMCPManager.getManager(userId, organizationId);
+    const manager = await mcpGateway.getManager(userId, organizationId);
     const mcpTools = manager.tools();
 
     // Get project-specific MCP configurations
