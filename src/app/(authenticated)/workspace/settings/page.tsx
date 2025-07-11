@@ -37,6 +37,9 @@ export default function WorkspaceSettingsPage() {
       }
       return response.json();
     },
+    {
+      revalidateOnFocus: false,
+    },
   );
 
   const isAdmin = userRole?.isAdmin ?? false;

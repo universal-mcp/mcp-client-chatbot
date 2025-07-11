@@ -12,6 +12,7 @@ import {
   Folders,
   MoreHorizontal,
   Plus,
+  Bot,
 } from "lucide-react";
 
 import { useMounted } from "@/hooks/use-mounted";
@@ -46,6 +47,7 @@ export function AppSidebarProjects() {
     onError: handleErrorWithToast,
     fallbackData: [],
     onSuccess: (data) => storeMutate({ projectList: data }),
+    revalidateOnFocus: false,
   });
 
   const visibleProjects = expanded ? projectList : projectList.slice(0, 3);
@@ -109,29 +111,28 @@ export function AppSidebarProjects() {
                       className={"group/project mr-0"}
                     >
                       <SidebarMenuItem className="px-2 cursor-pointer">
-                        <ProjectDropdown project={project} side="right">
-                          <SidebarMenuButton
-                            asChild
-                            isActive={isSelected}
-                            className="data-[state=open]:bg-input!"
-                          >
-                            <div className="flex gap-1">
+                        <SidebarMenuButton
+                          asChild
+                          isActive={isSelected}
+                          className="data-[state=open]:bg-input!"
+                        >
+                          <div className="flex items-center gap-1">
+                            <Link
+                              href={`/project/${project.id}`}
+                              className="flex w-full min-w-0 items-center gap-1"
+                            >
                               <div className="p-1 rounded-md hover:bg-foreground/40">
-                                <FolderOpen className="size-4" />
+                                <Bot className="size-4" />
                               </div>
-
-                              <Link
-                                href={`/project/${project.id}`}
-                                className="flex items-center min-w-0 w-full"
-                              >
-                                <p className="truncate">{project.name}</p>
-                              </Link>
+                              <p className="truncate">{project.name}</p>
+                            </Link>
+                            <ProjectDropdown project={project} side="right">
                               <SidebarMenuAction className="opacity-0 group-hover/project:opacity-100 mr-2">
                                 <MoreHorizontal className="size-4" />
                               </SidebarMenuAction>
-                            </div>
-                          </SidebarMenuButton>
-                        </ProjectDropdown>
+                            </ProjectDropdown>
+                          </div>
+                        </SidebarMenuButton>
                       </SidebarMenuItem>
                     </SidebarMenu>
                   );

@@ -65,13 +65,19 @@ export default function ProjectPage() {
     data: project,
     isLoading,
     mutate: fetchProject,
-  } = useSWR(`/projects/${id}`, async () => {
-    const project = await selectProjectByIdAction(id as string);
-    if (!project) {
-      router.push("/");
-    }
-    return project;
-  });
+  } = useSWR(
+    `/projects/${id}`,
+    async () => {
+      const project = await selectProjectByIdAction(id as string);
+      if (!project) {
+        router.push("/");
+      }
+      return project;
+    },
+    {
+      revalidateOnFocus: false,
+    },
+  );
 
   const router = useRouter();
   const threadId = useMemo(() => generateUUID(), []);

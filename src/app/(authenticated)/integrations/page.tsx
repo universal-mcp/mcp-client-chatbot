@@ -122,6 +122,7 @@ export default function IntegrationsPage() {
     mutate,
   } = useSWR("mcp-integrations", selectMcpClientsAction, {
     fallbackData: [],
+    revalidateOnFocus: false,
   });
 
   const { data: userRole, isLoading: isLoadingRole } = useSWR(
@@ -132,6 +133,9 @@ export default function IntegrationsPage() {
         throw new Error("Failed to fetch user role");
       }
       return response.json();
+    },
+    {
+      revalidateOnFocus: false,
     },
   );
 

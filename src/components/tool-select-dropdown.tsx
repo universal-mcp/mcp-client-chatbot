@@ -83,6 +83,7 @@ export function ToolSelectDropdown({
     onSuccess: (data) => {
       appStoreMutate({ mcpList: data });
     },
+    revalidateOnFocus: false,
   });
   return (
     <DropdownMenu>

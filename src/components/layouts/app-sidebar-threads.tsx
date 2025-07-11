@@ -60,6 +60,7 @@ export function AppSidebarThreads() {
     onError: handleErrorWithToast,
     fallbackData: [],
     onSuccess: (data) => storeMutate({ threadList: data }),
+    revalidateOnFocus: false,
   });
 
   // Check if we have 40 or more threads to display "View All" button

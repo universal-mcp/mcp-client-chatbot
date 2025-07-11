@@ -143,6 +143,7 @@ export function McpServerCustomizationContent({
     fetcher,
     {
       fallbackData: [],
+      revalidateOnFocus: false,
     },
   );
 

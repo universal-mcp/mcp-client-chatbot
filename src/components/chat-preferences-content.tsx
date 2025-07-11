@@ -64,6 +64,7 @@ export function UserInstructionsContent() {
     onSuccess: (data) => {
       setPreferences(data);
     },
+    revalidateOnFocus: false,
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -218,6 +219,7 @@ export function MCPInstructionsContent() {
     {
       dedupingInterval: 0,
       fallbackData: [],
+      revalidateOnFocus: false,
       onSuccess: (data) => {
         appStoreMutate({ mcpList: data });
       },
