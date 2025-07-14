@@ -16,6 +16,7 @@ import { mcpGateway } from "lib/ai/mcp/mcp-gateway";
 import { chatRepository } from "lib/db/repository";
 import logger from "logger";
 import {
+  buildContextServerPrompt,
   buildMcpServerCustomizationsSystemPrompt,
   buildProjectInstructionsSystemPrompt,
   buildUserSystemPrompt,
@@ -199,6 +200,7 @@ export async function POST(request: Request) {
           buildUserSystemPrompt(user, userPreferences),
           buildProjectInstructionsSystemPrompt(thread?.instructions),
           buildMcpServerCustomizationsSystemPrompt(mcpServerCustomizations),
+          buildContextServerPrompt(),
         );
 
         // Precompute toolChoice to avoid repeated tool calls

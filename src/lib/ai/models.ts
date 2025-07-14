@@ -1,6 +1,6 @@
 // models.ts
 import { openai } from "@ai-sdk/openai";
-import { google } from "@ai-sdk/google";
+// import { google } from "@ai-sdk/google";
 import { anthropic } from "@ai-sdk/anthropic";
 import { LanguageModel } from "ai";
 import {
@@ -18,10 +18,10 @@ const staticModels = {
     "claude-3-5-sonnet": anthropic("claude-3-5-sonnet-latest"),
     "claude-4-sonnet": anthropic("claude-sonnet-4-20250514"),
   },
-  google: {
-    "gemini-2.5-flash": google("gemini-2.5-flash-preview-04-17"),
-    "gemini-2.5-pro": google("gemini-2.5-pro-preview-05-06"),
-  },
+  // google: {
+  //   "gemini-2.5-flash": google("gemini-2.5-flash-preview-04-17"),
+  //   "gemini-2.5-pro": google("gemini-2.5-pro-preview-05-06"),
+  // },
 };
 
 const staticUnsupportedModels = new Set([staticModels.openai["o4-mini"]]);
