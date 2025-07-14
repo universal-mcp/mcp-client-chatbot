@@ -202,6 +202,7 @@ The user has declined to run the tool. Please respond with the following three a
 
 export const buildContextServerPrompt = () => {
   return `
+Use the context server when the query is about financial data.
 When answering the user's question, you have access to a context server that provides relevant information and data chunks. Please follow these guidelines:
 
 - Always check the context server for relevant information before answering.
