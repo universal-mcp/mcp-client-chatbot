@@ -16,7 +16,7 @@ import { mcpGateway } from "lib/ai/mcp/mcp-gateway";
 import { chatRepository } from "lib/db/repository";
 import logger from "logger";
 import {
-  buildContextServerPrompt,
+  // buildContextServerPrompt,
   buildProjectInstructionsSystemPrompt,
   buildUserSystemPrompt,
 } from "lib/ai/prompts";
