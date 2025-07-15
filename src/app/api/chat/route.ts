@@ -16,6 +16,7 @@ import { mcpGateway } from "lib/ai/mcp/mcp-gateway";
 import { chatRepository } from "lib/db/repository";
 import logger from "logger";
 import {
+  buildContextServerPrompt,
   buildProjectInstructionsSystemPrompt,
   buildUserSystemPrompt,
 } from "lib/ai/prompts";
@@ -147,6 +148,7 @@ export async function POST(request: Request) {
         const systemPrompt = mergeSystemPrompt(
           buildUserSystemPrompt(user, userPreferences),
           buildProjectInstructionsSystemPrompt(thread?.instructions),
+          buildContextServerPrompt(),
         );
 
         // Precompute toolChoice to avoid repeated tool calls

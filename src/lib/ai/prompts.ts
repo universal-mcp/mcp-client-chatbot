@@ -199,3 +199,19 @@ The user has declined to run the tool. Please respond with the following three a
 
 3. Guide the user to choose their preferred direction with a friendly and clear tone.
 `.trim();
+
+export const buildContextServerPrompt = () => {
+  return `
+Use the context server when the query is about financial markets.
+When answering the user's question, you have access to a context server that provides relevant information and data chunks. Please follow these guidelines:
+
+- Always check the context server for relevant information before answering.
+- Prioritize using the most recent and up-to-date data from the context server.
+- Ensure your responses are grounded in the facts and details provided by the context server.
+- If the context server does not contain relevant information, you may use your general knowledge, but clearly indicate when you are doing so.
+- If you find conflicting information, prefer the newer data.
+- Do not fabricate information; rely on the context server whenever possible.
+
+Use the context server to provide accurate, truthful, and helpful answers.
+`.trim();
+};
