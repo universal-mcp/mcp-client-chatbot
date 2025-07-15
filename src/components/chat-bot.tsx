@@ -55,19 +55,10 @@ type Props = {
 export default function ChatBot({ threadId, initialMessages, slots }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const [
-    appStoreMutate,
-    model,
-    toolChoice,
-    allowedAppDefaultToolkit,
-    allowedMcpServers,
-    threadList,
-  ] = appStore(
+  const [appStoreMutate, toolChoice, allowedMcpServers, threadList] = appStore(
     useShallow((state) => [
       state.mutate,
-      state.chatModel,
       state.toolChoice,
-      state.allowedAppDefaultToolkit,
       state.allowedMcpServers,
       state.threadList,
     ]),
@@ -94,9 +85,7 @@ export default function ChatBot({ threadId, initialMessages, slots }: Props) {
       vercelAISdkV4ToolInvocationIssueCatcher(lastMessage);
       const request: ChatApiSchemaRequestBody = {
         id: latestRef.current.threadId,
-        chatModel: latestRef.current.model,
         toolChoice: latestRef.current.toolChoice,
-        allowedAppDefaultToolkit: latestRef.current.allowedAppDefaultToolkit,
         allowedMcpServers: latestRef.current.allowedMcpServers,
         message: lastMessage,
         projectId: currentThread?.projectId ?? undefined,
@@ -125,8 +114,6 @@ export default function ChatBot({ threadId, initialMessages, slots }: Props) {
 
   const latestRef = useToRef({
     toolChoice,
-    model,
-    allowedAppDefaultToolkit,
     allowedMcpServers,
     messages,
     threadId,

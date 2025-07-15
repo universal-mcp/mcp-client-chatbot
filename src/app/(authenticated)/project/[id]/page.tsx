@@ -86,27 +86,17 @@ export default function ProjectPage() {
   const [showMcpConfig, setShowMcpConfig] = useState(false);
   const [showAllThreads, setShowAllThreads] = useState(false);
 
-  const [
-    appStoreMutate,
-    model,
-    toolChoice,
-    allowedMcpServers,
-    allowedAppDefaultToolkit,
-  ] = appStore(
+  const [appStoreMutate, toolChoice, allowedMcpServers] = appStore(
     useShallow((state) => [
       state.mutate,
-      state.chatModel,
       state.toolChoice,
       state.allowedMcpServers,
-      state.allowedAppDefaultToolkit,
     ]),
   );
 
   const latestRef = useToRef({
-    model,
     toolChoice,
     allowedMcpServers,
-    allowedAppDefaultToolkit,
   });
 
   const { input, setInput, append, stop, status } = useChat({
@@ -115,9 +105,7 @@ export default function ProjectPage() {
     experimental_prepareRequestBody: ({ messages }) => {
       const request: ChatApiSchemaRequestBody = {
         id: threadId,
-        chatModel: latestRef.current.model,
         toolChoice: latestRef.current.toolChoice,
-        allowedAppDefaultToolkit: latestRef.current.allowedAppDefaultToolkit,
         allowedMcpServers: latestRef.current.allowedMcpServers,
         projectId: id as string,
         message: messages.at(-1)!,
