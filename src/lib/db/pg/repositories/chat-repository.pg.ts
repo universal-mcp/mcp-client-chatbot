@@ -716,24 +716,21 @@ export const pgChatRepository: ChatRepository = {
     instructions: Project["instructions"] | null;
     userPreferences: UserPreferences | undefined;
   }> => {
+    const joinConditions = [
+      eq(ProjectSchema.id, projectId!),
+      eq(ProjectSchema.userId, userId),
+      organizationId
+        ? eq(ProjectSchema.organizationId, organizationId)
+        : isNull(ProjectSchema.organizationId),
+    ];
+
     const [result] = await db
       .select({
         userPreferences: UserSchema.preferences,
         projectInstructions: ProjectSchema.instructions,
       })
       .from(UserSchema)
-      .leftJoin(
-        ProjectSchema,
-        projectId
-          ? and(
-              eq(ProjectSchema.id, projectId),
-              eq(ProjectSchema.userId, userId),
-              organizationId
-                ? eq(ProjectSchema.organizationId, organizationId)
-                : isNull(ProjectSchema.organizationId),
-            )
-          : undefined,
-      )
+      .leftJoin(ProjectSchema, projectId ? and(...joinConditions) : sql`false`)
       .where(eq(UserSchema.id, userId))
       .limit(1);
 
