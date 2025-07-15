@@ -148,7 +148,7 @@ export async function POST(request: Request) {
         const systemPrompt = mergeSystemPrompt(
           buildUserSystemPrompt(user, userPreferences),
           buildProjectInstructionsSystemPrompt(thread?.instructions),
-          buildContextServerPrompt(),
+          // buildContextServerPrompt(),
         );
 
         // Precompute toolChoice to avoid repeated tool calls
