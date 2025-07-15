@@ -1,32 +1,18 @@
 import { selectMcpClientsAction } from "@/app/api/mcp/actions";
 import { appStore } from "@/app/store";
-import { AppDefaultToolkit } from "app-types/chat";
-import { AllowedMCPServer, MCPServerInfo } from "app-types/mcp";
 import { cn } from "lib/utils";
-import {
-  ChartColumn,
-  ChevronRight,
-  Loader,
-  Package,
-  Plus,
-  Wrench,
-  X,
-} from "lucide-react";
+import { ChevronRight, Loader, Wrench } from "lucide-react";
 import Link from "next/link";
-import { PropsWithChildren, useCallback, useMemo, useState } from "react";
-import { toast } from "sonner";
+import {
+  PropsWithChildren,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import useSWR from "swr";
-import { Badge } from "ui/badge";
 import { Button } from "ui/button";
 import { Checkbox } from "ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,7 +26,6 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "ui/dropdown-menu";
-import { Input } from "ui/input";
 import { MCPIcon } from "ui/mcp-icon";
 
 import { handleErrorWithToast } from "ui/shared-toast";
@@ -54,17 +39,6 @@ interface ToolSelectDropdownProps {
   side?: "left" | "right" | "top" | "bottom";
   disabled?: boolean;
 }
-
-const calculateToolCount = (
-  allowedMcpServers: Record<string, AllowedMCPServer>,
-  mcpList: (MCPServerInfo & { id: string })[],
-) => {
-  return mcpList.reduce((acc, server) => {
-    const count =
-      allowedMcpServers[server.id]?.tools?.length ?? server.toolInfo.length;
-    return acc + count;
-  }, 0);
-};
 
 export function ToolSelectDropdown({
   children,
@@ -85,6 +59,11 @@ export function ToolSelectDropdown({
     },
     revalidateOnFocus: false,
   });
+
+  useEffect(() => {
+    appStoreMutate({ isMcpClientListLoading: isLoading });
+  }, [isLoading, appStoreMutate]);
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild disabled={disabled}>
@@ -108,186 +87,10 @@ export function ToolSelectDropdown({
       <DropdownMenuContent className="md:w-72" align={align} side={side}>
         <DropdownMenuLabel>{t("toolsSetup")}</DropdownMenuLabel>
         <div className="py-2">
-          <ToolPresets />
-          <div className="px-2 py-1">
-            <DropdownMenuSeparator />
-          </div>
-          <AppDefaultToolKitSelector />
-          <div className="px-2 py-1">
-            <DropdownMenuSeparator />
-          </div>
           <McpServerSelector />
         </div>
       </DropdownMenuContent>
     </DropdownMenu>
-  );
-}
-
-function ToolPresets() {
-  const [
-    appStoreMutate,
-    presets,
-    allowedMcpServers,
-    allowedAppDefaultToolkit,
-    mcpList,
-  ] = appStore(
-    useShallow((state) => [
-      state.mutate,
-      state.toolPresets,
-      state.allowedMcpServers,
-      state.allowedAppDefaultToolkit,
-      state.mcpList,
-    ]),
-  );
-  const [open, setOpen] = useState(false);
-  const [presetName, setPresetName] = useState("");
-  const t = useTranslations();
-
-  const presetWithToolCount = useMemo(() => {
-    return presets.map((preset) => ({
-      ...preset,
-      toolCount: calculateToolCount(preset.allowedMcpServers ?? {}, mcpList),
-    }));
-  }, [presets, mcpList]);
-
-  const addPreset = useCallback(
-    (name: string) => {
-      if (name.trim() === "") {
-        toast.error(t("Chat.Tool.presetNameCannotBeEmpty"));
-        return;
-      }
-      if (presets.find((p) => p.name === name)) {
-        toast.error(t("Chat.Tool.presetNameAlreadyExists"));
-        return;
-      }
-      appStoreMutate((prev) => {
-        return {
-          toolPresets: [
-            ...prev.toolPresets,
-            { name, allowedMcpServers, allowedAppDefaultToolkit },
-          ],
-        };
-      });
-      setPresetName("");
-      setOpen(false);
-      toast.success(t("Chat.Tool.presetSaved"));
-    },
-    [allowedMcpServers, allowedAppDefaultToolkit, presets],
-  );
-
-  const deletePreset = useCallback((index: number) => {
-    appStoreMutate((prev) => {
-      return {
-        toolPresets: prev.toolPresets.filter((_, i) => i !== index),
-      };
-    });
-  }, []);
-
-  const applyPreset = useCallback((preset: (typeof presets)[number]) => {
-    appStoreMutate({
-      allowedMcpServers: preset.allowedMcpServers,
-      allowedAppDefaultToolkit: preset.allowedAppDefaultToolkit,
-    });
-  }, []);
-
-  return (
-    <DropdownMenuGroup className="cursor-pointer">
-      <DropdownMenuSub>
-        <DropdownMenuSubTrigger className="text-xs flex items-center gap-2 font-semibold cursor-pointer">
-          <Package className="size-3.5" />
-          {t("Chat.Tool.preset")}
-        </DropdownMenuSubTrigger>
-        <DropdownMenuPortal>
-          <DropdownMenuSubContent className="md:w-80 md:max-h-96 overflow-y-auto">
-            <DropdownMenuLabel className="flex items-center text-muted-foreground gap-2">
-              {t("Chat.Tool.toolPresets")}
-              <div className="flex-1" />
-              <Dialog open={open} onOpenChange={setOpen}>
-                <DialogTrigger asChild>
-                  <Button variant={"secondary"} size={"sm"} className="border">
-                    {t("Chat.Tool.saveAsPreset")}
-                    <Plus className="size-3.5" />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>{t("Chat.Tool.saveAsPreset")}</DialogTitle>
-                  </DialogHeader>
-                  <DialogDescription>
-                    {t("Chat.Tool.saveAsPresetDescription")}
-                  </DialogDescription>
-                  <Input
-                    placeholder="Preset Name"
-                    value={presetName}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.nativeEvent.isComposing) {
-                        addPreset(presetName);
-                      }
-                    }}
-                    onChange={(e) => setPresetName(e.target.value)}
-                  />
-                  <Button
-                    variant={"secondary"}
-                    size={"sm"}
-                    className="border"
-                    onClick={() => {
-                      addPreset(presetName);
-                    }}
-                  >
-                    {t("Common.save")}
-                  </Button>
-                </DialogContent>
-              </Dialog>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {presets.length === 0 ? (
-              <div className="text-sm text-muted-foreground w-full h-full flex flex-col items-center justify-center gap-2 py-6">
-                <p>{t("Chat.Tool.noPresetsAvailableYet")}</p>
-                <p className="text-xs px-4">
-                  {t("Chat.Tool.clickSaveAsPresetToGetStarted")}
-                </p>
-              </div>
-            ) : (
-              presetWithToolCount.map((preset, index) => {
-                return (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      applyPreset(preset);
-                    }}
-                    key={preset.name}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <Badge
-                      variant={"secondary"}
-                      className="rounded-full border-input"
-                    >
-                      <Wrench className="size-3.5" />
-                      <span className="min-w-6 text-center">
-                        {preset.toolCount}
-                      </span>
-                    </Badge>
-                    <span className="font-semibold truncate">
-                      {preset.name}
-                    </span>
-
-                    <div className="flex-1" />
-                    <div
-                      className="p-1 hover:bg-input rounded-full cursor-pointer"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        deletePreset(index);
-                      }}
-                    >
-                      <X className="size-3.5" />
-                    </div>
-                  </DropdownMenuItem>
-                );
-              })
-            )}
-          </DropdownMenuSubContent>
-        </DropdownMenuPortal>
-      </DropdownMenuSub>
-    </DropdownMenuGroup>
   );
 }
 
@@ -512,49 +315,5 @@ function McpServerToolSelector({
         )}
       </div>
     </div>
-  );
-}
-
-function AppDefaultToolKitSelector() {
-  const [appStoreMutate, allowedAppDefaultToolkit] = appStore(
-    useShallow((state) => [state.mutate, state.allowedAppDefaultToolkit]),
-  );
-  const t = useTranslations("Chat.Tool");
-  const toggleAppDefaultToolkit = useCallback((toolkit: AppDefaultToolkit) => {
-    appStoreMutate((prev) => {
-      const newAllowedAppDefaultToolkit = [
-        ...(prev.allowedAppDefaultToolkit ?? []),
-      ];
-      if (newAllowedAppDefaultToolkit.includes(toolkit)) {
-        newAllowedAppDefaultToolkit.splice(
-          newAllowedAppDefaultToolkit.indexOf(toolkit),
-          1,
-        );
-      } else {
-        newAllowedAppDefaultToolkit.push(toolkit);
-      }
-      return { allowedAppDefaultToolkit: newAllowedAppDefaultToolkit };
-    });
-  }, []);
-
-  return (
-    <DropdownMenuGroup>
-      <DropdownMenuItem
-        className="cursor-pointer font-semibold text-xs"
-        onClick={(e) => {
-          e.preventDefault();
-          toggleAppDefaultToolkit(AppDefaultToolkit.Visualization);
-        }}
-      >
-        <ChartColumn className="size-3.5 text-blue-500 stroke-3" />
-        {t("chartTools")}
-        <Switch
-          className="ml-auto"
-          checked={allowedAppDefaultToolkit?.includes(
-            AppDefaultToolkit.Visualization,
-          )}
-        />
-      </DropdownMenuItem>
-    </DropdownMenuGroup>
   );
 }
