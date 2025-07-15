@@ -98,7 +98,7 @@ export function AppSidebarThreads() {
     displayThreadList.forEach((thread) => {
       const threadDate = new Date(thread.lastMessageAt);
       threadDate.setHours(0, 0, 0, 0);
-
+      console.log(threadDate.getTime(), today.getTime());
       if (threadDate.getTime() === today.getTime()) {
         groups[0].threads.push(thread);
       } else if (threadDate.getTime() === yesterday.getTime()) {

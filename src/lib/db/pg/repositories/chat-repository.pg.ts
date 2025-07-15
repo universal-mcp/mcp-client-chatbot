@@ -265,6 +265,7 @@ export const pgChatRepository: ChatRepository = {
         threadId: ChatThreadSchema.id,
         title: ChatThreadSchema.title,
         createdAt: ChatThreadSchema.createdAt,
+        updatedAt: ChatThreadSchema.updatedAt,
         userId: ChatThreadSchema.userId,
         projectId: ChatThreadSchema.projectId,
         lastMessageAt: sql<string>`MAX(${ChatMessageSchema.createdAt})`.as(
@@ -285,7 +286,7 @@ export const pgChatRepository: ChatRepository = {
         ),
       )
       .groupBy(ChatThreadSchema.id)
-      .orderBy(desc(sql`last_message_at`));
+      .orderBy(desc(ChatThreadSchema.updatedAt));
 
     return threadWithLatestMessage.map((row) => {
       return {
@@ -294,9 +295,10 @@ export const pgChatRepository: ChatRepository = {
         userId: row.userId,
         projectId: row.projectId,
         createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
         lastMessageAt: row.lastMessageAt
           ? new Date(row.lastMessageAt).getTime()
-          : 0,
+          : new Date(row.updatedAt).getTime(),
       };
     });
   },
@@ -312,6 +314,7 @@ export const pgChatRepository: ChatRepository = {
       .set({
         projectId: thread.projectId,
         title: thread.title,
+        updatedAt: new Date(),
       })
       .where(
         and(
