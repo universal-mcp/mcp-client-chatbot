@@ -67,7 +67,7 @@ const DEFAULT_SERVERS: DefaultServerConfig[] = [
   {
     id: "default-agentr",
     name: "AgentR",
-    url: "https://mcp.agentr.dev/sse",
+    url: "https://mcp.agentr.dev/mcp",
     badgeText: "Recommended",
   },
   // Add more default servers here in the future
@@ -144,13 +144,14 @@ export default function IntegrationsPage() {
 
   // Check which default servers already exist in the user's servers
   const existingServerNames = new Set(
-    mcpServers?.map((server: McpServerWithId) => server.name) || [],
+    mcpServers?.map((server: McpServerWithId) => server.name.toLowerCase()) ||
+      [],
   );
 
   // Create default server objects for servers that don't exist yet
   const availableDefaultServers = useMemo(() => {
     return DEFAULT_SERVERS.filter(
-      (config) => !existingServerNames.has(config.name),
+      (config) => !existingServerNames.has(config.name.toLowerCase()),
     ).map((config) => ({
       id: config.id,
       name: config.name,
