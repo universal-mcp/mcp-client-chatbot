@@ -150,6 +150,10 @@ export class MCPClient {
             signal: abortController.signal,
           },
         });
+        transport.onclose = () => {
+          this.isConnected = false;
+          this.client = undefined;
+        };
         await client.connect(transport);
         // Connection successful - we're authorized regardless of whether we had a token
         this.oauthStatus.isAuthorized = true;
@@ -165,6 +169,10 @@ export class MCPClient {
               signal: abortController.signal,
             },
           });
+          transport.onclose = () => {
+            this.isConnected = false;
+            this.client = undefined;
+          };
           await client.connect(transport);
           // Connection successful - we're authorized regardless of whether we had a token
           this.oauthStatus.isAuthorized = true;
@@ -249,8 +257,23 @@ export class MCPClient {
   }
 
   async callTool(toolName: string, input?: unknown) {
-    return safe(() => this.log.info("tool call", toolName))
-
+    return safe(async () => {
+      if (this.client && this.isConnected) {
+        try {
+          // Proactively check the connection by making a lightweight request.
+          // If this fails, we'll assume the connection is dead and force a reconnect.
+          const toolResponse = await this.client.listTools();
+          console.log("toolResponse", toolResponse);
+        } catch (error) {
+          this.log.warn(
+            "Connection check failed, assuming disconnected. Forcing reconnect.",
+            errorToString(error),
+          );
+          this.isConnected = false;
+          this.client = undefined; // Ensure we get a new client instance
+        }
+      }
+    })
       .ifOk(() => {
         if (this.error) {
           throw new Error(
