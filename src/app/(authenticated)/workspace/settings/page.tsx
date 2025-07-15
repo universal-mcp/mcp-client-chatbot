@@ -21,6 +21,7 @@ import useSWR from "swr";
 import { EditOrganizationModal } from "@/components/organization/edit-organization-modal";
 import { SwitchWorkspaceModal } from "@/components/organization/switch-workspace-modal";
 import { DeleteWorkspaceModal } from "@/components/organization/delete-workspace-modal";
+import { MessageLoading } from "@/components/ui/message-loading";
 
 export default function WorkspaceSettingsPage() {
   const { data: activeOrganization } = useActiveOrganization();
@@ -45,7 +46,6 @@ export default function WorkspaceSettingsPage() {
   );
 
   const isAdmin = userRole?.isAdmin ?? false;
-  const isLoadingData = isLoadingRole;
 
   const handleEditClick = () => {
     if (!isAdmin) {
@@ -56,6 +56,14 @@ export default function WorkspaceSettingsPage() {
   };
 
   const isPersonalWorkspace = !activeOrganization?.id;
+
+  if (isLoadingRole) {
+    return (
+      <div className="container flex h-full items-center justify-center p-6">
+        <MessageLoading />
+      </div>
+    );
+  }
 
   return (
     <div className="container max-w-4xl mx-auto p-6 space-y-6">
@@ -100,7 +108,7 @@ export default function WorkspaceSettingsPage() {
                   )}
                 </CardTitle>
               </div>
-              {!isPersonalWorkspace && !isLoadingData && (
+              {!isPersonalWorkspace && (
                 <Button
                   variant="outline"
                   size="sm"
