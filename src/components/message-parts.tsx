@@ -17,7 +17,6 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "ui/tooltip";
 import { Button } from "ui/button";
 import { Markdown } from "./markdown";
-import { MessagePastesContentCard } from "./message-pasts-content";
 import { cn, safeJSONParse } from "lib/utils";
 import JsonView from "ui/json-view";
 import {
@@ -34,7 +33,6 @@ import type { UseChatHelpers } from "@ai-sdk/react";
 import { useCopy } from "@/hooks/use-copy";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { SelectModel } from "./select-model";
 import {
   deleteMessageAction,
   deleteMessagesByChatIdAfterTimestampAction,
@@ -42,13 +40,12 @@ import {
 
 import { toast } from "sonner";
 import { safe } from "ts-safe";
-import { ChatMessageAnnotation, ChatModel } from "app-types/chat";
+import { ChatMessageAnnotation } from "app-types/chat";
 import { DefaultToolName } from "lib/ai/tools/utils";
 import { Skeleton } from "ui/skeleton";
 import { PieChart } from "./tool-invocation/pie-chart";
 import { BarChart } from "./tool-invocation/bar-chart";
 import { LineChart } from "./tool-invocation/line-chart";
-import { PROMPT_PASTE_MAX_LENGTH } from "lib/const";
 import { useTranslations } from "next-intl";
 import { extractMCPToolId } from "lib/ai/mcp/mcp-tool-id";
 import { Separator } from "ui/separator";
@@ -180,22 +177,16 @@ export const UserMessagePart = ({
       <div
         data-testid="message-content"
         className={cn(
-          "flex flex-col gap-4 max-w-full",
+          "flex flex-col gap-4 max-w-full bg-accent text-accent-foreground px-4 py-3 rounded-2xl",
           {
-            "bg-accent text-accent-foreground px-4 py-3 rounded-2xl":
-              isLast || part.text.length <= PROMPT_PASTE_MAX_LENGTH,
             "opacity-50": isError,
           },
           isError && "border-destructive border",
         )}
       >
-        {isLast || part.text.length <= PROMPT_PASTE_MAX_LENGTH ? (
-          <p className={cn("whitespace-pre-wrap text-sm break-words")}>
-            <HighlightedText text={part.text} mentions={toolMentions} />
-          </p>
-        ) : (
-          <MessagePastesContentCard initialContent={part.text} readonly />
-        )}
+        <p className={cn("whitespace-pre-wrap text-sm break-words")}>
+          <HighlightedText text={part.text} mentions={toolMentions} />
+        </p>
       </div>
 
       <div className="flex w-full justify-end">
@@ -290,7 +281,7 @@ export const AssistMessagePart = ({
       .unwrap();
   }, [message.id]);
 
-  const handleModelChange = (model: ChatModel) => {
+  const refreshAnswer = () => {
     safe(() => setIsLoading(true))
       .ifOk(() =>
         threadId
@@ -309,7 +300,6 @@ export const AssistMessagePart = ({
       .ifOk(() =>
         reload({
           body: {
-            model,
             action: "update-assistant",
             id: threadId,
           },
@@ -352,22 +342,19 @@ export const AssistMessagePart = ({
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <div>
-                <SelectModel onSelect={handleModelChange}>
-                  <Button
-                    data-testid="message-edit-button"
-                    variant="ghost"
-                    size="icon"
-                    className={cn(
-                      "size-3! p-4! opacity-0 group-hover/message:opacity-100",
-                    )}
-                  >
-                    {<RefreshCw />}
-                  </Button>
-                </SelectModel>
-              </div>
+              <Button
+                data-testid="message-refresh-button"
+                variant="ghost"
+                size="icon"
+                onClick={refreshAnswer}
+                className={cn(
+                  "size-3! p-4! opacity-0 group-hover/message:opacity-100",
+                )}
+              >
+                {<RefreshCw />}
+              </Button>
             </TooltipTrigger>
-            <TooltipContent>Change Model</TooltipContent>
+            <TooltipContent>Refresh answer</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -468,21 +455,22 @@ export const ToolMessagePart = memo(
 
     const result = useMemo(() => {
       if (state === "result") {
-        return toolInvocation.result?.content
-          ? {
-              ...toolInvocation.result,
-              content: toolInvocation.result.content.map((node) => {
-                if (node.type === "text") {
-                  const parsed = safeJSONParse(node.text);
-                  return {
-                    ...node,
-                    text: parsed.success ? parsed.value : node.text,
-                  };
-                }
-                return node;
-              }),
+        if (
+          toolInvocation.result?.content &&
+          Array.isArray(toolInvocation.result.content)
+        ) {
+          return toolInvocation.result.content.map((node) => {
+            if (node.type === "text") {
+              const parsed = safeJSONParse(node.text);
+              return {
+                ...node,
+                text: parsed.success ? parsed.value : node.text,
+              };
             }
-          : toolInvocation.result;
+            return node;
+          });
+        }
+        return toolInvocation.result;
       }
       return null;
     }, [state, toolInvocation]);
@@ -531,93 +519,135 @@ export const ToolMessagePart = memo(
                 />
               </div>
             </div>
-            <div className="flex gap-2 py-2">
-              <div className="w-7 flex justify-center">
-                <Separator
-                  orientation="vertical"
-                  className="h-full bg-gradient-to-t from-transparent to-border to-5%"
-                />
-              </div>
-              <div className="w-full flex flex-col gap-2">
-                <div className="min-w-0 w-full p-4 rounded-lg bg-card px-4 border text-xs">
-                  <div className="flex items-center">
-                    <h5 className="text-muted-foreground font-medium select-none">
-                      Request
-                    </h5>
-                    <div className="flex-1" />
-                    {copiedInput ? (
-                      <Check className="size-3" />
-                    ) : (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-3 text-muted-foreground"
-                        onClick={() =>
-                          copyInput(JSON.stringify(toolInvocation.args))
-                        }
-                      >
-                        <Copy />
-                      </Button>
-                    )}
+            <AnimatePresence initial={false}>
+              {isExpanded && (
+                <motion.div
+                  key="content"
+                  initial="collapsed"
+                  animate="expanded"
+                  exit="collapsed"
+                  variants={{
+                    expanded: {
+                      height: "auto",
+                      opacity: 1,
+                      paddingTop: "0.5rem",
+                      paddingBottom: "0.5rem",
+                    },
+                    collapsed: {
+                      height: 0,
+                      opacity: 0,
+                      paddingTop: 0,
+                      paddingBottom: 0,
+                    },
+                  }}
+                  transition={{ duration: 0.2, ease: "easeInOut" }}
+                  style={{ overflow: "hidden" }}
+                  className="flex gap-2"
+                >
+                  <div className="w-7 flex justify-center">
+                    <Separator
+                      orientation="vertical"
+                      className="h-full bg-gradient-to-t from-transparent to-border to-5%"
+                    />
                   </div>
-                  {isExpanded && (
-                    <div className="p-2 max-h-[300px] overflow-y-auto ">
-                      <JsonView data={toolInvocation.args} />
+                  <div className="w-full flex flex-col gap-2">
+                    <div className="min-w-0 w-full p-4 rounded-lg bg-card px-4 border text-xs">
+                      <div className="flex items-center">
+                        <h5 className="text-muted-foreground font-medium select-none">
+                          Request
+                        </h5>
+                        <div className="flex-1" />
+                        {copiedInput ? (
+                          <Check className="size-3" />
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-3 text-muted-foreground"
+                            onClick={() =>
+                              copyInput(JSON.stringify(toolInvocation.args))
+                            }
+                          >
+                            <Copy />
+                          </Button>
+                        )}
+                      </div>
+                      <div className="p-2 max-h-[300px] overflow-y-auto ">
+                        <JsonView data={toolInvocation.args} />
+                      </div>
                     </div>
-                  )}
-                </div>
-                {result && (
-                  <div className="min-w-0 w-full p-4 rounded-lg bg-card px-4 border text-xs mt-2">
-                    <div className="flex items-center">
-                      <h5 className="text-muted-foreground font-medium select-none">
-                        Response
-                      </h5>
-                      <div className="flex-1" />
-                      {copiedOutput ? (
-                        <Check className="size-3" />
-                      ) : (
+                    {result && (
+                      <div className="min-w-0 w-full p-4 rounded-lg bg-card px-4 border text-xs mt-2">
+                        <div className="flex items-center">
+                          <h5 className="text-muted-foreground font-medium select-none">
+                            Response
+                          </h5>
+                          <div className="flex-1" />
+                          {copiedOutput ? (
+                            <Check className="size-3" />
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-3 text-muted-foreground"
+                              onClick={() => copyOutput(JSON.stringify(result))}
+                            >
+                              <Copy />
+                            </Button>
+                          )}
+                        </div>
+                        <div className="p-2 max-h-[300px] overflow-y-auto">
+                          {Array.isArray(result) ? (
+                            <div className="flex flex-col gap-2">
+                              {result.map((item: any, index) => {
+                                if (item.type === "text") {
+                                  if (typeof item.text === "string") {
+                                    return (
+                                      <Markdown key={index}>
+                                        {item.text}
+                                      </Markdown>
+                                    );
+                                  }
+                                  return (
+                                    <JsonView key={index} data={item.text} />
+                                  );
+                                }
+                                return <JsonView key={index} data={item} />;
+                              })}
+                            </div>
+                          ) : (
+                            <JsonView data={result} />
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {onPoxyToolCall && (
+                      <div className="flex flex-row gap-2 items-center mt-2">
                         <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-3 text-muted-foreground"
-                          onClick={() => copyOutput(JSON.stringify(result))}
+                          variant="secondary"
+                          size="sm"
+                          className="rounded-full text-xs hover:ring"
+                          onClick={() => onPoxyToolCall(true)}
                         >
-                          <Copy />
+                          <Check />
+                          {t("approve")}
                         </Button>
-                      )}
-                    </div>
-                    {isExpanded && (
-                      <div className="p-2 max-h-[300px] overflow-y-auto">
-                        <JsonView data={result} />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-full text-xs"
+                          onClick={() => onPoxyToolCall(false)}
+                        >
+                          <X />
+                          {t("reject")}
+                        </Button>
                       </div>
                     )}
                   </div>
-                )}
-
-                {onPoxyToolCall && (
-                  <div className="flex flex-row gap-2 items-center mt-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="rounded-full text-xs hover:ring"
-                      onClick={() => onPoxyToolCall(true)}
-                    >
-                      <Check />
-                      {t("approve")}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="rounded-full text-xs"
-                      onClick={() => onPoxyToolCall(false)}
-                    >
-                      <X />
-                      {t("reject")}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {showActions && (
               <div className="flex flex-row gap-2 items-center">
