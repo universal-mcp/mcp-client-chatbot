@@ -88,7 +88,7 @@ export default function ChatBot({ threadId, initialMessages, slots }: Props) {
         toolChoice: latestRef.current.toolChoice,
         allowedMcpServers: latestRef.current.allowedMcpServers,
         message: lastMessage,
-        projectId: currentThread?.projectId ?? undefined,
+        projectId: currentThread?.projectId ?? null,
       };
       return request;
     },

@@ -83,6 +83,14 @@ export async function POST(request: Request) {
       ? await getProjectMcpConfigAction(projectId)
       : undefined;
 
+    // Get project instructions and user preferences in a single query
+    const { instructions: projectInstructions, userPreferences } =
+      await chatRepository.getProjectInstructionsAndUserPreferences(
+        userId,
+        projectId,
+        organizationId,
+      );
+
     const mentions = annotations
       .flatMap((annotation) => annotation.mentions)
       .filter(Boolean) as ChatMention[];
@@ -143,11 +151,9 @@ export async function POST(request: Request) {
           );
         }
 
-        const userPreferences = thread?.userPreferences || undefined;
-
         const systemPrompt = mergeSystemPrompt(
           buildUserSystemPrompt(user, userPreferences),
-          buildProjectInstructionsSystemPrompt(thread?.instructions),
+          buildProjectInstructionsSystemPrompt(projectInstructions),
           // buildContextServerPrompt(),
         );
 
@@ -204,7 +210,7 @@ export async function POST(request: Request) {
               await chatRepository.insertThread(
                 {
                   id,
-                  projectId: projectId ?? null,
+                  projectId: projectId,
                   title,
                   userId,
                 },

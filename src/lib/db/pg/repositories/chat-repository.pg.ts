@@ -101,8 +101,6 @@ export const pgChatRepository: ChatRepository = {
     const [thread] = await db
       .select()
       .from(ChatThreadSchema)
-      .leftJoin(ProjectSchema, eq(ChatThreadSchema.projectId, ProjectSchema.id))
-      .leftJoin(UserSchema, eq(ChatThreadSchema.userId, UserSchema.id))
       .where(
         and(
           eq(ChatThreadSchema.id, id),
@@ -123,13 +121,11 @@ export const pgChatRepository: ChatRepository = {
       organizationId,
     );
     return {
-      id: thread.chat_thread.id,
-      title: thread.chat_thread.title,
-      userId: thread.chat_thread.userId,
-      createdAt: thread.chat_thread.createdAt,
-      projectId: thread.chat_thread.projectId,
-      instructions: thread.project?.instructions ?? null,
-      userPreferences: thread.user?.preferences ?? undefined,
+      id: thread.id,
+      title: thread.title,
+      userId: thread.userId,
+      createdAt: thread.createdAt,
+      projectId: thread.projectId,
       messages,
     };
   },
@@ -710,5 +706,44 @@ export const pgChatRepository: ChatRepository = {
       .set({ updatedAt: new Date() })
       .where(eq(ChatThreadSchema.id, messages[0].threadId));
     return result as ChatMessage[];
+  },
+
+  getProjectInstructionsAndUserPreferences: async (
+    userId: string,
+    projectId: string | null,
+    organizationId: string | null,
+  ): Promise<{
+    instructions: Project["instructions"] | null;
+    userPreferences: UserPreferences | undefined;
+  }> => {
+    const [result] = await db
+      .select({
+        userPreferences: UserSchema.preferences,
+        projectInstructions: ProjectSchema.instructions,
+      })
+      .from(UserSchema)
+      .leftJoin(
+        ProjectSchema,
+        projectId
+          ? and(
+              eq(ProjectSchema.id, projectId),
+              eq(ProjectSchema.userId, userId),
+              organizationId
+                ? eq(ProjectSchema.organizationId, organizationId)
+                : isNull(ProjectSchema.organizationId),
+            )
+          : undefined,
+      )
+      .where(eq(UserSchema.id, userId))
+      .limit(1);
+
+    if (!result) {
+      throw new Error("User not found");
+    }
+
+    return {
+      instructions: result.projectInstructions ?? null,
+      userPreferences: result.userPreferences ?? undefined,
+    };
   },
 };

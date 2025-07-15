@@ -80,7 +80,7 @@ export enum AppDefaultToolkit {
 
 export const chatApiSchemaRequestBodySchema = z.object({
   id: z.string(),
-  projectId: z.string().optional(),
+  projectId: z.string().nullable(),
   message: z.any() as z.ZodType<UIMessage>,
   chatModel: z
     .object({
@@ -127,9 +127,7 @@ export type ChatRepository = {
     organizationId: string | null,
   ): Promise<
     | (ChatThread & {
-        instructions: Project["instructions"] | null;
         messages: ChatMessage[];
-        userPreferences?: UserPreferences;
       })
     | null
   >;
@@ -250,4 +248,13 @@ export type ChatRepository = {
     userId: string,
     organizationId: string | null,
   ): Promise<ChatMessage[]>;
+
+  getProjectInstructionsAndUserPreferences(
+    userId: string,
+    projectId: string | null,
+    organizationId: string | null,
+  ): Promise<{
+    instructions: Project["instructions"] | null;
+    userPreferences: UserPreferences | undefined;
+  }>;
 };

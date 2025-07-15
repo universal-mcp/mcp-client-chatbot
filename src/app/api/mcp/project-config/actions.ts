@@ -4,7 +4,10 @@ import { getSessionContext } from "@/lib/auth/session-context";
 import { pgProjectMcpConfigRepository } from "@/lib/db/pg/repositories/project-mcp-config-repository.pg";
 import type { ProjectMcpToolConfig } from "@/lib/db/pg/repositories/project-mcp-config-repository.pg";
 
-export async function getProjectMcpConfigAction(projectId: string) {
+export async function getProjectMcpConfigAction(projectId: string | null) {
+  if (!projectId) {
+    return null;
+  }
   const { userId, organizationId } = await getSessionContext();
 
   return pgProjectMcpConfigRepository.getProjectMcpConfig(
