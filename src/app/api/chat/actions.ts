@@ -32,12 +32,9 @@ export async function generateTitleFromUserMessageAction({
 }: { message: Message }) {
   await getSessionContext();
   const prompt = toAny(message.parts?.at(-1))?.text || "unknown";
-  const fixed_model = customModelProvider.getModel({
-    provider: "openai",
-    model: "gpt-4.1",
-  });
+  const model = customModelProvider.getModel(undefined);
   const { text: title } = await generateText({
-    model: fixed_model,
+    model: model,
     system: CREATE_THREAD_TITLE_PROMPT,
     prompt,
     maxTokens: 30,
