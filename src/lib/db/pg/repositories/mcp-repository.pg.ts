@@ -76,30 +76,7 @@ export const pgMcpRepository: MCPRepository = {
     return results;
   },
 
-  async deleteById(id, userId: string, organizationId: string | null) {
-    // Verify the server exists in the current context
-    const [server] = await db
-      .select({ id: McpServerSchema.id })
-      .from(McpServerSchema)
-      .where(
-        and(
-          eq(McpServerSchema.id, id),
-          organizationId
-            ? // In organization context: can delete any server in the org
-              eq(McpServerSchema.organizationId, organizationId)
-            : // In personal context: can only delete own personal servers
-              and(
-                eq(McpServerSchema.userId, userId),
-                isNull(McpServerSchema.organizationId),
-              ),
-        ),
-      )
-      .limit(1);
-
-    if (!server) {
-      throw new Error("MCP server not found or access denied");
-    }
-
+  async deleteById(id, _userId: string, _organizationId: string | null) {
     await db.delete(McpServerSchema).where(eq(McpServerSchema.id, id));
   },
 

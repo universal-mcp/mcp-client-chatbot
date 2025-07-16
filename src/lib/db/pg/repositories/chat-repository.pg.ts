@@ -40,32 +40,9 @@ export const pgChatRepository: ChatRepository = {
 
   deleteChatMessage: async (
     id: string,
-    userId: string,
-    organizationId: string | null,
+    _userId: string,
+    _organizationId: string | null,
   ): Promise<void> => {
-    // Verify the message belongs to a thread in the user's current organization context
-    const messageThread = await db
-      .select({ threadId: ChatMessageSchema.threadId })
-      .from(ChatMessageSchema)
-      .innerJoin(
-        ChatThreadSchema,
-        eq(ChatMessageSchema.threadId, ChatThreadSchema.id),
-      )
-      .where(
-        and(
-          eq(ChatMessageSchema.id, id),
-          eq(ChatThreadSchema.userId, userId),
-          organizationId
-            ? eq(ChatThreadSchema.organizationId, organizationId)
-            : isNull(ChatThreadSchema.organizationId),
-        ),
-      )
-      .limit(1);
-
-    if (!messageThread.length) {
-      throw new Error("Message not found or access denied");
-    }
-
     await db.delete(ChatMessageSchema).where(eq(ChatMessageSchema.id, id));
   },
 
@@ -218,28 +195,9 @@ export const pgChatRepository: ChatRepository = {
 
   selectMessagesByThreadId: async (
     threadId: string,
-    userId: string,
-    organizationId: string | null,
+    _userId: string,
+    _organizationId: string | null,
   ): Promise<ChatMessage[]> => {
-    // Verify thread belongs to current user and organization context
-    const threadCheck = await db
-      .select({ id: ChatThreadSchema.id })
-      .from(ChatThreadSchema)
-      .where(
-        and(
-          eq(ChatThreadSchema.id, threadId),
-          eq(ChatThreadSchema.userId, userId),
-          organizationId
-            ? eq(ChatThreadSchema.organizationId, organizationId)
-            : isNull(ChatThreadSchema.organizationId),
-        ),
-      )
-      .limit(1);
-
-    if (!threadCheck.length) {
-      throw new Error("Thread not found or access denied");
-    }
-
     const result = await db
       .select()
       .from(ChatMessageSchema)
@@ -261,7 +219,6 @@ export const pgChatRepository: ChatRepository = {
         threadId: ChatThreadSchema.id,
         title: ChatThreadSchema.title,
         createdAt: ChatThreadSchema.createdAt,
-        updatedAt: ChatThreadSchema.updatedAt,
         userId: ChatThreadSchema.userId,
         projectId: ChatThreadSchema.projectId,
         lastMessageAt: sql<string>`MAX(${ChatMessageSchema.createdAt})`.as(
@@ -282,7 +239,7 @@ export const pgChatRepository: ChatRepository = {
         ),
       )
       .groupBy(ChatThreadSchema.id)
-      .orderBy(desc(ChatThreadSchema.updatedAt));
+      .orderBy(desc(sql`last_message_at`));
 
     return threadWithLatestMessage.map((row) => {
       return {
@@ -291,10 +248,9 @@ export const pgChatRepository: ChatRepository = {
         userId: row.userId,
         projectId: row.projectId,
         createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
         lastMessageAt: row.lastMessageAt
           ? new Date(row.lastMessageAt).getTime()
-          : new Date(row.updatedAt).getTime(),
+          : 0,
       };
     });
   },
@@ -310,7 +266,6 @@ export const pgChatRepository: ChatRepository = {
       .set({
         projectId: thread.projectId,
         title: thread.title,
-        updatedAt: new Date(),
       })
       .where(
         and(
@@ -327,28 +282,9 @@ export const pgChatRepository: ChatRepository = {
 
   deleteThread: async (
     id: string,
-    userId: string,
-    organizationId: string | null,
+    _userId: string,
+    _organizationId: string | null,
   ): Promise<void> => {
-    // Verify thread belongs to current user and organization context
-    const threadCheck = await db
-      .select({ id: ChatThreadSchema.id })
-      .from(ChatThreadSchema)
-      .where(
-        and(
-          eq(ChatThreadSchema.id, id),
-          eq(ChatThreadSchema.userId, userId),
-          organizationId
-            ? eq(ChatThreadSchema.organizationId, organizationId)
-            : isNull(ChatThreadSchema.organizationId),
-        ),
-      )
-      .limit(1);
-
-    if (!threadCheck.length) {
-      throw new Error("Thread not found or access denied");
-    }
-
     await db
       .delete(ChatMessageSchema)
       .where(eq(ChatMessageSchema.threadId, id));
@@ -358,28 +294,9 @@ export const pgChatRepository: ChatRepository = {
 
   insertMessage: async (
     message: Omit<ChatMessage, "createdAt">,
-    userId: string,
-    organizationId: string | null,
+    _userId: string,
+    _organizationId: string | null,
   ): Promise<ChatMessage> => {
-    // Verify thread belongs to current user and organization context
-    const threadCheck = await db
-      .select({ id: ChatThreadSchema.id })
-      .from(ChatThreadSchema)
-      .where(
-        and(
-          eq(ChatThreadSchema.id, message.threadId),
-          eq(ChatThreadSchema.userId, userId),
-          organizationId
-            ? eq(ChatThreadSchema.organizationId, organizationId)
-            : isNull(ChatThreadSchema.organizationId),
-        ),
-      )
-      .limit(1);
-
-    if (!threadCheck.length) {
-      throw new Error("Thread not found or access denied");
-    }
-
     const entity = {
       ...message,
       id: message.id,
@@ -393,28 +310,9 @@ export const pgChatRepository: ChatRepository = {
 
   upsertMessage: async (
     message: Omit<ChatMessage, "createdAt">,
-    userId: string,
-    organizationId: string | null,
+    _userId: string,
+    _organizationId: string | null,
   ): Promise<ChatMessage> => {
-    // Verify thread belongs to current user and organization context
-    const threadCheck = await db
-      .select({ id: ChatThreadSchema.id })
-      .from(ChatThreadSchema)
-      .where(
-        and(
-          eq(ChatThreadSchema.id, message.threadId),
-          eq(ChatThreadSchema.userId, userId),
-          organizationId
-            ? eq(ChatThreadSchema.organizationId, organizationId)
-            : isNull(ChatThreadSchema.organizationId),
-        ),
-      )
-      .limit(1);
-
-    if (!threadCheck.length) {
-      throw new Error("Thread not found or access denied");
-    }
-
     const result = await db
       .insert(ChatMessageSchema)
       .values(message)
@@ -548,6 +446,9 @@ export const pgChatRepository: ChatRepository = {
       .select({
         project: ProjectSchema,
         thread: ChatThreadSchema,
+        lastMessageAt: sql<string>`MAX(${ChatMessageSchema.createdAt})`.as(
+          "last_message_at",
+        ),
       })
       .from(ProjectSchema)
       .where(
@@ -563,10 +464,12 @@ export const pgChatRepository: ChatRepository = {
         ChatThreadSchema,
         eq(ProjectSchema.id, ChatThreadSchema.projectId),
       )
-      .orderBy(
-        desc(ChatThreadSchema.updatedAt),
-        desc(ChatThreadSchema.createdAt),
-      );
+      .leftJoin(
+        ChatMessageSchema,
+        eq(ChatThreadSchema.id, ChatMessageSchema.threadId),
+      )
+      .groupBy(ProjectSchema.id, ChatThreadSchema.id)
+      .orderBy(desc(sql`last_message_at`), desc(ChatThreadSchema.createdAt));
     const project = result[0] ? result[0].project : null;
     const threads = result.map((row) => row.thread!).filter(Boolean);
     if (!project) {
@@ -636,25 +539,6 @@ export const pgChatRepository: ChatRepository = {
     userId: string,
     organizationId: string | null,
   ): Promise<void> => {
-    // Verify project belongs to current user and organization context
-    const projectCheck = await db
-      .select({ id: ProjectSchema.id })
-      .from(ProjectSchema)
-      .where(
-        and(
-          eq(ProjectSchema.id, id),
-          eq(ProjectSchema.userId, userId),
-          organizationId
-            ? eq(ProjectSchema.organizationId, organizationId)
-            : isNull(ProjectSchema.organizationId),
-        ),
-      )
-      .limit(1);
-
-    if (!projectCheck.length) {
-      throw new Error("Project not found or access denied");
-    }
-
     const threadIds = await db
       .select({ id: ChatThreadSchema.id })
       .from(ChatThreadSchema)
@@ -670,41 +554,16 @@ export const pgChatRepository: ChatRepository = {
 
   insertMessages: async (
     messages: PartialBy<ChatMessage, "createdAt">[],
-    userId: string,
-    organizationId: string | null,
+    _userId: string,
+    _organizationId: string | null,
   ): Promise<ChatMessage[]> => {
     // For bulk operations, we assume they're for the same thread and verify once
     if (messages.length === 0) return [];
-
-    const threadId = messages[0].threadId;
-
-    // Verify thread belongs to current user and organization context
-    const threadCheck = await db
-      .select({ id: ChatThreadSchema.id })
-      .from(ChatThreadSchema)
-      .where(
-        and(
-          eq(ChatThreadSchema.id, threadId),
-          eq(ChatThreadSchema.userId, userId),
-          organizationId
-            ? eq(ChatThreadSchema.organizationId, organizationId)
-            : isNull(ChatThreadSchema.organizationId),
-        ),
-      )
-      .limit(1);
-
-    if (!threadCheck.length) {
-      throw new Error("Thread not found or access denied");
-    }
 
     const result = await db
       .insert(ChatMessageSchema)
       .values(messages)
       .returning();
-    await db
-      .update(ChatThreadSchema)
-      .set({ updatedAt: new Date() })
-      .where(eq(ChatThreadSchema.id, messages[0].threadId));
     return result as ChatMessage[];
   },
 
