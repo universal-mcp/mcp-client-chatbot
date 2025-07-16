@@ -27,7 +27,6 @@ import { useEffect, useMemo, useState } from "react";
 import useSWR, { mutate } from "swr";
 import { Button } from "ui/button";
 import { notImplementedToast } from "ui/shared-toast";
-import { Skeleton } from "ui/skeleton";
 import { useShallow } from "zustand/shallow";
 
 interface FeatureCardProps {
@@ -99,7 +98,13 @@ export default function ProjectPage() {
     allowedMcpServers,
   });
 
-  const { input, setInput, append, stop, status } = useChat({
+  const {
+    input,
+    setInput,
+    append,
+    stop,
+    isLoading: isSubmitting,
+  } = useChat({
     id: threadId,
     api: "/api/chat",
     experimental_prepareRequestBody: ({ messages }) => {
@@ -123,10 +128,6 @@ export default function ProjectPage() {
     },
   });
 
-  const isCreatingThread = useMemo(() => {
-    return status == "submitted" || status == "streaming";
-  }, [status]);
-
   useEffect(() => {
     appStoreMutate({
       currentProjectId: id as string,
@@ -140,33 +141,35 @@ export default function ProjectPage() {
     };
   }, [id]);
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader className="animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col min-w-0 relative h-full ">
       <div className="max-w-3xl mx-auto fade-in animate-in w-full mt-14">
         <div className="px-6 py-6">
-          {isLoading ? (
-            <Skeleton className="h-10" />
-          ) : (
-            <div className="flex items-center gap-1">
-              <h1 className="text-4xl font-semibold truncate">
-                {project?.name}
-              </h1>
-              <div className="flex-1" />
-              <ProjectDropdown
-                project={project ?? { id: id as string, name: "" }}
+          <div className="flex items-center gap-1">
+            <h1 className="text-4xl font-semibold truncate">{project?.name}</h1>
+            <div className="flex-1" />
+            <ProjectDropdown
+              project={project ?? { id: id as string, name: "" }}
+            >
+              <Button
+                variant="ghost"
+                size="icon"
+                className="data-[state=open]:bg-secondary!"
               >
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="data-[state=open]:bg-secondary!"
-                >
-                  <MoreHorizontal />
-                </Button>
-              </ProjectDropdown>
-            </div>
-          )}
+                <MoreHorizontal />
+              </Button>
+            </ProjectDropdown>
+          </div>
         </div>
-        {isCreatingThread && (
+        {isSubmitting && (
           <div className="pb-6 flex flex-col justify-center fade-in animate-in">
             <div className="w-fit rounded-2xl px-6 py-4 flex items-center gap-2">
               <h1 className="font-semibold truncate">{t("creatingChat")}</h1>
@@ -179,7 +182,7 @@ export default function ProjectPage() {
           input={input}
           append={append}
           setInput={setInput}
-          isLoading={isLoading}
+          isLoading={isSubmitting}
           onStop={stop}
           isInProjectContext={true}
         />
@@ -263,16 +266,14 @@ export default function ProjectPage() {
             )}
           </div>
         ) : (
-          !isLoading && (
-            <div className="flex flex-col items-center justify-center text-center text-muted-foreground p-8">
-              <h3 className="text-lg font-medium mb-1">
-                {t("noConversationsYet")}
-              </h3>
-              <p className="text-sm">
-                {t("enterNewPromptToStartYourFirstConversation")}
-              </p>
-            </div>
-          )
+          <div className="flex flex-col items-center justify-center text-center text-muted-foreground p-8">
+            <h3 className="text-lg font-medium mb-1">
+              {t("noConversationsYet")}
+            </h3>
+            <p className="text-sm">
+              {t("enterNewPromptToStartYourFirstConversation")}
+            </p>
+          </div>
         )}
       </div>
       <ProjectSystemMessagePopup
