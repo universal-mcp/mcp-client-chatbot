@@ -124,7 +124,7 @@ export function CreateProjectPopup({ children }: PropsWithChildren) {
           Choose which tools the assistant can use in this project.
         </DialogDescription>
       </DialogHeader>
-      <div className="flex-grow overflow-hidden">
+      <div>
         <ProjectMcpConfig onConfigChange={setMcpConfig} />
       </div>
       <DialogFooter>
@@ -151,7 +151,7 @@ export function CreateProjectPopup({ children }: PropsWithChildren) {
         className={
           step === "details"
             ? "sm:max-w-[500px] bg-card"
-            : "max-w-5xl w-[50rem] min-w-[50rem] max-h-[90vh] flex flex-col bg-card"
+            : "max-w-5xl w-[50rem] min-w-[50rem] max-h-[90vh] flex flex-col bg-card overflow-y-auto"
         }
       >
         {step === "details" ? renderDetailsStep() : renderMcpConfigStep()}
