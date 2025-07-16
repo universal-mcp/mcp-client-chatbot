@@ -106,7 +106,7 @@ export class MCPClient {
       this.locker.lock();
 
       const client = new Client({
-        name: "mcp-chatbot-client",
+        name: "wingmen-mcp-client",
         version: "1.0.0",
       });
 
@@ -128,7 +128,7 @@ export class MCPClient {
       if (this.options.accessToken) {
         headers["Authorization"] = `Bearer ${this.options.accessToken}`;
         headers["X-OAuth-Server-ID"] = this.serverId || "unknown"; // Add server ID for debugging
-        headers["X-Request-Source"] = "mcp-client-chatbot"; // Add source identifier
+        headers["X-Request-Source"] = "wingmen-mcp-client"; // Add source identifier
         this.log.info("Added OAuth authorization header to request");
         this.oauthStatus.hasToken = true;
         this.oauthStatus.tokenExpiry = this.options.tokenExpiry;

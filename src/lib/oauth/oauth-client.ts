@@ -103,7 +103,7 @@ export class MCPOAuthClient {
         ...options,
         signal: controller.signal,
         headers: {
-          "User-Agent": "MCP-Client-Chatbot/1.0",
+          "User-Agent": "Wingmen-Client/1.0",
           Accept: "application/json",
           "Cache-Control": "no-cache",
           ...options.headers,
