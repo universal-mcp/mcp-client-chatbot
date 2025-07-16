@@ -3,7 +3,6 @@
 import {
   AudioWaveformIcon,
   CornerRightUp,
-  Loader,
   Paperclip,
   Pause,
 } from "lucide-react";
@@ -189,35 +188,41 @@ export default function PromptInput({
                     <TooltipContent>{t("VoiceChat.title")}</TooltipContent>
                   </Tooltip>
                 ) : (
-                  <div
-                    onClick={() => {
-                      if (isLoading) {
-                        onStop();
-                      } else {
-                        submit();
-                      }
-                    }}
-                    className="fade-in animate-in cursor-pointer text-muted-foreground rounded-full p-2 bg-secondary hover:bg-accent-foreground hover:text-accent transition-all duration-200 interactive-element"
-                  >
-                    {isLoading ? (
-                      <Pause
-                        size={16}
-                        className="fill-muted-foreground text-muted-foreground"
-                      />
-                    ) : (
-                      <CornerRightUp size={16} />
-                    )}
-                  </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div
+                        onClick={() => {
+                          if (isLoading) {
+                            onStop();
+                          } else {
+                            submit();
+                          }
+                        }}
+                        className={cn(
+                          "fade-in animate-in cursor-pointer rounded-full p-2 transition-all duration-200 interactive-element",
+                          isLoading
+                            ? "text-muted-foreground bg-secondary hover:bg-accent-foreground hover:text-accent"
+                            : "border text-background bg-primary hover:bg-primary/90",
+                        )}
+                      >
+                        {isLoading ? (
+                          <Pause
+                            size={16}
+                            className="fill-muted-foreground text-muted-foreground"
+                          />
+                        ) : (
+                          <CornerRightUp size={16} />
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {isLoading ? "Stop generation" : "Send a message"}
+                    </TooltipContent>
+                  </Tooltip>
                 )}
               </div>
             </div>
           </div>
-          {isLoadingTools && (
-            <div className="mt-2 flex items-center justify-center text-xs text-muted-foreground">
-              <Loader className="mr-2 size-3 animate-spin" />
-              Waiting for tools to load...
-            </div>
-          )}
         </fieldset>
       </div>
     </div>
