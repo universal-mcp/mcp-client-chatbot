@@ -265,7 +265,13 @@
     "showLessChats": "Show less",
     "reportAnIssue": "Report an issue",
     "joinCommunity": "Join Community",
-    "manageAccount": "Manage Account"
+    "manageAccount": "Manage Account",
+    "note": "Note",
+    "comingSoon": "Coming Soon",
+    "personalWorkspace": "Personal Workspace",
+    "personal": "Personal",
+    "createNewWorkspace": "Create New Workspace",
+    "workspaceSettings": "Workspace Settings"
   },
   "KeyboardShortcuts": {
     "title": "Keyboard Shortcuts",

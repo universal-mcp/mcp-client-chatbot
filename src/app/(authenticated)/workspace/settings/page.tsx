@@ -19,14 +19,14 @@ import { toast } from "sonner";
 import { OrganizationCard } from "@/components/organization/organization-card";
 import useSWR from "swr";
 import { EditOrganizationModal } from "@/components/organization/edit-organization-modal";
-import { SwitchWorkspaceModal } from "@/components/organization/switch-workspace-modal";
+import { CreateOrganizationModal } from "@/components/organization/create-organization-modal";
 import { DeleteWorkspaceModal } from "@/components/organization/delete-workspace-modal";
 import { MessageLoading } from "@/components/ui/message-loading";
 
 export default function WorkspaceSettingsPage() {
   const { data: activeOrganization } = useActiveOrganization();
   const router = useRouter();
-  const [isSwitchModalOpen, setIsSwitchModalOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
@@ -209,11 +209,11 @@ export default function WorkspaceSettingsPage() {
                     </p>
                   </div>
                   <Button
-                    onClick={() => setIsSwitchModalOpen(true)}
+                    onClick={() => setIsCreateModalOpen(true)}
                     className="mt-4"
                   >
                     <Building2 className="h-4 w-4 mr-2" />
-                    Switch Workspace
+                    Create Workspace
                   </Button>
                 </div>
               </CardContent>
@@ -222,10 +222,10 @@ export default function WorkspaceSettingsPage() {
         </>
       )}
 
-      {/* Switch Workspace Modal */}
-      <SwitchWorkspaceModal
-        open={isSwitchModalOpen}
-        onOpenChange={setIsSwitchModalOpen}
+      {/* Create Workspace Modal */}
+      <CreateOrganizationModal
+        open={isCreateModalOpen}
+        onOpenChange={setIsCreateModalOpen}
       />
       {/* Edit Organization Modal */}
       <EditOrganizationModal

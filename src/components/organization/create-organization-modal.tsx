@@ -19,6 +19,7 @@ import { organization, useSession } from "@/lib/auth/client";
 interface CreateOrganizationModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  switchToNewWorkspace?: boolean;
 }
 
 // Function to generate a short hash from user ID
@@ -38,6 +39,7 @@ const generateUserHash = async (userId: string): Promise<string> => {
 export const CreateOrganizationModal = ({
   open,
   onOpenChange,
+  switchToNewWorkspace = true,
 }: CreateOrganizationModalProps) => {
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
@@ -100,11 +102,13 @@ export const CreateOrganizationModal = ({
         onSuccess: async (ctx) => {
           toast.success("Workspace created successfully");
           onOpenChange(false);
-          // Switch to the newly created workspace
-          await organization.setActive({
-            organizationId: ctx.data?.id || null,
-          });
-          window.location.href = "/";
+          if (switchToNewWorkspace) {
+            // Switch to the newly created workspace
+            await organization.setActive({
+              organizationId: ctx.data?.id || null,
+            });
+            window.location.href = "/";
+          }
         },
         onError: (error) => {
           toast.error(
