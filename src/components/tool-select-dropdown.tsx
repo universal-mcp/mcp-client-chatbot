@@ -108,8 +108,8 @@ function McpServerSelector() {
     return [...mcpServerList]
       .sort(
         (a, b) =>
-          (a.status === "connected" ? -1 : 1) -
-          (b.status === "connected" ? -1 : 1),
+          (a.oauthStatus.isAuthorized ? -1 : 1) -
+          (b.oauthStatus.isAuthorized ? -1 : 1),
       )
       .map((server) => {
         const allowedTools: string[] =
@@ -125,7 +125,7 @@ function McpServerSelector() {
             description: tool.description,
           })),
           error: server.error,
-          status: server.status,
+          status: server.oauthStatus.isAuthorized,
         };
       });
   }, [mcpServerList, allowedMcpServers]);
