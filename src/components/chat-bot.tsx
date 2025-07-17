@@ -30,7 +30,6 @@ import { useToRef } from "@/hooks/use-latest";
 import { isShortcutEvent, Shortcuts } from "lib/keyboard-shortcuts";
 import { Button } from "ui/button";
 import { deleteThreadAction } from "@/app/api/chat/actions";
-import { useRouter } from "next/navigation";
 import { Loader } from "lucide-react";
 import {
   Dialog,
@@ -41,20 +40,26 @@ import {
   DialogTitle,
 } from "ui/dialog";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 
 type Props = {
   threadId: string;
   initialMessages: Array<UIMessage>;
   selectedChatModel?: string;
+  projectId?: string;
   slots?: {
     emptySlot?: ReactNode;
     inputBottomSlot?: ReactNode;
   };
 };
 
-export default function ChatBot({ threadId, initialMessages, slots }: Props) {
+export default function ChatBot({
+  threadId,
+  initialMessages,
+  slots,
+  projectId,
+}: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-
   const [appStoreMutate, toolChoice, allowedMcpServers, threadList] = appStore(
     useShallow((state) => [
       state.mutate,
@@ -63,7 +68,7 @@ export default function ChatBot({ threadId, initialMessages, slots }: Props) {
       state.threadList,
     ]),
   );
-
+  const router = useRouter();
   const {
     messages,
     input,
@@ -88,7 +93,7 @@ export default function ChatBot({ threadId, initialMessages, slots }: Props) {
         toolChoice: latestRef.current.toolChoice,
         allowedMcpServers: latestRef.current.allowedMcpServers,
         message: lastMessage,
-        projectId: currentThread?.projectId ?? null,
+        projectId: projectId ?? currentThread?.projectId ?? null,
       };
       return request;
     },
@@ -98,6 +103,9 @@ export default function ChatBot({ threadId, initialMessages, slots }: Props) {
     onFinish() {
       if (threadList[0]?.id !== threadId) {
         mutate("threads");
+      }
+      if (projectId) {
+        router.replace(`/chat/${threadId}`);
       }
     },
     onError: (error) => {
@@ -232,7 +240,7 @@ export default function ChatBot({ threadId, initialMessages, slots }: Props) {
   return (
     <div
       className={cn(
-        emptyMessage && "justify-center pb-24",
+        emptyMessage && !projectId && "justify-center pb-24",
         "flex flex-col min-w-0 relative h-full",
       )}
     >
@@ -288,7 +296,7 @@ export default function ChatBot({ threadId, initialMessages, slots }: Props) {
           setInput={setInput}
           isLoading={isLoading || isPendingToolCall}
           onStop={stop}
-          isInProjectContext={!!currentThread?.projectId}
+          isInProjectContext={!!projectId || !!currentThread?.projectId}
         />
         {slots?.inputBottomSlot}
       </div>

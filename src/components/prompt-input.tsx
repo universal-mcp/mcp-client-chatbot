@@ -58,8 +58,7 @@ export default function PromptInput({
     ]),
   );
 
-  const isLoadingTools =
-    isMcpClientListLoading && !toolDisabled && !isInProjectContext;
+  const isLoadingTools = isMcpClientListLoading && !toolDisabled;
 
   // Auto-resize textarea
   useEffect(() => {
@@ -154,13 +153,27 @@ export default function PromptInput({
                   <Paperclip className="size-4" />
                 </div>
 
-                {!toolDisabled && !isInProjectContext && (
+                {!toolDisabled && (
                   <>
-                    <div className="interactive-element">
-                      <ToolModeDropdown />
+                    <div
+                      className={cn(
+                        "interactive-element",
+                        isInProjectContext && "cursor-not-allowed opacity-50",
+                      )}
+                    >
+                      <ToolModeDropdown disabled={isInProjectContext} />
                     </div>
-                    <div className="interactive-element">
-                      <ToolSelectDropdown align="start" side="top" />
+                    <div
+                      className={cn(
+                        "interactive-element",
+                        isInProjectContext && "cursor-not-allowed opacity-50",
+                      )}
+                    >
+                      <ToolSelectDropdown
+                        align="start"
+                        side="top"
+                        disabled={isInProjectContext}
+                      />
                     </div>
                   </>
                 )}
