@@ -55,15 +55,17 @@ export async function selectThreadWithMessagesAction(threadId: string) {
     logger.error("Thread not found", threadId);
     return redirect("/");
   }
-  if (thread.userId !== userId) {
-    return redirect("/");
-  }
+
   const messages = await chatRepository.selectMessagesByThreadId(
     threadId,
     userId,
     organizationId,
   );
-  return { ...thread, messages: messages ?? [] };
+  return {
+    ...thread,
+    messages: messages ?? [],
+    isOwner: thread.userId === userId,
+  };
 }
 
 export async function deleteMessageAction(messageId: string) {
@@ -112,6 +114,14 @@ export async function updateThreadAction(
 ) {
   const { userId, organizationId } = await getSessionContext();
   await chatRepository.updateThread(id, thread, userId, organizationId);
+}
+
+export async function updateThreadVisibilityAction(
+  id: string,
+  isPublic: boolean,
+) {
+  const { userId, organizationId } = await getSessionContext();
+  await chatRepository.updateThread(id, { isPublic }, userId, organizationId);
 }
 
 export async function deleteThreadsAction() {

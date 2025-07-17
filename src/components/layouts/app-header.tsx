@@ -14,6 +14,8 @@ import {
   ChevronRight,
   MessageCircleDashed,
   PanelLeft,
+  Globe,
+  Lock,
 } from "lucide-react";
 import { Button } from "ui/button";
 import { Separator } from "ui/separator";
@@ -26,6 +28,7 @@ import Link from "next/link";
 import { useShallow } from "zustand/shallow";
 import { getShortcutKeyList, Shortcuts } from "lib/keyboard-shortcuts";
 import { useTranslations } from "next-intl";
+import { ThreadVisibilityDropdown } from "../thread-visibility-dropdown";
 
 export function AppHeader() {
   const t = useTranslations();
@@ -198,6 +201,19 @@ function ThreadDropdownComponent() {
           <ChevronDown size={14} />
         </Button>
       </ThreadDropdown>
+      <ThreadVisibilityDropdown thread={currentThread}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="hover:text-foreground cursor-pointer flex gap-1 items-center px-2 py-1 rounded-md hover:bg-accent"
+        >
+          {currentThread.isPublic ? (
+            <Globe className="size-4" />
+          ) : (
+            <Lock className="size-4" />
+          )}
+        </Button>
+      </ThreadVisibilityDropdown>
     </div>
   );
 }

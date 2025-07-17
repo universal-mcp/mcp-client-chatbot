@@ -14,7 +14,7 @@ import {
   UserSchema,
 } from "../schema.pg";
 
-import { and, desc, eq, gte, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, sql, or, inArray } from "drizzle-orm";
 import { pgUserRepository } from "./user-repository.pg";
 import { UserPreferences } from "app-types/user";
 import { pgProjectMcpConfigRepository } from "./project-mcp-config-repository.pg";
@@ -40,10 +40,29 @@ export const pgChatRepository: ChatRepository = {
 
   deleteChatMessage: async (
     id: string,
-    _userId: string,
-    _organizationId: string | null,
+    userId: string,
+    organizationId: string | null,
   ): Promise<void> => {
-    await db.delete(ChatMessageSchema).where(eq(ChatMessageSchema.id, id));
+    const threadOwnerSubquery = db
+      .select({ id: ChatThreadSchema.id })
+      .from(ChatThreadSchema)
+      .where(
+        and(
+          eq(ChatThreadSchema.userId, userId),
+          organizationId
+            ? eq(ChatThreadSchema.organizationId, organizationId)
+            : isNull(ChatThreadSchema.organizationId),
+        ),
+      );
+
+    await db
+      .delete(ChatMessageSchema)
+      .where(
+        and(
+          eq(ChatMessageSchema.id, id),
+          inArray(ChatMessageSchema.threadId, threadOwnerSubquery),
+        ),
+      );
   },
 
   selectThread: async (
@@ -57,10 +76,15 @@ export const pgChatRepository: ChatRepository = {
       .where(
         and(
           eq(ChatThreadSchema.id, id),
-          eq(ChatThreadSchema.userId, userId),
-          organizationId
-            ? eq(ChatThreadSchema.organizationId, organizationId)
-            : isNull(ChatThreadSchema.organizationId),
+          or(
+            and(
+              eq(ChatThreadSchema.userId, userId),
+              organizationId
+                ? eq(ChatThreadSchema.organizationId, organizationId)
+                : isNull(ChatThreadSchema.organizationId),
+            ),
+            eq(ChatThreadSchema.isPublic, true),
+          ),
         ),
       );
     return result;
@@ -81,10 +105,15 @@ export const pgChatRepository: ChatRepository = {
       .where(
         and(
           eq(ChatThreadSchema.id, id),
-          eq(ChatThreadSchema.userId, userId),
-          organizationId
-            ? eq(ChatThreadSchema.organizationId, organizationId)
-            : isNull(ChatThreadSchema.organizationId),
+          or(
+            and(
+              eq(ChatThreadSchema.userId, userId),
+              organizationId
+                ? eq(ChatThreadSchema.organizationId, organizationId)
+                : isNull(ChatThreadSchema.organizationId),
+            ),
+            eq(ChatThreadSchema.isPublic, true),
+          ),
         ),
       );
 
@@ -103,6 +132,7 @@ export const pgChatRepository: ChatRepository = {
       userId: thread.userId,
       createdAt: thread.createdAt,
       projectId: thread.projectId,
+      isPublic: thread.isPublic,
       messages,
     };
   },
@@ -221,6 +251,7 @@ export const pgChatRepository: ChatRepository = {
         createdAt: ChatThreadSchema.createdAt,
         userId: ChatThreadSchema.userId,
         projectId: ChatThreadSchema.projectId,
+        isPublic: ChatThreadSchema.isPublic,
         lastMessageAt: sql<string>`MAX(${ChatMessageSchema.createdAt})`.as(
           "last_message_at",
         ),
@@ -248,6 +279,7 @@ export const pgChatRepository: ChatRepository = {
         userId: row.userId,
         projectId: row.projectId,
         createdAt: row.createdAt,
+        isPublic: row.isPublic,
         lastMessageAt: row.lastMessageAt
           ? new Date(row.lastMessageAt).getTime()
           : 0,
@@ -266,6 +298,7 @@ export const pgChatRepository: ChatRepository = {
       .set({
         projectId: thread.projectId,
         title: thread.title,
+        isPublic: thread.isPublic,
       })
       .where(
         and(
@@ -282,14 +315,20 @@ export const pgChatRepository: ChatRepository = {
 
   deleteThread: async (
     id: string,
-    _userId: string,
-    _organizationId: string | null,
+    userId: string,
+    organizationId: string | null,
   ): Promise<void> => {
     await db
-      .delete(ChatMessageSchema)
-      .where(eq(ChatMessageSchema.threadId, id));
-
-    await db.delete(ChatThreadSchema).where(eq(ChatThreadSchema.id, id));
+      .delete(ChatThreadSchema)
+      .where(
+        and(
+          eq(ChatThreadSchema.id, id),
+          eq(ChatThreadSchema.userId, userId),
+          organizationId
+            ? eq(ChatThreadSchema.organizationId, organizationId)
+            : isNull(ChatThreadSchema.organizationId),
+        ),
+      );
   },
 
   insertMessage: async (
@@ -549,7 +588,17 @@ export const pgChatRepository: ChatRepository = {
       ),
     );
 
-    await db.delete(ProjectSchema).where(eq(ProjectSchema.id, id));
+    await db
+      .delete(ProjectSchema)
+      .where(
+        and(
+          eq(ProjectSchema.id, id),
+          eq(ProjectSchema.userId, userId),
+          organizationId
+            ? eq(ProjectSchema.organizationId, organizationId)
+            : isNull(ProjectSchema.organizationId),
+        ),
+      );
   },
 
   insertMessages: async (

@@ -33,6 +33,7 @@ export const ChatThreadSchema = pgTable("chat_thread", {
   ),
   createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   projectId: uuid("project_id"),
+  isPublic: boolean("is_public").notNull().default(false),
 });
 
 export const ChatMessageSchema = pgTable("chat_message", {

@@ -64,6 +64,7 @@ interface UserMessagePartProps {
   reload: UseChatHelpers["reload"];
   status: UseChatHelpers["status"];
   isError?: boolean;
+  isReadOnly?: boolean;
 }
 
 interface AssistMessagePartProps {
@@ -74,6 +75,7 @@ interface AssistMessagePartProps {
   setMessages: UseChatHelpers["setMessages"];
   reload: UseChatHelpers["reload"];
   isError?: boolean;
+  isReadOnly?: boolean;
 }
 
 interface ToolMessagePartProps {
@@ -84,6 +86,7 @@ interface ToolMessagePartProps {
   onPoxyToolCall?: (answer: boolean) => void;
   isError?: boolean;
   setMessages?: UseChatHelpers["setMessages"];
+  isReadOnly?: boolean;
 }
 
 interface HighlightedTextProps {
@@ -117,6 +120,7 @@ export const UserMessagePart = ({
   setMessages,
   reload,
   isError,
+  isReadOnly,
 }: UserMessagePartProps) => {
   const { copied, copy } = useCopy();
   const [mode, setMode] = useState<"view" | "edit">("view");
@@ -202,6 +206,7 @@ export const UserMessagePart = ({
                     "size-3! p-4! opacity-0 group-hover/message:opacity-100",
                   )}
                   onClick={() => copy(part.text)}
+                  disabled={isReadOnly}
                 >
                   {copied ? <Check /> : <Copy />}
                 </Button>
@@ -216,6 +221,7 @@ export const UserMessagePart = ({
                   size="icon"
                   className="size-3! p-4! opacity-0 group-hover/message:opacity-100"
                   onClick={() => setMode("edit")}
+                  disabled={isReadOnly}
                 >
                   <Pencil />
                 </Button>
@@ -226,7 +232,7 @@ export const UserMessagePart = ({
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  disabled={isDeleting}
+                  disabled={isDeleting || isReadOnly}
                   onClick={deleteMessage}
                   variant="ghost"
                   size="icon"
@@ -259,6 +265,7 @@ export const AssistMessagePart = ({
   setMessages,
   isError,
   threadId,
+  isReadOnly,
 }: AssistMessagePartProps) => {
   const { copied, copy } = useCopy();
   const [isLoading, setIsLoading] = useState(false);
@@ -334,6 +341,7 @@ export const AssistMessagePart = ({
                   "size-3! p-4! opacity-0 group-hover/message:opacity-100",
                 )}
                 onClick={() => copy(part.text)}
+                disabled={isReadOnly}
               >
                 {copied ? <Check /> : <Copy />}
               </Button>
@@ -350,6 +358,7 @@ export const AssistMessagePart = ({
                 className={cn(
                   "size-3! p-4! opacity-0 group-hover/message:opacity-100",
                 )}
+                disabled={isReadOnly}
               >
                 {<RefreshCw />}
               </Button>
@@ -361,7 +370,7 @@ export const AssistMessagePart = ({
               <Button
                 variant="ghost"
                 size="icon"
-                disabled={isDeleting}
+                disabled={isDeleting || isReadOnly}
                 onClick={deleteMessage}
                 className="size-3! p-4! opacity-0 group-hover/message:opacity-100 hover:text-destructive"
               >
@@ -387,6 +396,7 @@ export const ToolMessagePart = memo(
     isError,
     message,
     setMessages,
+    isReadOnly,
   }: ToolMessagePartProps) => {
     const t = useTranslations("Common");
     const { toolInvocation } = part;
@@ -567,6 +577,7 @@ export const ToolMessagePart = memo(
                             onClick={() =>
                               copyInput(JSON.stringify(toolInvocation.args))
                             }
+                            disabled={isReadOnly}
                           >
                             <Copy />
                           </Button>
@@ -591,6 +602,7 @@ export const ToolMessagePart = memo(
                               size="icon"
                               className="size-3 text-muted-foreground"
                               onClick={() => copyOutput(JSON.stringify(result))}
+                              disabled={isReadOnly}
                             >
                               <Copy />
                             </Button>
@@ -629,6 +641,7 @@ export const ToolMessagePart = memo(
                           size="sm"
                           className="rounded-full text-xs hover:ring"
                           onClick={() => onPoxyToolCall(true)}
+                          disabled={isReadOnly}
                         >
                           <Check />
                           {t("approve")}
@@ -638,6 +651,7 @@ export const ToolMessagePart = memo(
                           size="sm"
                           className="rounded-full text-xs"
                           onClick={() => onPoxyToolCall(false)}
+                          disabled={isReadOnly}
                         >
                           <X />
                           {t("reject")}
@@ -654,7 +668,7 @@ export const ToolMessagePart = memo(
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
-                      disabled={isDeleting}
+                      disabled={isDeleting || isReadOnly}
                       onClick={deleteMessage}
                       variant="ghost"
                       size="icon"

@@ -28,6 +28,7 @@ interface PromptInputProps {
   isLoading?: boolean;
   voiceDisabled?: boolean;
   isInProjectContext?: boolean;
+  disabled?: boolean;
 }
 
 export default function PromptInput({
@@ -40,6 +41,7 @@ export default function PromptInput({
   toolDisabled,
   voiceDisabled,
   isInProjectContext,
+  disabled,
 }: PromptInputProps) {
   const t = useTranslations("Chat");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -92,7 +94,7 @@ export default function PromptInput({
   };
 
   const submit = () => {
-    if (isLoading) return;
+    if (isLoading || disabled) return;
     const userMessage = input?.trim() || "";
 
     if (userMessage.length === 0) {
@@ -120,7 +122,7 @@ export default function PromptInput({
       <div className="z-10 mx-auto w-full max-w-3xl relative">
         <fieldset
           className="flex w-full min-w-0 max-w-full flex-col px-2"
-          disabled={isLoadingTools}
+          disabled={isLoadingTools || disabled}
         >
           <div
             onClick={handleContainerClick}
@@ -138,10 +140,14 @@ export default function PromptInput({
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder={placeholder ?? t("placeholder")}
+                  placeholder={
+                    disabled
+                      ? t("readOnlyPlaceholder")
+                      : (placeholder ?? t("placeholder"))
+                  }
                   className="w-full resize-none border-none bg-transparent outline-none text-foreground placeholder:text-muted-foreground min-h-[2rem] max-h-[200px] overflow-y-auto leading-6 px-2 py-1 text-base placeholder:text-base"
                   rows={1}
-                  disabled={isLoading || isLoadingTools}
+                  disabled={isLoading || isLoadingTools || disabled}
                 />
               </div>
 
@@ -179,7 +185,7 @@ export default function PromptInput({
                 )}
                 <div className="flex-1" />
 
-                {!isLoading && !input.length && !voiceDisabled ? (
+                {!isLoading && !input.length && !voiceDisabled && !disabled ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div
@@ -216,6 +222,7 @@ export default function PromptInput({
                           isLoading
                             ? "text-muted-foreground bg-secondary hover:bg-accent-foreground hover:text-accent"
                             : "border text-background bg-primary hover:bg-primary/90",
+                          disabled && "opacity-50 cursor-not-allowed",
                         )}
                       >
                         {isLoading ? (

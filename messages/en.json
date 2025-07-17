@@ -141,6 +141,7 @@
       "temporaryChatInstructionsDescription": "You can set instructions for the temporary chat. This will be used as a system prompt for the temporary chat."
     },
     "placeholder": "What do you want to know?",
+    "readOnlyPlaceholder": "This chat is read-only.",
     "Tool": {
       "selectToolMode": "Select a tool mode",
       "autoToolModeDescription": "Decides when to use tools without asking you",
@@ -177,13 +178,20 @@
       "chat": "Chat",
       "summarizeAsProject": "Summarize as Project",
       "renameChat": "Rename",
-      "deleteChat": "Delete Chat",
+      "deleteChat": "Delete chat",
       "failedToDeleteThread": "Failed to delete thread",
-      "threadDeleted": "Thread deleted",
+      "threadDeleted": "Thread deleted successfully",
       "failedToUpdateThread": "Failed to update thread",
       "titleRequired": "Title is required",
       "threadUpdated": "Thread updated",
-      "areYouSureYouWantToDeleteThisChatThread": "Are you sure you want to delete this Chat thread?"
+      "areYouSureYouWantToDeleteThisChatThread": "Are you sure you want to delete this chat thread?",
+      "public": "Public",
+      "private": "Private",
+      "publicThreadDescription": "Anyone with the link can view.",
+      "privateThreadDescription": "Only you can view.",
+      "threadMadePublicSuccess": "Thread is now public.",
+      "threadMadePrivateSuccess": "Thread is now private.",
+      "failedToUpdateThreadVisibility": "Failed to update thread visibility."
     },
     "Project": {
       "project": "Assistant",

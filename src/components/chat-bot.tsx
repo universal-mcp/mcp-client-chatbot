@@ -47,6 +47,7 @@ type Props = {
   initialMessages: Array<UIMessage>;
   selectedChatModel?: string;
   projectId?: string;
+  isReadOnly?: boolean;
   slots?: {
     emptySlot?: ReactNode;
     inputBottomSlot?: ReactNode;
@@ -58,6 +59,7 @@ export default function ChatBot({
   initialMessages,
   slots,
   projectId,
+  isReadOnly,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [appStoreMutate, toolChoice, allowedMcpServers, threadList] = appStore(
@@ -277,6 +279,7 @@ export default function ChatBot({
                   isLastMessage={isLastMessage}
                   setMessages={setMessages}
                   reload={reload}
+                  isReadOnly={isReadOnly}
                   className={needSpaceClass(index) ? "min-h-[55dvh]" : ""}
                 />
               );
@@ -297,6 +300,7 @@ export default function ChatBot({
           isLoading={isLoading || isPendingToolCall}
           onStop={stop}
           isInProjectContext={!!projectId || !!currentThread?.projectId}
+          disabled={isReadOnly}
         />
         {slots?.inputBottomSlot}
       </div>

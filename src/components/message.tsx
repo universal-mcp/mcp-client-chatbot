@@ -30,6 +30,7 @@ interface Props {
   status: UseChatHelpers["status"];
   messageIndex: number;
   isError?: boolean;
+  isReadOnly?: boolean;
 }
 
 const PurePreviewMessage = ({
@@ -44,8 +45,10 @@ const PurePreviewMessage = ({
   onPoxyToolCall,
   messageIndex,
   isError,
+  isReadOnly,
 }: Props) => {
   const isUserMessage = useMemo(() => message.role === "user", [message.role]);
+
   return (
     <div className="w-full mx-auto max-w-3xl px-6 group/message">
       <div
@@ -96,6 +99,7 @@ const PurePreviewMessage = ({
                   message={message}
                   setMessages={setMessages}
                   reload={reload}
+                  isReadOnly={isReadOnly}
                 />
               );
             }
@@ -113,6 +117,7 @@ const PurePreviewMessage = ({
                   setMessages={setMessages}
                   reload={reload}
                   isError={isError}
+                  isReadOnly={isReadOnly}
                 />
               );
             }
@@ -131,6 +136,7 @@ const PurePreviewMessage = ({
                   part={part}
                   isError={isError}
                   setMessages={setMessages}
+                  isReadOnly={isReadOnly}
                 />
               );
             }

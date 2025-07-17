@@ -11,9 +11,10 @@ export type ChatModel = {
 export type ChatThread = {
   id: string;
   title: string;
-  userId: string;
   createdAt: Date;
+  userId: string;
   projectId: string | null;
+  isPublic: boolean;
 };
 
 export type Project = {

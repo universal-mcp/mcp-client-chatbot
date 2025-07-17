@@ -7,7 +7,9 @@ import { redirect } from "next/navigation";
 
 const fetchThread = async (
   threadId: string,
-): Promise<(ChatThread & { messages: ChatMessage[] }) | null> => {
+): Promise<
+  (ChatThread & { messages: ChatMessage[]; isOwner: boolean }) | null
+> => {
   const response = await selectThreadWithMessagesAction(threadId);
   if (!response) return null;
   return response;
@@ -29,6 +31,7 @@ export default async function Page({
       threadId={threadId}
       key={threadId}
       initialMessages={initialMessages}
+      isReadOnly={!thread.isOwner}
     />
   );
 }
