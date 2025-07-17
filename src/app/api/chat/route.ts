@@ -44,7 +44,7 @@ import {
 } from "./helper";
 import { generateTitleFromUserMessageAction } from "./actions";
 import { getSessionContext } from "auth/session-context";
-import { getProjectMcpConfigAction } from "../mcp/project-config/actions";
+import { getProjectMcpToolsAction } from "../mcp/project-config/actions";
 
 export async function POST(request: Request) {
   try {
@@ -77,10 +77,28 @@ export async function POST(request: Request) {
 
     const manager = await mcpGateway.getManager(userId, organizationId);
     const mcpTools = manager.tools();
+    const mcpServers = await manager.getClients();
 
     // Get project-specific MCP configurations
     const projectMcpConfig = projectId
-      ? await getProjectMcpConfigAction(projectId)
+      ? await (async () => {
+          const toolConfigsData = await getProjectMcpToolsAction(projectId);
+          const toolConfigMap = new Map(
+            toolConfigsData.map((c) => [`${c.mcpServerId}:${c.toolName}`, c]),
+          );
+          const enabledServerIds = new Set(
+            toolConfigsData.map((c) => c.mcpServerId),
+          );
+
+          return {
+            servers: mcpServers.map((server) => ({
+              id: server.id,
+              name: server.client.getInfo().name,
+              enabled: enabledServerIds.has(server.id),
+            })),
+            tools: toolConfigMap,
+          };
+        })()
       : undefined;
 
     // Get project instructions and user preferences in a single query

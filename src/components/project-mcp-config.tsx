@@ -2,7 +2,7 @@
 
 import {
   bulkUpdateProjectMcpToolsAction,
-  getProjectMcpConfigAction,
+  getProjectMcpToolsAction,
 } from "@/app/api/mcp/project-config/actions";
 import { selectMcpClientsAction } from "@/app/api/mcp/actions";
 import { Badge } from "@/components/ui/badge";
@@ -93,11 +93,24 @@ export function ProjectMcpConfig({
         setMcpServers(servers);
 
         if (!isCreateMode) {
-          const config = await getProjectMcpConfigAction(projectId);
-          setOriginalServerConfigs(config.servers);
-          setServerConfigs(config.servers);
-          setOriginalToolConfigs(new Map(config.tools));
-          setToolConfigs(new Map(config.tools));
+          const toolConfigsData = await getProjectMcpToolsAction(projectId);
+          const toolConfigMap = new Map(
+            toolConfigsData.map((c) => [`${c.mcpServerId}:${c.toolName}`, c]),
+          );
+          const enabledServerIds = new Set(
+            toolConfigsData.map((c) => c.mcpServerId),
+          );
+
+          const initialServerConfigs = servers.map((server) => ({
+            id: server.id,
+            name: server.name,
+            enabled: enabledServerIds.has(server.id),
+          }));
+
+          setOriginalServerConfigs(initialServerConfigs);
+          setServerConfigs(initialServerConfigs);
+          setOriginalToolConfigs(toolConfigMap);
+          setToolConfigs(toolConfigMap);
         }
       } catch (_error) {
         toast.error("Failed to load MCP configuration");

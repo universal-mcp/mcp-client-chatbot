@@ -1,17 +1,12 @@
 "use server";
 
-import { getSessionContext } from "@/lib/auth/session-context";
 import { pgProjectMcpConfigRepository } from "@/lib/db/pg/repositories/project-mcp-config-repository.pg";
 import type { ProjectMcpToolConfig } from "@/lib/db/pg/repositories/project-mcp-config-repository.pg";
 
-export async function getProjectMcpConfigAction(projectId: string) {
-  const { userId, organizationId } = await getSessionContext();
-
-  return pgProjectMcpConfigRepository.getProjectMcpConfig(
-    projectId,
-    userId,
-    organizationId,
-  );
+export async function getProjectMcpToolsAction(
+  projectId: string,
+): Promise<ProjectMcpToolConfig[]> {
+  return pgProjectMcpConfigRepository.getProjectMcpTools(projectId);
 }
 
 export async function bulkUpdateProjectMcpToolsAction(
