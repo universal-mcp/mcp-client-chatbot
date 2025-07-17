@@ -28,15 +28,15 @@ class MCPManagerPool {
   });
 
   constructor() {
-    this.setupProcessHooks();
+    // this.setupProcessHooks();
     setInterval(() => this.performPeriodicCleanup(), 30 * 60 * 1000);
   }
 
-  private setupProcessHooks() {
+  /* private setupProcessHooks() {
     process.on("SIGINT", () => this.cleanup());
     process.on("SIGTERM", () => this.cleanup());
     process.on("beforeExit", () => this.cleanup());
-  }
+  } */
 
   private getCacheKey(userId: UUID, orgId: UUID | null): string {
     return `mcp:${userId}:${orgId || "personal"}`;
@@ -71,8 +71,6 @@ class MCPManagerPool {
     const unifiedCache = getUnifiedServerCache(serverCache);
     const configs = await unifiedCache.getAllServers(userId, organizationId);
     const manager = createMCPClientsManager();
-
-    await manager.init();
 
     for (const config of configs) {
       const tokenResult = await unifiedCache.getAccessToken(

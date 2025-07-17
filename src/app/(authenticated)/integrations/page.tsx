@@ -155,7 +155,6 @@ export default function IntegrationsPage() {
     ).map((config) => ({
       id: config.id,
       name: config.name,
-      status: "disconnected" as const,
       config: {
         url: config.url,
         credentialType: "personal" as const,
