@@ -109,11 +109,7 @@ export default function ProjectPage() {
   const projectEmptySlot = (
     <div className="max-w-3xl mx-auto fade-in animate-in w-full">
       <div className="px-6 py-6">
-        <div className="mb-4">
-          <h2 className="text-lg font-bold text-muted-foreground mb-2">
-            Assistant
-          </h2>
-        </div>
+        <div className="mb-4"></div>
         <div className="flex items-center gap-1">
           <h1 className="text-4xl font-semibold truncate">{project?.name}</h1>
           <div className="flex-1" />
