@@ -49,6 +49,8 @@ import { LineChart } from "./tool-invocation/line-chart";
 import { useTranslations } from "next-intl";
 import { extractMCPToolId } from "lib/ai/mcp/mcp-tool-id";
 import { Separator } from "ui/separator";
+import { Paperclip, ArrowUpRight } from "lucide-react";
+import { FileContentPopup } from "./file-content-popup";
 
 type MessagePart = UIMessage["parts"][number];
 
@@ -140,6 +142,19 @@ export const UserMessagePart = ({
     );
   }, [message.annotations]);
 
+  const fileAnnotations = useMemo(() => {
+    if (!message.annotations?.length) return [];
+    return message.annotations
+      .filter(
+        (ann): ann is { file: { filename: string; content: string } } =>
+          typeof ann === "object" &&
+          ann !== null &&
+          "file" in ann &&
+          !!ann.file,
+      )
+      .map((ann) => ann.file);
+  }, [message.annotations]);
+
   const deleteMessage = useCallback(() => {
     safe(() => setIsDeleting(true))
       .ifOk(() => deleteMessageAction(message.id))
@@ -188,13 +203,37 @@ export const UserMessagePart = ({
           isError && "border-destructive border",
         )}
       >
+        {fileAnnotations.length > 0 && (
+          <div className="flex flex-col gap-2 text-sm border-b pb-2">
+            {fileAnnotations.map((file, index) => (
+              <FileContentPopup
+                key={index}
+                content={file.content}
+                title={file.filename}
+              >
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs w-full justify-start"
+                >
+                  <Paperclip className="size-4 mr-2" />
+                  <span className="flex-1 truncate">{file.filename}</span>
+                  <ArrowUpRight className="size-4 ml-2" />
+                </Button>
+              </FileContentPopup>
+            ))}
+          </div>
+        )}
         <p className={cn("whitespace-pre-wrap text-sm break-words")}>
-          <HighlightedText text={part.text} mentions={toolMentions} />
+          <HighlightedText
+            text={part.text.replace(/"""[\s\S]*?"""/g, "")}
+            mentions={toolMentions}
+          />
         </p>
       </div>
 
       <div className="flex w-full justify-end">
-        {isLast && (
+        {isLast && !isReadOnly && (
           <>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -329,7 +368,7 @@ export const AssistMessagePart = ({
       >
         <Markdown>{part.text}</Markdown>
       </div>
-      {showActions && (
+      {showActions && !isReadOnly && (
         <div className="flex w-full ">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -567,21 +606,22 @@ export const ToolMessagePart = memo(
                           Request
                         </h5>
                         <div className="flex-1" />
-                        {copiedInput ? (
-                          <Check className="size-3" />
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-3 text-muted-foreground"
-                            onClick={() =>
-                              copyInput(JSON.stringify(toolInvocation.args))
-                            }
-                            disabled={isReadOnly}
-                          >
-                            <Copy />
-                          </Button>
-                        )}
+                        {!isReadOnly &&
+                          (copiedInput ? (
+                            <Check className="size-3" />
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-3 text-muted-foreground"
+                              onClick={() =>
+                                copyInput(JSON.stringify(toolInvocation.args))
+                              }
+                              disabled={isReadOnly}
+                            >
+                              <Copy />
+                            </Button>
+                          ))}
                       </div>
                       <div className="p-2 max-h-[300px] overflow-y-auto ">
                         <JsonView data={toolInvocation.args} />
@@ -594,19 +634,22 @@ export const ToolMessagePart = memo(
                             Response
                           </h5>
                           <div className="flex-1" />
-                          {copiedOutput ? (
-                            <Check className="size-3" />
-                          ) : (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="size-3 text-muted-foreground"
-                              onClick={() => copyOutput(JSON.stringify(result))}
-                              disabled={isReadOnly}
-                            >
-                              <Copy />
-                            </Button>
-                          )}
+                          {!isReadOnly &&
+                            (copiedOutput ? (
+                              <Check className="size-3" />
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-3 text-muted-foreground"
+                                onClick={() =>
+                                  copyOutput(JSON.stringify(result))
+                                }
+                                disabled={isReadOnly}
+                              >
+                                <Copy />
+                              </Button>
+                            ))}
                         </div>
                         <div className="p-2 max-h-[300px] overflow-y-auto">
                           {Array.isArray(result) ? (
@@ -663,7 +706,7 @@ export const ToolMessagePart = memo(
               )}
             </AnimatePresence>
 
-            {showActions && (
+            {showActions && !isReadOnly && (
               <div className="flex flex-row gap-2 items-center">
                 <Tooltip>
                   <TooltipTrigger asChild>

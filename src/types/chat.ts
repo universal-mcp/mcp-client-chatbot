@@ -72,6 +72,10 @@ export type ChatMessageAnnotation = {
   mentions?: ChatMention[];
   usageTokens?: number;
   toolChoice?: "auto" | "none" | "manual";
+  file?: {
+    filename: string;
+    content: string;
+  };
   [key: string]: any;
 };
 

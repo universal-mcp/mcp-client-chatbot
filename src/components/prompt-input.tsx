@@ -5,9 +5,9 @@ import {
   CornerRightUp,
   Paperclip,
   Pause,
+  X,
 } from "lucide-react";
-import { useRef, useEffect } from "react";
-import { notImplementedToast } from "ui/shared-toast";
+import { useRef, useEffect, useState } from "react";
 import { UseChatHelpers } from "@ai-sdk/react";
 import { appStore } from "@/app/store";
 import { useShallow } from "zustand/shallow";
@@ -17,6 +17,7 @@ import { ToolSelectDropdown } from "./tool-select-dropdown";
 import { Tooltip, TooltipContent, TooltipTrigger } from "ui/tooltip";
 import { useTranslations } from "next-intl";
 import { cn } from "lib/utils";
+import { toast } from "sonner";
 
 interface PromptInputProps {
   placeholder?: string;
@@ -45,6 +46,11 @@ export default function PromptInput({
 }: PromptInputProps) {
   const t = useTranslations("Chat");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [attachedFiles, setAttachedFiles] = useState<
+    { name: string; content: string }[]
+  >([]);
+  const [isUploading, setIsUploading] = useState(false);
 
   const [
     currentThreadId,
@@ -93,17 +99,77 @@ export default function PromptInput({
     }
   };
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploading(true);
+    try {
+      const uploadPromises = Array.from(files).map(async (file) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          return { name: data.filename, content: data.content };
+        } else {
+          const errorData = await response.json();
+          toast.error(
+            `Failed to upload ${file.name}: ${errorData.error || "Unknown error"}`,
+          );
+          return null;
+        }
+      });
+
+      const uploadedFiles = (await Promise.all(uploadPromises)).filter(
+        Boolean,
+      ) as { name: string; content: string }[];
+      setAttachedFiles((prev) => [...prev, ...uploadedFiles]);
+    } catch (error) {
+      console.error("File upload error:", error);
+      toast.error("An error occurred during file upload.");
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const submit = () => {
     if (isLoading || disabled) return;
     const userMessage = input?.trim() || "";
 
-    if (userMessage.length === 0) {
+    if (userMessage.length === 0 && attachedFiles.length === 0) {
       return;
     }
 
+    let finalMessage = userMessage;
     const annotations: ChatMessageAnnotation[] = [];
+    if (attachedFiles.length > 0) {
+      let filePreamble = "";
+      attachedFiles.forEach((file) => {
+        filePreamble += `"""The user attached the file \`${file.name}\`. Its contents are:\n\n${file.content}\n"""`;
+        annotations.push({
+          file: {
+            filename: file.name,
+            content: file.content,
+          },
+        });
+      });
+      finalMessage = `${filePreamble}${userMessage}`;
+    }
 
     setInput("");
+    setAttachedFiles([]);
     append!({
       role: "user",
       content: "",
@@ -111,7 +177,7 @@ export default function PromptInput({
       parts: [
         {
           type: "text",
-          text: userMessage,
+          text: finalMessage,
         },
       ],
     });
@@ -128,12 +194,31 @@ export default function PromptInput({
             onClick={handleContainerClick}
             className={cn(
               "rounded-4xl backdrop-blur-sm transition-all duration-200 bg-muted/80 relative flex w-full flex-col z-10 border items-stretch p-3",
-              isLoadingTools
+              isLoadingTools || isUploading
                 ? "cursor-wait border-primary/50 animate-pulse"
                 : "cursor-text focus-within:border-muted-foreground hover:border-muted-foreground",
             )}
           >
             <div className="flex flex-col gap-3.5 px-1">
+              {attachedFiles.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  {attachedFiles.map((file, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center gap-2 px-2 py-1 text-sm bg-muted rounded-md"
+                    >
+                      <Paperclip className="size-4" />
+                      <span className="flex-1 truncate">{file.name}</span>
+                      <button
+                        onClick={() => removeFile(index)}
+                        className="p-1 hover:bg-muted-foreground/20 rounded-full"
+                      >
+                        <X className="size-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="relative min-h-[2rem]">
                 <textarea
                   ref={textareaRef}
@@ -143,18 +228,29 @@ export default function PromptInput({
                   placeholder={
                     disabled
                       ? t("readOnlyPlaceholder")
-                      : (placeholder ?? t("placeholder"))
+                      : isUploading
+                        ? "Parsing file..."
+                        : (placeholder ?? t("placeholder"))
                   }
                   className="w-full resize-none border-none bg-transparent outline-none text-foreground placeholder:text-muted-foreground min-h-[2rem] max-h-[200px] overflow-y-auto leading-6 px-2 py-1 text-base placeholder:text-base"
                   rows={1}
-                  disabled={isLoading || isLoadingTools || disabled}
+                  disabled={
+                    isLoading || isLoadingTools || disabled || isUploading
+                  }
                 />
               </div>
 
               <div className="flex w-full items-center z-30 gap-1.5">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  className="hidden"
+                  multiple
+                />
                 <div
                   className="cursor-pointer text-muted-foreground border rounded-full p-2 bg-transparent hover:bg-muted transition-all duration-200 interactive-element"
-                  onClick={notImplementedToast}
+                  onClick={() => fileInputRef.current?.click()}
                 >
                   <Paperclip className="size-4" />
                 </div>
@@ -185,7 +281,14 @@ export default function PromptInput({
                 )}
                 <div className="flex-1" />
 
-                {!isLoading && !input.length && !voiceDisabled && !disabled ? (
+                {isUploading ? (
+                  <div className="p-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                  </div>
+                ) : !isLoading &&
+                  !input.length &&
+                  !voiceDisabled &&
+                  !disabled ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div
