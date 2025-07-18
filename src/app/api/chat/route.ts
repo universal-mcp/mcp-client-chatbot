@@ -231,6 +231,7 @@ export async function POST(request: Request) {
                   projectId: projectId,
                   title,
                   userId,
+                  isPublic: false,
                 },
                 userId,
                 organizationId,
