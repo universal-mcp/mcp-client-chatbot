@@ -157,14 +157,26 @@ export function ProjectMcpConfig({
 
     setSaving(true);
     try {
-      const toolConfigsToSave = Array.from(toolConfigs.values()).filter(
+      const currentToolConfigs = new Map(toolConfigs);
+      const enabledServerIds = new Set(
+        serverConfigs.filter((s) => s.enabled).map((s) => s.id),
+      );
+
+      for (const [key, config] of currentToolConfigs.entries()) {
+        if (!enabledServerIds.has(config.mcpServerId) && config.enabled) {
+          currentToolConfigs.set(key, { ...config, enabled: false });
+        }
+      }
+
+      const toolConfigsToSave = Array.from(currentToolConfigs.values()).filter(
         (config) => config.enabled,
       );
 
       await bulkUpdateProjectMcpToolsAction(projectId, toolConfigsToSave);
 
+      setToolConfigs(currentToolConfigs);
       setOriginalServerConfigs([...serverConfigs]);
-      setOriginalToolConfigs(new Map(toolConfigs));
+      setOriginalToolConfigs(new Map(currentToolConfigs));
 
       toast.success("Configuration saved successfully");
       setHasChanges(false);
