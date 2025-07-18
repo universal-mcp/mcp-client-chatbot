@@ -249,8 +249,8 @@ export default function PromptInput({
                   multiple
                 />
                 <div
-                  className="cursor-pointer text-muted-foreground border rounded-full p-2 bg-transparent hover:bg-muted transition-all duration-200 interactive-element"
-                  onClick={() => fileInputRef.current?.click()}
+                  className="cursor-not-allowed opacity-50 text-muted-foreground border rounded-full p-2 bg-transparent transition-all duration-200 interactive-element"
+                  // onClick={() => fileInputRef.current?.click()}
                 >
                   <Paperclip className="size-4" />
                 </div>
