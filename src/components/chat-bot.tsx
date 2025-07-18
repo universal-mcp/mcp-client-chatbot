@@ -62,12 +62,19 @@ export default function ChatBot({
   isReadOnly,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [appStoreMutate, toolChoice, allowedMcpServers, threadList] = appStore(
+  const [
+    appStoreMutate,
+    toolChoice,
+    allowedMcpServers,
+    threadList,
+    isMcpClientListLoading,
+  ] = appStore(
     useShallow((state) => [
       state.mutate,
       state.toolChoice,
       state.allowedMcpServers,
       state.threadList,
+      state.isMcpClientListLoading,
     ]),
   );
   const router = useRouter();
@@ -250,7 +257,10 @@ export default function ChatBot({
         slots?.emptySlot ? (
           slots.emptySlot
         ) : (
-          <ChatGreeting />
+          <ChatGreeting
+            append={append}
+            isLoadingTools={isMcpClientListLoading}
+          />
         )
       ) : (
         <>
@@ -292,18 +302,21 @@ export default function ChatBot({
           </div>
         </>
       )}
-      <div className={clsx(messages.length && "absolute bottom-14", "w-full")}>
-        <PromptInput
-          input={input}
-          append={append}
-          setInput={setInput}
-          isLoading={isLoading || isPendingToolCall}
-          onStop={stop}
-          isInProjectContext={!!projectId || !!currentThread?.projectId}
-          disabled={isReadOnly}
-        />
-        {slots?.inputBottomSlot}
-      </div>
+      {!isReadOnly && (
+        <div
+          className={clsx(messages.length && "absolute bottom-14", "w-full")}
+        >
+          <PromptInput
+            input={input}
+            append={append}
+            setInput={setInput}
+            isLoading={isLoading || isPendingToolCall}
+            onStop={stop}
+            isInProjectContext={!!projectId || !!currentThread?.projectId}
+          />
+          {slots?.inputBottomSlot}
+        </div>
+      )}
       <DeleteThreadPopup
         threadId={threadId}
         onClose={() => setIsDeleteThreadPopupOpen(false)}
