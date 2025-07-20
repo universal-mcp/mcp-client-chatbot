@@ -9,13 +9,11 @@ import {
 } from "ui/tooltip";
 import { Toggle } from "ui/toggle";
 import {
-  AudioWaveformIcon,
   ChevronDown,
   ChevronRight,
   MessageCircleDashed,
   PanelLeft,
-  Globe,
-  Lock,
+  Share,
 } from "lucide-react";
 import { Button } from "ui/button";
 import { Separator } from "ui/separator";
@@ -32,15 +30,31 @@ import { ThreadVisibilityDropdown } from "../thread-visibility-dropdown";
 
 export function AppHeader() {
   const t = useTranslations();
-  const [appStoreMutate] = appStore(useShallow((state) => [state.mutate]));
+  const [appStoreMutate, currentThreadId, threadList] = appStore(
+    useShallow((state) => [
+      state.mutate,
+      state.currentThreadId,
+      state.threadList,
+    ]),
+  );
   const { toggleSidebar } = useSidebar();
   const currentPaths = usePathname();
 
+  const currentThread = useMemo(() => {
+    if (!currentPaths.startsWith("/chat/")) return null;
+    return threadList.find((thread) => thread.id === currentThreadId);
+  }, [threadList, currentThreadId, currentPaths]);
+
   const componentByPage = useMemo(() => {
     if (currentPaths.startsWith("/chat/")) {
-      return <ThreadDropdownComponent />;
+      return (
+        <ThreadDropdownComponent
+          threadList={threadList}
+          currentThreadId={currentThreadId}
+        />
+      );
     }
-  }, [currentPaths]);
+  }, [currentPaths, threadList, currentThreadId]);
 
   return (
     <header className="sticky top-0 z-50 flex items-center px-3 py-2">
@@ -72,43 +86,14 @@ export function AppHeader() {
       <div className="flex-1" />
 
       <div className="flex items-center gap-2">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              size={"icon"}
-              variant={"ghost"}
-              className="bg-secondary/40"
-              onClick={() => {
-                appStoreMutate((state) => ({
-                  voiceChat: {
-                    ...state.voiceChat,
-                    isOpen: true,
-                    threadId: undefined,
-                    projectId: undefined,
-                  },
-                }));
-              }}
-            >
-              <AudioWaveformIcon className="size-4" />
+        {currentThread && (
+          <ThreadVisibilityDropdown thread={currentThread}>
+            <Button variant={"outline"}>
+              <Share className="size-4" />
+              {t("Chat.Thread.shareThreadTitle")}
             </Button>
-          </TooltipTrigger>
-          <TooltipContent align="end" side="bottom">
-            <div className="text-xs flex items-center gap-2">
-              {t("KeyboardShortcuts.toggleVoiceChat")}
-              <div className="text-xs text-muted-foreground flex items-center gap-1">
-                {getShortcutKeyList(Shortcuts.toggleVoiceChat).map((key) => (
-                  <span
-                    className="w-5 h-5 flex items-center justify-center bg-muted rounded "
-                    key={key}
-                  >
-                    {key}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </TooltipContent>
-        </Tooltip>
-
+          </ThreadVisibilityDropdown>
+        )}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -150,14 +135,14 @@ export function AppHeader() {
   );
 }
 
-function ThreadDropdownComponent() {
-  const [threadList, currentThreadId, projectList] = appStore(
-    useShallow((state) => [
-      state.threadList,
-      state.currentThreadId,
-      state.projectList,
-    ]),
-  );
+function ThreadDropdownComponent({
+  threadList,
+  currentThreadId,
+}: {
+  threadList: any[];
+  currentThreadId: string | null;
+}) {
+  const [projectList] = appStore(useShallow((state) => [state.projectList]));
   const currentThread = useMemo(() => {
     return threadList.find((thread) => thread.id === currentThreadId);
   }, [threadList, currentThreadId]);
@@ -201,19 +186,6 @@ function ThreadDropdownComponent() {
           <ChevronDown size={14} />
         </Button>
       </ThreadDropdown>
-      <ThreadVisibilityDropdown thread={currentThread}>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="hover:text-foreground cursor-pointer flex gap-1 items-center px-2 py-1 rounded-md hover:bg-accent"
-        >
-          {currentThread.isPublic ? (
-            <Globe className="size-4" />
-          ) : (
-            <Lock className="size-4" />
-          )}
-        </Button>
-      </ThreadVisibilityDropdown>
     </div>
   );
 }

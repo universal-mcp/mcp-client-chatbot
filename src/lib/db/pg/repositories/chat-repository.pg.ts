@@ -14,7 +14,7 @@ import {
   UserSchema,
 } from "../schema.pg";
 
-import { and, desc, eq, gte, isNull, sql, or, inArray } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, sql, inArray } from "drizzle-orm";
 import { pgUserRepository } from "./user-repository.pg";
 import { UserPreferences } from "app-types/user";
 import { pgProjectMcpConfigRepository } from "./project-mcp-config-repository.pg";
@@ -65,6 +65,16 @@ export const pgChatRepository: ChatRepository = {
       );
   },
 
+  getPublicThread: async (id: string): Promise<ChatThread | null> => {
+    const [result] = await db
+      .select()
+      .from(ChatThreadSchema)
+      .where(
+        and(eq(ChatThreadSchema.id, id), eq(ChatThreadSchema.isPublic, true)),
+      );
+    return result;
+  },
+
   selectThread: async (
     id: string,
     userId: string,
@@ -76,15 +86,10 @@ export const pgChatRepository: ChatRepository = {
       .where(
         and(
           eq(ChatThreadSchema.id, id),
-          or(
-            and(
-              eq(ChatThreadSchema.userId, userId),
-              organizationId
-                ? eq(ChatThreadSchema.organizationId, organizationId)
-                : isNull(ChatThreadSchema.organizationId),
-            ),
-            eq(ChatThreadSchema.isPublic, true),
-          ),
+          eq(ChatThreadSchema.userId, userId),
+          organizationId
+            ? eq(ChatThreadSchema.organizationId, organizationId)
+            : isNull(ChatThreadSchema.organizationId),
         ),
       );
     return result;
@@ -105,15 +110,10 @@ export const pgChatRepository: ChatRepository = {
       .where(
         and(
           eq(ChatThreadSchema.id, id),
-          or(
-            and(
-              eq(ChatThreadSchema.userId, userId),
-              organizationId
-                ? eq(ChatThreadSchema.organizationId, organizationId)
-                : isNull(ChatThreadSchema.organizationId),
-            ),
-            eq(ChatThreadSchema.isPublic, true),
-          ),
+          eq(ChatThreadSchema.userId, userId),
+          organizationId
+            ? eq(ChatThreadSchema.organizationId, organizationId)
+            : isNull(ChatThreadSchema.organizationId),
         ),
       );
 

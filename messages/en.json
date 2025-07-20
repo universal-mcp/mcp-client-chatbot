@@ -191,7 +191,9 @@
       "privateThreadDescription": "Only you can view.",
       "threadMadePublicSuccess": "Thread is now public.",
       "threadMadePrivateSuccess": "Thread is now private.",
-      "failedToUpdateThreadVisibility": "Failed to update thread visibility."
+      "failedToUpdateThreadVisibility": "Failed to update thread visibility.",
+      "shareThreadTitle": "Share Chat",
+      "shareThreadDescription": "Choose who can access this thread."
     },
     "Project": {
       "project": "Assistant",

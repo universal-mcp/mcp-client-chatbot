@@ -55,16 +55,34 @@ export async function selectThreadWithMessagesAction(threadId: string) {
     logger.error("Thread not found", threadId);
     return redirect("/");
   }
-
+  if (thread.userId !== userId) {
+    return redirect("/");
+  }
   const messages = await chatRepository.selectMessagesByThreadId(
     threadId,
     userId,
     organizationId,
   );
+  return { ...thread, messages: messages ?? [] };
+}
+
+export async function getPublicThreadAction(threadId: string) {
+  const thread = await chatRepository.getPublicThread(threadId);
+
+  if (!thread) {
+    return null;
+  }
+
+  const messages = await chatRepository.selectMessagesByThreadId(
+    threadId,
+    "public",
+    null,
+  );
+
   return {
     ...thread,
     messages: messages ?? [],
-    isOwner: thread.userId === userId,
+    isOwner: false,
   };
 }
 
