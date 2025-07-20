@@ -135,6 +135,41 @@ const components: Partial<Components> = {
       </h6>
     );
   },
+  table: ({ node, children, ...props }) => (
+    <div className="my-6 inline-block max-w-full overflow-x-auto rounded-lg border">
+      <table className="divide-y divide-border" {...props}>
+        {children}
+      </table>
+    </div>
+  ),
+  thead: ({ node, children, ...props }) => (
+    <thead className="bg-muted/50" {...props}>
+      {children}
+    </thead>
+  ),
+  tbody: ({ node, children, ...props }) => (
+    <tbody className="divide-y divide-border bg-background" {...props}>
+      {children}
+    </tbody>
+  ),
+  tr: ({ node, children, ...props }) => (
+    <tr className="divide-x divide-border" {...props}>
+      {children}
+    </tr>
+  ),
+  th: ({ node, children, ...props }) => (
+    <th
+      className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider"
+      {...props}
+    >
+      <WordByWordFadeIn>{children}</WordByWordFadeIn>
+    </th>
+  ),
+  td: ({ node, children, ...props }) => (
+    <td className="px-6 py-4 whitespace-nowrap text-sm" {...props}>
+      <WordByWordFadeIn>{children}</WordByWordFadeIn>
+    </td>
+  ),
   img: ({ node, children, ...props }) => {
     const { src, alt, ...rest } = props;
 
