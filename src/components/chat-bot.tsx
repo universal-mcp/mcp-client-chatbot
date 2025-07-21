@@ -98,17 +98,6 @@ export default function ChatBot({
     api: "/api/chat",
     initialMessages,
     experimental_prepareRequestBody: ({ messages }) => {
-      const isNewThread =
-        !latestRef.current.threadList.some((v) => v.id === threadId) &&
-        messages.filter((v) => v.role === "user" || v.role === "assistant")
-          .length < 2 &&
-        messages.at(-1)?.role === "user";
-      if (isNewThread) {
-        const part = messages.at(-1)!.parts.findLast((v) => v.type === "text");
-        if (part) {
-          generateTitle(part.text);
-        }
-      }
       window.history.replaceState({}, "", `/chat/${threadId}`);
       const lastMessage = messages.at(-1)!;
       vercelAISdkV4ToolInvocationIssueCatcher(lastMessage);
@@ -126,7 +115,20 @@ export default function ChatBot({
     generateId: generateUUID,
     experimental_throttle: 100,
     onFinish() {
-      if (threadList[0]?.id !== threadId) {
+      const messages = latestRef.current.messages;
+      const prevThread = latestRef.current.threadList.find(
+        (v) => v.id === threadId,
+      );
+      const isNewThread =
+        !prevThread?.title &&
+        messages.filter((v) => v.role === "user" || v.role === "assistant")
+          .length < 3;
+      if (isNewThread) {
+        const part = messages.at(-1)!.parts.find((v) => v.type === "text");
+        if (part) {
+          generateTitle(part.text);
+        }
+      } else if (latestRef.current.threadList[0]?.id !== threadId) {
         mutate("threads");
       }
       if (projectId) {
@@ -177,6 +179,7 @@ export default function ChatBot({
         return false;
       const message = messages[index];
       if (message.role === "user") return false;
+      if (message.parts.at(-1)?.type == "step-start") return false;
       return true;
     },
     [messages, error],
@@ -196,25 +199,22 @@ export default function ChatBot({
     return true;
   }, [status, messages]);
 
-  const proxyToolCall = useCallback(
-    (result: ClientToolInvocation) => {
-      setIsExecutingProxyToolCall(true);
-      return safe(async () => {
-        const lastMessage = messages.at(-1)!;
-        const lastPart = lastMessage.parts.at(-1)! as Extract<
-          UIMessage["parts"][number],
-          { type: "tool-invocation" }
-        >;
-        return addToolResult({
-          toolCallId: lastPart.toolInvocation.toolCallId,
-          result,
-        });
-      })
-        .watch(() => setIsExecutingProxyToolCall(false))
-        .unwrap();
-    },
-    [addToolResult],
-  );
+  const proxyToolCall = useCallback((result: ClientToolInvocation) => {
+    setIsExecutingProxyToolCall(true);
+    return safe(async () => {
+      const lastMessage = latestRef.current.messages.at(-1)!;
+      const lastPart = lastMessage.parts.at(-1)! as Extract<
+        UIMessage["parts"][number],
+        { type: "tool-invocation" }
+      >;
+      return addToolResult({
+        toolCallId: lastPart.toolInvocation.toolCallId,
+        result,
+      });
+    })
+      .watch(() => setIsExecutingProxyToolCall(false))
+      .unwrap();
+  }, []);
 
   const showThink = useMemo(() => {
     if (!isLoading) return false;
@@ -298,7 +298,7 @@ export default function ChatBot({
                 <PreviewMessage
                   threadId={threadId}
                   messageIndex={index}
-                  key={index}
+                  key={message.id}
                   message={message}
                   status={status}
                   onPoxyToolCall={
@@ -319,12 +319,12 @@ export default function ChatBot({
               );
             })}
             {showThink && (
-              <div className="w-full mx-auto max-w-3xl px-6">
-                <Think />
-              </div>
-            )}
-            {status === "submitted" && messages.at(-1)?.role === "user" && (
-              <div className="min-h-[calc(55dvh-56px)]" />
+              <>
+                <div className="w-full mx-auto max-w-3xl px-6 relative">
+                  <Think />
+                </div>
+                <div className="min-h-[calc(55dvh-56px)]" />
+              </>
             )}
             {error && <ErrorMessage error={error} />}
             <div className="min-w-0 min-h-52" />

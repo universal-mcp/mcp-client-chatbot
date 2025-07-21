@@ -15,7 +15,9 @@ const logger = globalLogger.withDefaults({
 export async function POST(request: Request) {
   try {
     const json = await request.json();
+
     const {
+      chatModel,
       message = "hello",
       threadId,
       projectId,
@@ -25,7 +27,11 @@ export async function POST(request: Request) {
       projectId?: string;
       threadId: string;
     };
-    logger.debug(`message: ${message}`);
+
+    logger.info(
+      `chatModel: ${chatModel?.provider}/${chatModel?.model}, threadId: ${threadId}, projectId: ${projectId}`,
+    );
+    logger.info(`message: ${message}`);
 
     const session = await getSession();
     if (!session) {
@@ -33,20 +39,26 @@ export async function POST(request: Request) {
     }
 
     const result = streamText({
-      model: customModelProvider.getModel(undefined),
+      model: customModelProvider.getModel(chatModel),
       system: CREATE_THREAD_TITLE_PROMPT,
       experimental_transform: smoothStream({ chunking: "word" }),
-      prompt: message,
-      maxTokens: 30,
+      prompt: `Based on this user message, create a concise chat title:
+
+User Message: "${message}"
+
+Generate Title:`,
+      maxSteps: 1,
+      maxRetries: 1,
       onFinish: (ctx) => {
-        console.log(`title: ${ctx.text}`);
-        chatRepository.upsertThread({
-          id: threadId,
-          title: ctx.text,
-          projectId,
-          userId: session.user.id,
-          isPublic: false,
-        });
+        chatRepository
+          .upsertThread({
+            id: threadId,
+            title: ctx.text,
+            projectId,
+            userId: session.user.id,
+            isPublic: false,
+          })
+          .catch((err) => logger.error(err));
       },
     });
 

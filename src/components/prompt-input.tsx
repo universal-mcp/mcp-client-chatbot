@@ -4,7 +4,7 @@ import {
   AudioWaveformIcon,
   CornerRightUp,
   Paperclip,
-  Pause,
+  Square,
   X,
 } from "lucide-react";
 import { useRef, useEffect, useState } from "react";
@@ -329,7 +329,7 @@ export default function PromptInput({
                         )}
                       >
                         {isLoading ? (
-                          <Pause
+                          <Square
                             size={16}
                             className="fill-muted-foreground text-muted-foreground"
                           />

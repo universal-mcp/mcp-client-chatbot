@@ -172,6 +172,37 @@ export function safeJSONParse<T = unknown>(
   }
 }
 
+export function generateUniqueKey(key: string, existingKeys: string[]) {
+  let newKey = key;
+  let counter = 1;
+
+  while (existingKeys.includes(newKey)) {
+    const baseKey = key.replace(/\d+$/, "");
+    const hasOriginalNumber = key !== baseKey;
+    if (hasOriginalNumber) {
+      const originalNumber = parseInt(key.match(/\d+$/)?.[0] || "0");
+      newKey = baseKey + (originalNumber + counter);
+    } else {
+      newKey = baseKey + counter;
+    }
+    counter++;
+  }
+  return newKey;
+}
+
+export function deduplicateByKey<T>(arr: T[], key: keyof T): T[] {
+  const seen = new Set<T[keyof T]>();
+  return arr.filter((item) => {
+    const keyValue = item[key];
+    if (seen.has(keyValue)) {
+      return false;
+    } else {
+      seen.add(keyValue);
+      return true;
+    }
+  });
+}
+
 export function generateUUID(): string {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;

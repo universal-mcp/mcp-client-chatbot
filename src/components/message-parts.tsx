@@ -12,7 +12,6 @@ import {
   Trash2,
   ChevronRight,
   TriangleAlert,
-  AlertTriangleIcon,
   HammerIcon,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "ui/tooltip";
@@ -20,19 +19,10 @@ import { Button } from "ui/button";
 import { Markdown } from "./markdown";
 import { cn, safeJSONParse } from "lib/utils";
 import JsonView from "ui/json-view";
-import {
-  useMemo,
-  useState,
-  memo,
-  useEffect,
-  useRef,
-  Suspense,
-  useCallback,
-} from "react";
+import { useMemo, useState, memo, useEffect, useRef, useCallback } from "react";
 import { MessageEditor } from "./message-editor";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { useCopy } from "@/hooks/use-copy";
-import { notify } from "lib/notify";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   deleteMessageAction,
@@ -40,28 +30,22 @@ import {
 } from "@/app/api/chat/actions";
 import { toast } from "sonner";
 import { safe } from "ts-safe";
-import { ChatMessageAnnotation, ClientToolInvocation } from "app-types/chat";
+import { ClientToolInvocation, ToolInvocationUIPart } from "app-types/chat";
 import { Skeleton } from "ui/skeleton";
-import { PieChart } from "./tool-invocation/pie-chart";
-import { BarChart } from "./tool-invocation/bar-chart";
-import { LineChart } from "./tool-invocation/line-chart";
 import { useTranslations } from "next-intl";
 import { extractMCPToolId } from "lib/ai/mcp/mcp-tool-id";
 import { Separator } from "ui/separator";
 import { Paperclip, ArrowUpRight } from "lucide-react";
 import { FileContentPopup } from "./file-content-popup";
 import { TextShimmer } from "ui/text-shimmer";
-import { GlobalIcon } from "ui/global-icon";
-import { HoverCard, HoverCardContent, HoverCardTrigger } from "ui/hover-card";
-import { Avatar, AvatarFallback, AvatarImage } from "ui/avatar";
 import { DefaultToolName } from "lib/ai/tools";
-import { TavilyResponse } from "lib/ai/tools/web/web-search";
+import equal from "fast-deep-equal";
+import dynamic from "next/dynamic";
 
 type MessagePart = UIMessage["parts"][number];
 
 type TextMessagePart = Extract<MessagePart, { type: "text" }>;
 type AssistMessagePart = Extract<MessagePart, { type: "text" }>;
-type ToolMessagePart = Extract<MessagePart, { type: "tool-invocation" }>;
 
 interface UserMessagePartProps {
   part: TextMessagePart;
@@ -86,7 +70,7 @@ interface AssistMessagePartProps {
 }
 
 interface ToolMessagePartProps {
-  part: ToolMessagePart;
+  part: ToolInvocationUIPart;
   messageId: string;
   showActions: boolean;
   isLast?: boolean;
@@ -97,212 +81,183 @@ interface ToolMessagePartProps {
   isReadOnly?: boolean;
 }
 
-interface HighlightedTextProps {
-  text: string;
-  mentions: string[];
-}
+export const UserMessagePart = memo(
+  function UserMessagePart({
+    part,
+    isLast,
+    status,
+    message,
+    setMessages,
+    reload,
+    isError,
+    isReadOnly,
+  }: UserMessagePartProps) {
+    const { copied, copy } = useCopy();
+    const [mode, setMode] = useState<"view" | "edit">("view");
+    const [isDeleting, setIsDeleting] = useState(false);
+    const ref = useRef<HTMLDivElement>(null);
+    const scrolledRef = useRef(false);
+    const fileAnnotations = useMemo(() => {
+      if (!message.annotations?.length) return [];
+      return message.annotations
+        .filter(
+          (ann): ann is { file: { filename: string; content: string } } =>
+            typeof ann === "object" &&
+            ann !== null &&
+            "file" in ann &&
+            !!ann.file,
+        )
+        .map((ann) => ann.file);
+    }, [message.annotations]);
 
-const HighlightedText = memo(({ text, mentions }: HighlightedTextProps) => {
-  if (!mentions.length) return text;
+    const deleteMessage = useCallback(() => {
+      safe(() => setIsDeleting(true))
+        .ifOk(() => deleteMessageAction(message.id))
+        .ifOk(() =>
+          setMessages((messages) => {
+            const index = messages.findIndex((m) => m.id === message.id);
+            if (index !== -1) {
+              return messages.filter((_, i) => i !== index);
+            }
+            return messages;
+          }),
+        )
+        .ifFail((error) => toast.error(error.message))
+        .watch(() => setIsDeleting(false))
+        .unwrap();
+    }, [message.id]);
 
-  const parts = text.split(/(\s+)/);
-  return parts.map((part, index) => {
-    if (mentions.includes(part.trim())) {
+    useEffect(() => {
+      if (status === "submitted" && isLast && !scrolledRef.current) {
+        scrolledRef.current = true;
+        ref.current?.scrollIntoView({ behavior: "smooth" });
+      }
+    }, [status]);
+
+    if (mode === "edit") {
       return (
-        <span key={index} className="mention">
-          {part}
-        </span>
+        <div className="flex flex-row gap-2 items-start w-full">
+          <MessageEditor
+            message={message}
+            setMode={setMode}
+            setMessages={setMessages}
+            reload={reload}
+          />
+        </div>
       );
     }
-    return part;
-  });
-});
 
-HighlightedText.displayName = "HighlightedText";
-
-export const UserMessagePart = ({
-  part,
-  isLast,
-  status,
-  message,
-  setMessages,
-  reload,
-  isError,
-  isReadOnly,
-}: UserMessagePartProps) => {
-  const { copied, copy } = useCopy();
-  const [mode, setMode] = useState<"view" | "edit">("view");
-  const [isDeleting, setIsDeleting] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const toolMentions = useMemo(() => {
-    if (!message.annotations?.length) return [];
-    return Array.from(
-      new Set(
-        message.annotations
-          .flatMap((annotation) => {
-            return (annotation as ChatMessageAnnotation).mentions ?? [];
-          })
-          .filter(Boolean)
-          .map((v) => `@${v.name}`),
-      ),
-    );
-  }, [message.annotations]);
-
-  const fileAnnotations = useMemo(() => {
-    if (!message.annotations?.length) return [];
-    return message.annotations
-      .filter(
-        (ann): ann is { file: { filename: string; content: string } } =>
-          typeof ann === "object" &&
-          ann !== null &&
-          "file" in ann &&
-          !!ann.file,
-      )
-      .map((ann) => ann.file);
-  }, [message.annotations]);
-
-  const deleteMessage = useCallback(() => {
-    safe(() => setIsDeleting(true))
-      .ifOk(() => deleteMessageAction(message.id))
-      .ifOk(() =>
-        setMessages((messages) => {
-          const index = messages.findIndex((m) => m.id === message.id);
-          if (index !== -1) {
-            return messages.filter((_, i) => i !== index);
-          }
-          return messages;
-        }),
-      )
-      .ifFail((error) => toast.error(error.message))
-      .watch(() => setIsDeleting(false))
-      .unwrap();
-  }, [message.id]);
-
-  useEffect(() => {
-    if (status === "submitted" && isLast) {
-      ref.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [status]);
-
-  if (mode === "edit") {
     return (
-      <div className="flex flex-row gap-2 items-start w-full">
-        <MessageEditor
-          message={message}
-          setMode={setMode}
-          setMessages={setMessages}
-          reload={reload}
-        />
+      <div className="flex flex-col gap-2 items-end my-2">
+        <div
+          data-testid="message-content"
+          className={cn(
+            "flex flex-col gap-4 max-w-full",
+            "flex flex-col gap-4 max-w-full ring ring-input",
+            {
+              "bg-accent text-accent-foreground px-4 py-3 rounded-2xl": isLast,
+              "opacity-50": isError,
+            },
+            isError && "border-destructive border",
+          )}
+        >
+          {fileAnnotations.length > 0 && (
+            <div className="flex flex-col gap-2 text-sm border-b pb-2">
+              {fileAnnotations.map((file, index) => (
+                <FileContentPopup
+                  key={index}
+                  content={file.content}
+                  title={file.filename}
+                >
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs w-full justify-start"
+                  >
+                    <Paperclip className="size-4 mr-2" />
+                    <span className="flex-1 truncate">{file.filename}</span>
+                    <ArrowUpRight className="size-4 ml-2" />
+                  </Button>
+                </FileContentPopup>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="flex w-full justify-end">
+          {isLast && !isReadOnly && (
+            <>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    data-testid="message-edit-button"
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                      "size-3! p-4! opacity-0 group-hover/message:opacity-100",
+                    )}
+                    onClick={() => copy(part.text)}
+                    disabled={isReadOnly}
+                  >
+                    {copied ? <Check /> : <Copy />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Copy</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    data-testid="message-edit-button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-3! p-4! opacity-0 group-hover/message:opacity-100"
+                    onClick={() => setMode("edit")}
+                    disabled={isReadOnly}
+                  >
+                    <Pencil />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Edit</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    disabled={isDeleting || isReadOnly}
+                    onClick={deleteMessage}
+                    variant="ghost"
+                    size="icon"
+                    className="size-3! p-4! opacity-0 group-hover/message:opacity-100 hover:text-destructive"
+                  >
+                    {isDeleting ? (
+                      <Loader className="animate-spin" />
+                    ) : (
+                      <Trash2 />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="text-destructive" side="bottom">
+                  Delete Message
+                </TooltipContent>
+              </Tooltip>
+            </>
+          )}
+        </div>
+        <div ref={ref} className="min-w-0" />
       </div>
     );
-  }
-
-  return (
-    <div className="flex flex-col gap-2 items-end my-2">
-      <div
-        data-testid="message-content"
-        className={cn(
-          "flex flex-col gap-4 max-w-full",
-          "flex flex-col gap-4 max-w-full ring ring-input",
-          {
-            "bg-accent text-accent-foreground px-4 py-3 rounded-2xl": isLast,
-            "opacity-50": isError,
-          },
-          isError && "border-destructive border",
-        )}
-      >
-        {fileAnnotations.length > 0 && (
-          <div className="flex flex-col gap-2 text-sm border-b pb-2">
-            {fileAnnotations.map((file, index) => (
-              <FileContentPopup
-                key={index}
-                content={file.content}
-                title={file.filename}
-              >
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs w-full justify-start"
-                >
-                  <Paperclip className="size-4 mr-2" />
-                  <span className="flex-1 truncate">{file.filename}</span>
-                  <ArrowUpRight className="size-4 ml-2" />
-                </Button>
-              </FileContentPopup>
-            ))}
-          </div>
-        )}
-        <p className={cn("whitespace-pre-wrap text-sm break-words")}>
-          <HighlightedText
-            text={part.text.replace(/"""[\s\S]*?"""/g, "")}
-            mentions={toolMentions}
-          />
-        </p>
-      </div>
-
-      <div className="flex w-full justify-end">
-        {isLast && !isReadOnly && (
-          <>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  data-testid="message-edit-button"
-                  variant="ghost"
-                  size="icon"
-                  className={cn(
-                    "size-3! p-4! opacity-0 group-hover/message:opacity-100",
-                  )}
-                  onClick={() => copy(part.text)}
-                  disabled={isReadOnly}
-                >
-                  {copied ? <Check /> : <Copy />}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Copy</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  data-testid="message-edit-button"
-                  variant="ghost"
-                  size="icon"
-                  className="size-3! p-4! opacity-0 group-hover/message:opacity-100"
-                  onClick={() => setMode("edit")}
-                  disabled={isReadOnly}
-                >
-                  <Pencil />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Edit</TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  disabled={isDeleting || isReadOnly}
-                  onClick={deleteMessage}
-                  variant="ghost"
-                  size="icon"
-                  className="size-3! p-4! opacity-0 group-hover/message:opacity-100 hover:text-destructive"
-                >
-                  {isDeleting ? (
-                    <Loader className="animate-spin" />
-                  ) : (
-                    <Trash2 />
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent className="text-destructive" side="bottom">
-                Delete Message
-              </TooltipContent>
-            </Tooltip>
-          </>
-        )}
-      </div>
-      <div ref={ref} className="min-w-0" />
-    </div>
-  );
-};
+  },
+  (prev, next) => {
+    if (prev.part.text != next.part.text) return false;
+    if (prev.isError != next.isError) return false;
+    if (prev.isLast != next.isLast) return false;
+    if (prev.status != next.status) return false;
+    if (prev.message.id != next.message.id) return false;
+    if (!equal(prev.part, next.part)) return false;
+    return true;
+  },
+);
+UserMessagePart.displayName = "UserMessagePart";
 
 export const AssistMessagePart = ({
   part,
@@ -354,7 +309,6 @@ export const AssistMessagePart = ({
       .ifOk(() =>
         reload({
           body: {
-            action: "update-assistant",
             id: threadId,
           },
         }),
@@ -365,9 +319,7 @@ export const AssistMessagePart = ({
   };
 
   return (
-    <div
-      className={cn(isLoading && "animate-pulse", "flex flex-col gap-2 group")}
-    >
+    <div className={cn(isLoading && "animate-pulse", "flex flex-col gap-2")}>
       <div
         data-testid="message-content"
         className={cn("flex flex-col gap-4 px-2", {
@@ -377,16 +329,14 @@ export const AssistMessagePart = ({
         <Markdown>{part.text}</Markdown>
       </div>
       {showActions && !isReadOnly && (
-        <div className="flex w-full ">
+        <div className="flex w-full">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 data-testid="message-edit-button"
                 variant="ghost"
                 size="icon"
-                className={cn(
-                  "size-3! p-4! opacity-0 group-hover/message:opacity-100",
-                )}
+                className="size-3! p-4!"
                 onClick={() => copy(part.text)}
                 disabled={isReadOnly}
               >
@@ -402,9 +352,7 @@ export const AssistMessagePart = ({
                 variant="ghost"
                 size="icon"
                 onClick={refreshAnswer}
-                className={cn(
-                  "size-3! p-4! opacity-0 group-hover/message:opacity-100",
-                )}
+                className="size-3! p-4!"
                 disabled={isReadOnly}
               >
                 {<RefreshCw />}
@@ -419,7 +367,7 @@ export const AssistMessagePart = ({
                 size="icon"
                 disabled={isDeleting || isReadOnly}
                 onClick={deleteMessage}
-                className="size-3! p-4! opacity-0 group-hover/message:opacity-100 hover:text-destructive"
+                className="size-3! p-4! hover:text-destructive"
               >
                 {isDeleting ? <Loader className="animate-spin" /> : <Trash2 />}
               </Button>
@@ -469,77 +417,79 @@ export const ToolMessagePart = memo(
         .ifFail((error) => toast.error(error.message))
         .watch(() => setIsDeleting(false))
         .unwrap();
-    }, [messageId, setMessages]);
+    }, [messageId]);
+
+    const onToolCallDirect = useMemo(
+      () =>
+        onPoxyToolCall
+          ? (result: any) => {
+              return onPoxyToolCall({
+                action: "direct",
+                result,
+              });
+            }
+          : undefined,
+      [onPoxyToolCall],
+    );
 
     const result = useMemo(() => {
       if (state === "result") {
-        if (
-          toolInvocation.result?.content &&
-          Array.isArray(toolInvocation.result.content)
-        ) {
-          return toolInvocation.result.content.map((node) => {
-            if (node.type === "text") {
-              const parsed = safeJSONParse(node.text);
-              return {
-                ...node,
-                text: parsed.success ? parsed.value : node.text,
-              };
+        return Array.isArray(toolInvocation.result?.content)
+          ? {
+              ...toolInvocation.result,
+              content: toolInvocation.result.content.map((node) => {
+                // mcp tools
+                if (node?.type === "text" && typeof node?.text === "string") {
+                  const parsed = safeJSONParse(node.text);
+                  return {
+                    ...node,
+                    text: parsed.success ? parsed.value : node.text,
+                  };
+                }
+                return node;
+              }),
             }
-            return node;
-          });
-        }
-        return toolInvocation.result;
+          : toolInvocation.result;
       }
       return null;
-    }, [toolInvocation, onPoxyToolCall]);
+    }, [state, (toolInvocation as any).result]);
 
     const ToolResultComponent = useMemo(() => {
       if (
         toolName === DefaultToolName.WebSearch ||
         toolName === DefaultToolName.WebContent
       ) {
-        return <SearchToolPart part={toolInvocation} />;
+        return <WebSearchToolInvocation part={toolInvocation} />;
+      }
+
+      if (toolName === DefaultToolName.PythonExecution) {
+        return (
+          <CodeExecutor
+            part={toolInvocation}
+            onResult={onToolCallDirect}
+            type="python"
+          />
+        );
       }
 
       if (state === "result") {
         switch (toolName) {
           case DefaultToolName.CreatePieChart:
             return (
-              <Suspense
-                fallback={<Skeleton className="h-64 w-full rounded-md" />}
-              >
-                <PieChart
-                  key={`${toolCallId}-${toolName}`}
-                  {...(args as any)}
-                />
-              </Suspense>
+              <PieChart key={`${toolCallId}-${toolName}`} {...(args as any)} />
             );
           case DefaultToolName.CreateBarChart:
             return (
-              <Suspense
-                fallback={<Skeleton className="h-64 w-full rounded-md" />}
-              >
-                <BarChart
-                  key={`${toolCallId}-${toolName}`}
-                  {...(args as any)}
-                />
-              </Suspense>
+              <BarChart key={`${toolCallId}-${toolName}`} {...(args as any)} />
             );
           case DefaultToolName.CreateLineChart:
             return (
-              <Suspense
-                fallback={<Skeleton className="h-64 w-full rounded-md" />}
-              >
-                <LineChart
-                  key={`${toolCallId}-${toolName}`}
-                  {...(args as any)}
-                />
-              </Suspense>
+              <LineChart key={`${toolCallId}-${toolName}`} {...(args as any)} />
             );
         }
       }
       return null;
-    }, [toolName, state, onPoxyToolCall, result, args]);
+    }, [toolName, state, onToolCallDirect, result, args]);
 
     const { serverName: mcpServerName, toolName: mcpToolName } = useMemo(() => {
       return extractMCPToolId(toolName);
@@ -550,7 +500,7 @@ export const ToolMessagePart = memo(
     }, [expanded, result]);
 
     return (
-      <div key={toolCallId} className="group w-full">
+      <div className="group w-full">
         {ToolResultComponent ? (
           ToolResultComponent
         ) : (
@@ -763,8 +713,8 @@ export const ToolMessagePart = memo(
   (prev, next) => {
     if (prev.isError !== next.isError) return false;
     if (prev.isLast !== next.isLast) return false;
+    if (prev.onPoxyToolCall !== next.onPoxyToolCall) return false;
     if (prev.showActions !== next.showActions) return false;
-    if (!!prev.onPoxyToolCall !== !!next.onPoxyToolCall) return false;
     if (prev.isManualToolInvocation !== next.isManualToolInvocation)
       return false;
     if (prev.messageId !== next.messageId) return false;
@@ -774,184 +724,14 @@ export const ToolMessagePart = memo(
 
 ToolMessagePart.displayName = "ToolMessagePart";
 
-function SearchToolPart({ part }: { part: ToolMessagePart["toolInvocation"] }) {
-  const t = useTranslations();
-
-  const result = useMemo(() => {
-    if (part.state != "result") return null;
-    return part.result as TavilyResponse & { isError: boolean; error?: string };
-  }, [part.state]);
-
-  const options = useMemo(() => {
-    return (
-      <HoverCard openDelay={200} closeDelay={0}>
-        <HoverCardTrigger asChild>
-          <span className="hover:text-primary transition-colors text-xs text-muted-foreground">
-            {t("Chat.Tool.searchOptions")}
-          </span>
-        </HoverCardTrigger>
-        <HoverCardContent className="max-w-xs md:max-w-md! w-full! overflow-auto flex flex-col">
-          <p className="text-xs text-muted-foreground px-2 mb-2">
-            {t("Chat.Tool.searchOptionsDescription")}
-          </p>
-          <div className="p-2">
-            <JsonView data={part.args} />
-          </div>
-        </HoverCardContent>
-      </HoverCard>
-    );
-  }, [part.args]);
-
-  if (part.state != "result")
-    return (
-      <div className="flex items-center gap-2 text-sm">
-        <GlobalIcon className="size-5 wiggle text-muted-foreground" />
-        <TextShimmer>{t("Chat.Tool.webSearching")}</TextShimmer>
-      </div>
-    );
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2">
-        <GlobalIcon className="size-5 text-muted-foreground" />
-        <span className="text-sm font-semibold">
-          {t("Chat.Tool.searchedTheWeb")}
-        </span>
-        {options}
-      </div>
-      <div className="flex gap-2">
-        <div className="px-2.5">
-          <Separator
-            orientation="vertical"
-            className="bg-gradient-to-b from-border to-transparent from-80%"
-          />
-        </div>
-        <div className="flex flex-col gap-2 pb-2">
-          {result?.images?.length && (
-            <div className="grid grid-cols-3 gap-3 max-w-2xl">
-              {result?.images?.map((image, i) => {
-                if (!image.url) return null;
-                return (
-                  <Tooltip key={i}>
-                    <TooltipTrigger asChild>
-                      <div
-                        key={image.url}
-                        onClick={() => {
-                          notify.component({
-                            className: "max-w-[90vw]! max-h-[90vh]! p-6!",
-                            children: (
-                              <div className="flex flex-col h-full gap-4">
-                                <div className="flex-1 flex items-center justify-center min-h-0 py-6">
-                                  <img
-                                    src={image.url}
-                                    className="max-w-[80vw] max-h-[80vh] object-contain rounded-lg"
-                                    alt={image.description}
-                                  />
-                                </div>
-                              </div>
-                            ),
-                          });
-                        }}
-                        className="block shadow rounded-lg overflow-hidden ring ring-input cursor-pointer"
-                      >
-                        <img
-                          loading="lazy"
-                          src={image.url}
-                          className="w-full h-36 object-cover hover:scale-120 transition-transform duration-300"
-                        />
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent className="p-4 max-w-xs whitespace-pre-wrap break-words">
-                      <p className="text-xs text-muted-foreground">
-                        {image.description || image.url}
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                );
-              })}
-            </div>
-          )}
-          <div className="flex flex-wrap gap-1">
-            {result?.isError ? (
-              <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <AlertTriangleIcon className="size-3" />
-                {result.error || "Error"}
-              </p>
-            ) : (
-              (result as TavilyResponse)?.results?.map((result, i) => {
-                return (
-                  <HoverCard key={i} openDelay={200} closeDelay={0}>
-                    <HoverCardTrigger asChild>
-                      <a
-                        href={result.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="group rounded-full bg-secondary pl-1.5 pr-2 py-1.5 text-xs flex items-center gap-1 hover:bg-input hover:ring hover:ring-blue-500 transition-all cursor-pointer"
-                      >
-                        <div className="rounded-full bg-input ring ring-input">
-                          <Avatar className="size-3 rounded-full">
-                            <AvatarImage src={result.favicon} />
-                            <AvatarFallback>
-                              {result.title?.slice(0, 1).toUpperCase() || "?"}
-                            </AvatarFallback>
-                          </Avatar>
-                        </div>
-                        <span className="truncate max-w-44">{result.url}</span>
-                      </a>
-                    </HoverCardTrigger>
-
-                    <HoverCardContent className="flex flex-col gap-1 p-6">
-                      <div className="flex items-center gap-2">
-                        <div className="rounded-full ring ring-input">
-                          <Avatar className="size-6 rounded-full">
-                            <AvatarImage src={result.favicon} />
-                            <AvatarFallback>
-                              {result.title?.slice(0, 1).toUpperCase() || "?"}
-                            </AvatarFallback>
-                          </Avatar>
-                        </div>
-                        <span
-                          className={cn(
-                            "font-medium",
-                            !result.title && "truncate",
-                          )}
-                        >
-                          {result.title || result.url}
-                        </span>
-                      </div>
-                      <div className="flex flex-col gap-2 mt-4">
-                        <div className="relative">
-                          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent to-card from-80% " />
-                          <p className="text-xs text-muted-foreground max-h-60 overflow-y-auto">
-                            {result.content || result.raw_content}
-                          </p>
-                        </div>
-                      </div>
-                    </HoverCardContent>
-                  </HoverCard>
-                );
-              })
-            )}
-          </div>
-          {result?.results?.length && (
-            <p className="text-xs text-muted-foreground ml-1 flex items-center gap-1">
-              {t("Common.resultsFound", {
-                count: result?.results?.length,
-              })}
-            </p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export function ReasoningPart({
+export const ReasoningPart = memo(function ReasoningPart({
   reasoning,
+  isThinking,
 }: {
   reasoning: string;
   isThinking?: boolean;
 }) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(isThinking);
 
   const variants = {
     collapsed: {
@@ -968,6 +748,12 @@ export function ReasoningPart({
     },
   };
 
+  useEffect(() => {
+    if (!isThinking && isExpanded) {
+      setIsExpanded(false);
+    }
+  }, [isThinking]);
+
   return (
     <div
       className="flex flex-col cursor-pointer"
@@ -976,7 +762,12 @@ export function ReasoningPart({
       }}
     >
       <div className="flex flex-row gap-2 items-center text-ring hover:text-primary transition-colors">
-        <div className="font-medium">Reasoned for a few seconds</div>
+        {isThinking ? (
+          <TextShimmer>Reasoned for a few seconds</TextShimmer>
+        ) : (
+          <div className="font-medium">Reasoned for a few seconds</div>
+        )}
+
         <button
           data-testid="message-reasoning-toggle"
           type="button"
@@ -1007,4 +798,56 @@ export function ReasoningPart({
       </div>
     </div>
   );
-}
+});
+ReasoningPart.displayName = "ReasoningPart";
+const loading = memo(function Loading() {
+  return (
+    <div className="px-6 py-4">
+      <Skeleton className="h-44 w-full rounded-md" />
+    </div>
+  );
+});
+
+const PieChart = dynamic(
+  () => import("./tool-invocation/pie-chart").then((mod) => mod.PieChart),
+  {
+    ssr: false,
+    loading,
+  },
+);
+
+const BarChart = dynamic(
+  () => import("./tool-invocation/bar-chart").then((mod) => mod.BarChart),
+  {
+    ssr: false,
+    loading,
+  },
+);
+
+const LineChart = dynamic(
+  () => import("./tool-invocation/line-chart").then((mod) => mod.LineChart),
+  {
+    ssr: false,
+    loading,
+  },
+);
+
+const WebSearchToolInvocation = dynamic(
+  () =>
+    import("./tool-invocation/web-search").then(
+      (mod) => mod.WebSearchToolInvocation,
+    ),
+  {
+    ssr: false,
+    loading,
+  },
+);
+
+const CodeExecutor = dynamic(
+  () =>
+    import("./tool-invocation/code-executor").then((mod) => mod.CodeExecutor),
+  {
+    ssr: false,
+    loading,
+  },
+);

@@ -18,7 +18,7 @@ import {
 import { Button } from "ui/button";
 import { Separator } from "ui/separator";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { ThreadDropdown } from "../thread-dropdown";
 import { appStore } from "@/app/store";
 import { usePathname } from "next/navigation";
@@ -151,6 +151,12 @@ function ThreadDropdownComponent() {
     );
   }, [currentThread, projectList]);
 
+  useEffect(() => {
+    if (currentThread?.id) {
+      document.title = currentThread.title || "New Chat";
+    }
+  }, [currentThread?.id]);
+
   if (!currentThread) return null;
 
   return (
@@ -195,7 +201,9 @@ function ThreadDropdownComponent() {
                 <ChevronDown size={14} />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>{currentThread.title || "New Chat"}</TooltipContent>
+            <TooltipContent className="max-w-[200px] p-4 break-all overflow-y-auto max-h-[200px]">
+              {currentThread.title || "New Chat"}
+            </TooltipContent>
           </Tooltip>
         </div>
       </ThreadDropdown>

@@ -7,6 +7,7 @@ import {
   ChartPieIcon,
   GlobeIcon,
   HardDriveUploadIcon,
+  CodeIcon,
   HammerIcon,
 } from "lucide-react";
 import { useMemo } from "react";
@@ -43,6 +44,9 @@ export function DefaultToolIcon({
           className={cn("size-3.5 text-blue-300", className)}
         />
       );
+    }
+    if (name === DefaultToolName.PythonExecution) {
+      return <CodeIcon className={cn("size-3.5 text-blue-400", className)} />;
     }
     return <HammerIcon className={cn("size-3.5", className)} />;
   }, [name]);

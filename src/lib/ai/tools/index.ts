@@ -2,6 +2,7 @@ export enum AppDefaultToolkit {
   Visualization = "visualization",
   WebSearch = "webSearch",
   Http = "http",
+  Code = "code",
 }
 
 export enum DefaultToolName {
@@ -11,4 +12,5 @@ export enum DefaultToolName {
   WebSearch = "webSearch",
   WebContent = "webContent",
   Http = "http",
+  PythonExecution = "python-execution",
 }

@@ -13,7 +13,6 @@ import {
   ToolMessagePart,
   ReasoningPart,
 } from "./message-parts";
-import { Think } from "ui/think";
 import { Terminal, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "ui/button";
 import { useTranslations } from "next-intl";
@@ -49,16 +48,6 @@ const PurePreviewMessage = ({
   isReadOnly,
 }: Props) => {
   const isUserMessage = useMemo(() => message.role === "user", [message.role]);
-
-  const showThink = useMemo(() => {
-    if (isLoading && isLastMessage) {
-      const lastPart = message.parts.at(-1);
-      if (lastPart?.type == "text" && !lastPart.text?.trim()) {
-        return true;
-      }
-    }
-    return false;
-  }, [isLoading, isLastMessage, message.parts]);
 
   if (message.role == "system") {
     return null; // system message is not shown
@@ -98,7 +87,7 @@ const PurePreviewMessage = ({
                 <ReasoningPart
                   key={key}
                   reasoning={part.reasoning}
-                  isThinking={isLastPart}
+                  isThinking={isLastPart && isLoading && isLastMessage}
                 />
               );
             }
@@ -162,7 +151,6 @@ const PurePreviewMessage = ({
               );
             }
           })}
-          {showThink && <Think />}
         </div>
       </div>
     </div>
@@ -180,7 +168,7 @@ export const PreviewMessage = memo(
     if (prevProps.message.annotations !== nextProps.message.annotations)
       return false;
     if (prevProps.isError !== nextProps.isError) return false;
-    if (!!prevProps.onPoxyToolCall !== !!nextProps.onPoxyToolCall) return false;
+    if (prevProps.onPoxyToolCall !== nextProps.onPoxyToolCall) return false;
     if (!equal(prevProps.message.parts, nextProps.message.parts)) return false;
     return true;
   },
