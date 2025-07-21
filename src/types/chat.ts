@@ -261,3 +261,12 @@ export type ChatRepository = {
     userPreferences: UserPreferences | undefined;
   }>;
 };
+
+export const ClientToolInvocationZodSchema = z.object({
+  action: z.enum(["manual", "direct"]),
+  result: z.any().optional(),
+});
+
+export type ClientToolInvocation = z.infer<
+  typeof ClientToolInvocationZodSchema
+>;

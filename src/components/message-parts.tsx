@@ -40,7 +40,7 @@ import {
 } from "@/app/api/chat/actions";
 import { toast } from "sonner";
 import { safe } from "ts-safe";
-import { ChatMessageAnnotation } from "app-types/chat";
+import { ChatMessageAnnotation, ClientToolInvocation } from "app-types/chat";
 import { Skeleton } from "ui/skeleton";
 import { PieChart } from "./tool-invocation/pie-chart";
 import { BarChart } from "./tool-invocation/bar-chart";
@@ -56,6 +56,7 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "ui/hover-card";
 import { Avatar, AvatarFallback, AvatarImage } from "ui/avatar";
 import { DefaultToolName } from "lib/ai/tools";
 import { TavilyResponse } from "lib/ai/tools/web/web-search";
+import { equal } from "assert";
 
 type MessagePart = UIMessage["parts"][number];
 
@@ -87,10 +88,11 @@ interface AssistMessagePartProps {
 
 interface ToolMessagePartProps {
   part: ToolMessagePart;
-  message: UIMessage;
+  messageId: string;
   showActions: boolean;
   isLast?: boolean;
-  onPoxyToolCall?: (answer: boolean) => void;
+  isManualToolInvocation?: boolean;
+  onPoxyToolCall?: (result: ClientToolInvocation) => void;
   isError?: boolean;
   setMessages?: UseChatHelpers["setMessages"];
   isReadOnly?: boolean;
@@ -438,8 +440,9 @@ export const ToolMessagePart = memo(
     showActions,
     onPoxyToolCall,
     isError,
-    message,
+    messageId,
     setMessages,
+    isManualToolInvocation,
     isReadOnly,
   }: ToolMessagePartProps) => {
     const t = useTranslations("");
@@ -452,10 +455,10 @@ export const ToolMessagePart = memo(
     const isExecuting = state !== "result" && (isLast || onPoxyToolCall);
     const deleteMessage = useCallback(() => {
       safe(() => setIsDeleting(true))
-        .ifOk(() => deleteMessageAction(message.id))
+        .ifOk(() => deleteMessageAction(messageId))
         .ifOk(() =>
           setMessages?.((messages) => {
-            const index = messages.findIndex((m) => m.id === message.id);
+            const index = messages.findIndex((m) => m.id === messageId);
             if (index !== -1) {
               return messages.filter((_, i) => i !== index);
             }
@@ -465,7 +468,7 @@ export const ToolMessagePart = memo(
         .ifFail((error) => toast.error(error.message))
         .watch(() => setIsDeleting(false))
         .unwrap();
-    }, [message.id, setMessages]);
+    }, [messageId, setMessages]);
 
     const result = useMemo(() => {
       if (state === "result") {
@@ -487,7 +490,7 @@ export const ToolMessagePart = memo(
         return toolInvocation.result;
       }
       return null;
-    }, [state, toolInvocation]);
+    }, [toolInvocation, onPoxyToolCall]);
 
     const ToolResultComponent = useMemo(() => {
       if (
@@ -535,7 +538,7 @@ export const ToolMessagePart = memo(
         }
       }
       return null;
-    }, [toolName, state]);
+    }, [toolName, state, onPoxyToolCall, result, args]);
 
     const { serverName: mcpServerName, toolName: mcpToolName } = useMemo(() => {
       return extractMCPToolId(toolName);
@@ -694,13 +697,15 @@ export const ToolMessagePart = memo(
                       </div>
                     )}
 
-                    {onPoxyToolCall && (
+                    {onPoxyToolCall && isManualToolInvocation && (
                       <div className="flex flex-row gap-2 items-center mt-2">
                         <Button
                           variant="secondary"
                           size="sm"
                           className="rounded-full text-xs hover:ring"
-                          onClick={() => onPoxyToolCall(true)}
+                          onClick={() =>
+                            onPoxyToolCall({ action: "manual", result: true })
+                          }
                           disabled={isReadOnly}
                         >
                           <Check />
@@ -710,7 +715,9 @@ export const ToolMessagePart = memo(
                           variant="outline"
                           size="sm"
                           className="rounded-full text-xs"
-                          onClick={() => onPoxyToolCall(false)}
+                          onClick={() =>
+                            onPoxyToolCall({ action: "manual", result: false })
+                          }
                           disabled={isReadOnly}
                         >
                           <X />
@@ -751,6 +758,16 @@ export const ToolMessagePart = memo(
         )}
       </div>
     );
+  },
+  (prev, next) => {
+    if (prev.isError !== next.isError) return false;
+    if (prev.isLast !== next.isLast) return false;
+    if (prev.showActions !== next.showActions) return false;
+    if (!!prev.onPoxyToolCall !== !!next.onPoxyToolCall) return false;
+    if (prev.isManualToolInvocation !== next.isManualToolInvocation)
+      return false;
+    if (prev.messageId !== next.messageId) return false;
+    return true;
   },
 );
 

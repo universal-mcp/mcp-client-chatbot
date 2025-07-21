@@ -77,6 +77,13 @@ export async function POST(request: Request) {
 
     const previousMessages = (thread?.messages ?? []).map(convertToMessage);
 
+    const messages: Message[] = isLastMessageUserMessage
+      ? appendClientMessage({
+          messages: previousMessages,
+          message,
+        })
+      : previousMessages;
+
     const manager = await mcpGateway.getManager(userId, organizationId);
     const mcpTools = manager.tools();
     const mcpServers = await manager.getClients();
@@ -111,15 +118,10 @@ export async function POST(request: Request) {
         organizationId,
       );
 
+    const inProgressToolStep = extractInProgressToolPart(messages.slice(-2));
+
     const isToolCallAllowed =
       !isToolCallUnsupportedModel(model) && toolChoice != "none";
-
-    const messages: Message[] = isLastMessageUserMessage
-      ? appendClientMessage({
-          messages: previousMessages,
-          message,
-        })
-      : previousMessages;
 
     return createDataStreamResponse({
       execute: async (dataStream) => {
@@ -161,15 +163,12 @@ export async function POST(request: Request) {
           })
           .orElse({});
 
-        const inProgressToolStep = extractInProgressToolPart(
-          messages.slice(-2),
-        );
-
         if (inProgressToolStep) {
           const toolResult = await manualToolExecuteByLastMessage(
             inProgressToolStep,
             message,
-            mcpTools,
+            { ...mcpTools, ...APP_DEFAULT_TOOLS },
+            request.signal,
           );
           assignToolResult(inProgressToolStep, toolResult);
           dataStream.write(
@@ -185,10 +184,6 @@ export async function POST(request: Request) {
           buildProjectInstructionsSystemPrompt(projectInstructions),
           // buildContextServerPrompt(),
         );
-
-        // Precompute toolChoice to avoid repeated tool calls
-        const computedToolChoice =
-          isToolCallAllowed && inProgressToolStep ? "required" : "auto";
 
         const vercelAITools = safe(tools)
           .map((t) => {
@@ -225,11 +220,10 @@ export async function POST(request: Request) {
           system: systemPrompt,
           messages,
           maxSteps: 10,
-          experimental_continueSteps: true,
           experimental_transform: smoothStream({ chunking: "word" }),
           maxRetries: 1,
           tools: vercelAITools,
-          toolChoice: computedToolChoice,
+          toolChoice: "auto",
           onFinish: async ({ response, usage }) => {
             if (isNewThread) {
               const title = await generateTitleFromUserMessageAction({

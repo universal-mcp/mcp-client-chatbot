@@ -8,6 +8,7 @@ import {
 import {
   ChatMessage,
   ChatMessageAnnotation,
+  ClientToolInvocationZodSchema,
   ToolInvocationUIPart,
 } from "app-types/chat";
 import { errorToString, objectFlow, toAny } from "lib/utils";
@@ -217,27 +218,47 @@ export function mergeSystemPrompt(...prompts: (string | undefined)[]): string {
 export function manualToolExecuteByLastMessage(
   part: ToolInvocationUIPart,
   message: Message,
-  tools: Record<string, VercelAIMcpTool>,
+  tools: Record<string, VercelAIMcpTool | (Tool & { __$ref__?: string })>,
+  abortSignal?: AbortSignal,
 ) {
   const { args, toolName } = part.toolInvocation;
 
   const manulConfirmation = (message.parts as ToolInvocationUIPart[]).find(
     (_part) => {
-      return (
-        _part.toolInvocation?.state == "result" &&
-        _part.toolInvocation?.toolCallId == part.toolInvocation.toolCallId
-      );
+      return _part.toolInvocation?.toolCallId == part.toolInvocation.toolCallId;
     },
   )?.toolInvocation as Extract<ToolInvocation, { state: "result" }>;
 
-  if (!manulConfirmation?.result) return MANUAL_REJECT_RESPONSE_PROMPT;
-
   const tool = tools[toolName];
 
+  if (!manulConfirmation?.result) return MANUAL_REJECT_RESPONSE_PROMPT;
   return safe(() => {
     if (!tool) throw new Error(`tool not found: ${toolName}`);
+    return ClientToolInvocationZodSchema.parse(manulConfirmation?.result);
   })
-    .map(() => callMcpToolAction(tool._mcpServerId, tool._originToolName, args))
+    .map((result) => {
+      const value = result?.result;
+
+      if (result.action == "direct") {
+        return value;
+      } else if (result.action == "manual") {
+        if (!value) return MANUAL_REJECT_RESPONSE_PROMPT;
+        if ((tool as any).__$ref__ === "mcp") {
+          const mcpTool = tool as VercelAIMcpTool;
+          return callMcpToolAction(
+            mcpTool._mcpServerId,
+            mcpTool._originToolName,
+            args,
+          );
+        }
+        return tool.execute!(args, {
+          toolCallId: part.toolInvocation.toolCallId,
+          abortSignal: abortSignal ?? new AbortController().signal,
+          messages: [],
+        });
+      }
+      throw new Error("Invalid Client Tool Invocation Action " + result.action);
+    })
     .ifFail((error) => ({
       isError: true,
       statusMessage: `tool call fail: ${toolName}`,
