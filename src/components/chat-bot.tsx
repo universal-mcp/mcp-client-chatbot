@@ -30,7 +30,6 @@ import { useToRef } from "@/hooks/use-latest";
 import { isShortcutEvent, Shortcuts } from "lib/keyboard-shortcuts";
 import { Button } from "ui/button";
 import { deleteThreadAction } from "@/app/api/chat/actions";
-import { useRouter } from "next/navigation";
 import { Loader } from "lucide-react";
 import {
   Dialog,
@@ -41,38 +40,44 @@ import {
   DialogTitle,
 } from "ui/dialog";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 
 type Props = {
   threadId: string;
   initialMessages: Array<UIMessage>;
   selectedChatModel?: string;
+  projectId?: string;
+  isReadOnly?: boolean;
   slots?: {
     emptySlot?: ReactNode;
     inputBottomSlot?: ReactNode;
   };
 };
 
-export default function ChatBot({ threadId, initialMessages, slots }: Props) {
+export default function ChatBot({
+  threadId,
+  initialMessages,
+  slots,
+  projectId,
+  isReadOnly,
+}: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-
   const [
     appStoreMutate,
-    model,
     toolChoice,
-    allowedAppDefaultToolkit,
     allowedMcpServers,
     threadList,
+    isMcpClientListLoading,
   ] = appStore(
     useShallow((state) => [
       state.mutate,
-      state.chatModel,
       state.toolChoice,
-      state.allowedAppDefaultToolkit,
       state.allowedMcpServers,
       state.threadList,
+      state.isMcpClientListLoading,
     ]),
   );
-
+  const router = useRouter();
   const {
     messages,
     input,
@@ -94,12 +99,10 @@ export default function ChatBot({ threadId, initialMessages, slots }: Props) {
       vercelAISdkV4ToolInvocationIssueCatcher(lastMessage);
       const request: ChatApiSchemaRequestBody = {
         id: latestRef.current.threadId,
-        chatModel: latestRef.current.model,
         toolChoice: latestRef.current.toolChoice,
-        allowedAppDefaultToolkit: latestRef.current.allowedAppDefaultToolkit,
         allowedMcpServers: latestRef.current.allowedMcpServers,
         message: lastMessage,
-        projectId: currentThread?.projectId ?? undefined,
+        projectId: projectId ?? currentThread?.projectId ?? null,
       };
       return request;
     },
@@ -109,6 +112,9 @@ export default function ChatBot({ threadId, initialMessages, slots }: Props) {
     onFinish() {
       if (threadList[0]?.id !== threadId) {
         mutate("threads");
+      }
+      if (projectId) {
+        router.replace(`/chat/${threadId}`);
       }
     },
     onError: (error) => {
@@ -125,8 +131,6 @@ export default function ChatBot({ threadId, initialMessages, slots }: Props) {
 
   const latestRef = useToRef({
     toolChoice,
-    model,
-    allowedAppDefaultToolkit,
     allowedMcpServers,
     messages,
     threadId,
@@ -245,7 +249,7 @@ export default function ChatBot({ threadId, initialMessages, slots }: Props) {
   return (
     <div
       className={cn(
-        emptyMessage && "justify-center pb-24",
+        emptyMessage && !projectId && "justify-center pb-24",
         "flex flex-col min-w-0 relative h-full",
       )}
     >
@@ -253,7 +257,10 @@ export default function ChatBot({ threadId, initialMessages, slots }: Props) {
         slots?.emptySlot ? (
           slots.emptySlot
         ) : (
-          <ChatGreeting />
+          <ChatGreeting
+            append={append}
+            isLoadingTools={isMcpClientListLoading}
+          />
         )
       ) : (
         <>
@@ -282,6 +289,7 @@ export default function ChatBot({ threadId, initialMessages, slots }: Props) {
                   isLastMessage={isLastMessage}
                   setMessages={setMessages}
                   reload={reload}
+                  isReadOnly={isReadOnly}
                   className={needSpaceClass(index) ? "min-h-[55dvh]" : ""}
                 />
               );
@@ -294,17 +302,21 @@ export default function ChatBot({ threadId, initialMessages, slots }: Props) {
           </div>
         </>
       )}
-      <div className={clsx(messages.length && "absolute bottom-14", "w-full")}>
-        <PromptInput
-          input={input}
-          append={append}
-          setInput={setInput}
-          isLoading={isLoading || isPendingToolCall}
-          onStop={stop}
-          isInProjectContext={!!currentThread?.projectId}
-        />
-        {slots?.inputBottomSlot}
-      </div>
+      {!isReadOnly && (
+        <div
+          className={clsx(messages.length && "absolute bottom-14", "w-full")}
+        >
+          <PromptInput
+            input={input}
+            append={append}
+            setInput={setInput}
+            isLoading={isLoading || isPendingToolCall}
+            onStop={stop}
+            isInProjectContext={!!projectId || !!currentThread?.projectId}
+          />
+          {slots?.inputBottomSlot}
+        </div>
+      )}
       <DeleteThreadPopup
         threadId={threadId}
         onClose={() => setIsDeleteThreadPopupOpen(false)}

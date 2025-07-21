@@ -99,8 +99,8 @@ const prependTools = [
 
 export function ChatBotVoice() {
   const t = useTranslations("Chat");
-  const [appStoreMutate, voiceChat, model] = appStore(
-    useShallow((state) => [state.mutate, state.voiceChat, state.chatModel]),
+  const [appStoreMutate, voiceChat] = appStore(
+    useShallow((state) => [state.mutate, state.voiceChat]),
   );
 
   const [isClosing, setIsClosing] = useState(false);
@@ -155,7 +155,6 @@ export function ChatBotVoice() {
         method: "POST",
         body: JSON.stringify({
           messages: mergeConsecutiveMessages(saveMessages),
-          chatModel: model,
           projectId: voiceChat.projectId,
         }),
       });
@@ -179,7 +178,7 @@ export function ChatBotVoice() {
         isOpen: false,
       },
     });
-  }, [messages, voiceChat.threadId, voiceChat.projectId, model]);
+  }, [messages, voiceChat.threadId, voiceChat.projectId]);
 
   const statusMessage = useMemo(() => {
     if (isLoading) {

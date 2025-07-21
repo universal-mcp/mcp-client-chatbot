@@ -6,7 +6,6 @@ import {
   tool as createTool,
 } from "ai";
 import {
-  ChatMention,
   ChatMessage,
   ChatMessageAnnotation,
   ToolInvocationUIPart,
@@ -15,51 +14,12 @@ import { errorToString, objectFlow, toAny } from "lib/utils";
 import { callMcpToolAction } from "../mcp/actions";
 import { safe } from "ts-safe";
 import logger from "logger";
-import { defaultTools } from "lib/ai/tools";
 import {
   AllowedMCPServer,
   McpServerCustomizationsPrompt,
   VercelAIMcpTool,
 } from "app-types/mcp";
 import { MANUAL_REJECT_RESPONSE_PROMPT } from "lib/ai/prompts";
-
-export function filterToolsByMentions(
-  tools: Record<string, VercelAIMcpTool>,
-  mentions: ChatMention[],
-) {
-  const toolMentions = mentions.filter(
-    (mention) => mention.type == "tool" || mention.type == "mcpServer",
-  );
-  if (toolMentions.length === 0) {
-    return tools;
-  }
-
-  const metionsByServer = toolMentions.reduce(
-    (acc, mention) => {
-      if (mention.type == "mcpServer") {
-        return {
-          ...acc,
-          [mention.serverId]: Object.values(tools).map(
-            (tool) => tool._originToolName,
-          ),
-        };
-      }
-      if (mention.type == "tool") {
-        return {
-          ...acc,
-          [mention.serverId]: [...(acc[mention.serverId] ?? []), mention.name],
-        };
-      }
-      return acc;
-    },
-    {} as Record<string, string[]>,
-  ); // {serverId: [toolName1, toolName2]}
-
-  return objectFlow(tools).filter((_tool) => {
-    if (!metionsByServer[_tool._mcpServerId]) return false;
-    return metionsByServer[_tool._mcpServerId].includes(_tool._originToolName);
-  });
-}
 
 export function filterToolsByAllowedMCPServers(
   tools: Record<string, VercelAIMcpTool>,
@@ -205,19 +165,6 @@ export function getProjectToolMode(
   const toolConfig = projectConfig.tools.get(toolConfigKey);
 
   return toolConfig?.mode ?? "auto";
-}
-
-export function getAllowedDefaultToolkit(
-  allowedAppDefaultToolkit?: string[],
-): Record<string, Tool> {
-  if (!allowedAppDefaultToolkit) {
-    return Object.values(defaultTools).reduce((acc, toolkit) => {
-      return { ...acc, ...toolkit };
-    }, {});
-  }
-  return allowedAppDefaultToolkit.reduce((acc, toolkit) => {
-    return { ...acc, ...(defaultTools[toolkit] ?? {}) };
-  }, {});
 }
 
 export function excludeToolExecution(

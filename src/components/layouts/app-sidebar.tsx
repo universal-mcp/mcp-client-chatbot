@@ -9,7 +9,6 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "ui/sidebar";
-import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 
@@ -55,37 +54,26 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="offcanvas" className="border-r">
-      <SidebarHeader className="p-0">
-        {/* Workspace Picker */}
+      <SidebarHeader className="p-2 border-b">
         <WorkspacePicker />
+      </SidebarHeader>
 
+      <SidebarHeader className="p-0">
         {/* App Header */}
         <div className="p-2">
           <SidebarMenu>
-            <SidebarMenuItem className="flex items-center gap-0.5">
+            <SidebarMenuItem className="flex items-center justify-end gap-0.5">
               <SidebarMenuButton asChild className="hover:bg-transparent">
-                <Link
-                  href={`/`}
+                <div
+                  className="block sm:hidden"
                   onClick={(e) => {
                     e.preventDefault();
-                    router.push("/");
-                    router.refresh();
+                    e.stopPropagation();
+                    setOpenMobile(false);
                   }}
                 >
-                  <h4 className="font-bold text-md leading-none text-center">
-                    Wingmen
-                  </h4>
-                  <div
-                    className="ml-auto block sm:hidden"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setOpenMobile(false);
-                    }}
-                  >
-                    <PanelLeft className="size-4" />
-                  </div>
-                </Link>
+                  <PanelLeft className="size-4" />
+                </div>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>

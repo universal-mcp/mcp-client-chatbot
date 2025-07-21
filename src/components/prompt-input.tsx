@@ -2,26 +2,22 @@
 
 import {
   AudioWaveformIcon,
-  ChevronDown,
   CornerRightUp,
   Paperclip,
   Pause,
+  X,
 } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
-import { Button } from "ui/button";
-import { notImplementedToast } from "ui/shared-toast";
-import { MessagePastesContentCard } from "./message-pasts-content";
+import { useRef, useEffect, useState } from "react";
 import { UseChatHelpers } from "@ai-sdk/react";
-import { SelectModel } from "./select-model";
 import { appStore } from "@/app/store";
 import { useShallow } from "zustand/shallow";
-import { ChatMention, ChatMessageAnnotation, ChatModel } from "app-types/chat";
-import dynamic from "next/dynamic";
+import { ChatMessageAnnotation } from "app-types/chat";
 import { ToolModeDropdown } from "./tool-mode-dropdown";
-import { PROMPT_PASTE_MAX_LENGTH } from "lib/const";
 import { ToolSelectDropdown } from "./tool-select-dropdown";
 import { Tooltip, TooltipContent, TooltipTrigger } from "ui/tooltip";
 import { useTranslations } from "next-intl";
+import { cn } from "lib/utils";
+import { toast } from "sonner";
 
 interface PromptInputProps {
   placeholder?: string;
@@ -31,24 +27,14 @@ interface PromptInputProps {
   append: UseChatHelpers["append"];
   toolDisabled?: boolean;
   isLoading?: boolean;
-  model?: ChatModel;
-  setModel?: (model: ChatModel) => void;
   voiceDisabled?: boolean;
   isInProjectContext?: boolean;
+  disabled?: boolean;
 }
-
-const MentionInput = dynamic(() => import("./mention-input"), {
-  ssr: false,
-  loading() {
-    return <div className="h-[2rem] w-full animate-pulse"></div>;
-  },
-});
 
 export default function PromptInput({
   placeholder,
   append,
-  model,
-  setModel,
   input,
   setInput,
   onStop,
@@ -56,103 +42,142 @@ export default function PromptInput({
   toolDisabled,
   voiceDisabled,
   isInProjectContext,
+  disabled,
 }: PromptInputProps) {
   const t = useTranslations("Chat");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [attachedFiles, setAttachedFiles] = useState<
+    { name: string; content: string }[]
+  >([]);
+  const [isUploading, setIsUploading] = useState(false);
 
   const [
     currentThreadId,
     currentProjectId,
-    mcpList,
-    globalModel,
     appStoreMutate,
+    isMcpClientListLoading,
   ] = appStore(
     useShallow((state) => [
       state.currentThreadId,
       state.currentProjectId,
-      state.mcpList,
-      state.chatModel,
       state.mutate,
+      state.isMcpClientListLoading,
     ]),
   );
 
-  const chatModel = useMemo(() => {
-    return model ?? globalModel;
-  }, [model, globalModel]);
+  const isLoadingTools = isMcpClientListLoading && !toolDisabled;
 
-  const setChatModel = useCallback(
-    (model: ChatModel) => {
-      if (setModel) {
-        setModel(model);
-      } else {
-        appStoreMutate({ chatModel: model });
-      }
-    },
-    [setModel, appStoreMutate],
-  );
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  }, [input]);
 
-  const [toolMentionItems, setToolMentionItems] = useState<ChatMention[]>([]);
-
-  const [pastedContents, setPastedContents] = useState<string[]>([]);
-
-  const mentionItems = useMemo(() => {
-    return (
-      (mcpList?.flatMap((mcp) => [
-        {
-          type: "mcpServer",
-          name: mcp.name,
-          serverId: mcp.id,
-        },
-        ...mcp.toolInfo.map((tool) => {
-          return {
-            type: "tool",
-            name: tool.name,
-            serverId: mcp.id,
-            serverName: mcp.name,
-          };
-        }),
-      ]) as ChatMention[]) ?? []
-    );
-  }, [mcpList]);
-
-  const handlePaste = (e: React.ClipboardEvent) => {
-    const text = e.clipboardData.getData("text/plain");
-    if (text.length > PROMPT_PASTE_MAX_LENGTH) {
-      setPastedContents([...pastedContents, text]);
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
+      submit();
     }
   };
 
-  const submit = () => {
-    if (isLoading) return;
-    const userMessage = input?.trim() || "";
-
-    const pastedContentsParsed = pastedContents.map((content) => ({
-      type: "text" as const,
-      text: content,
-    }));
-
-    if (userMessage.length === 0 && pastedContentsParsed.length === 0) {
+  const handleContainerClick = (e: React.MouseEvent) => {
+    // Don't focus if clicking on interactive elements
+    const target = e.target as HTMLElement;
+    if (
+      target.closest("button") ||
+      target.closest('[role="button"]') ||
+      target.closest(".interactive-element")
+    ) {
       return;
     }
 
-    const annotations: ChatMessageAnnotation[] = [];
-    if (toolMentionItems.length > 0) {
-      annotations.push({
-        mentions: toolMentionItems,
-      });
+    if (textareaRef.current) {
+      textareaRef.current.focus();
     }
-    setPastedContents([]);
-    setToolMentionItems([]);
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploading(true);
+    try {
+      const uploadPromises = Array.from(files).map(async (file) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          return { name: data.filename, content: data.content };
+        } else {
+          const errorData = await response.json();
+          toast.error(
+            `Failed to upload ${file.name}: ${errorData.error || "Unknown error"}`,
+          );
+          return null;
+        }
+      });
+
+      const uploadedFiles = (await Promise.all(uploadPromises)).filter(
+        Boolean,
+      ) as { name: string; content: string }[];
+      setAttachedFiles((prev) => [...prev, ...uploadedFiles]);
+    } catch (error) {
+      console.error("File upload error:", error);
+      toast.error("An error occurred during file upload.");
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const submit = () => {
+    if (isLoading || disabled) return;
+    const userMessage = input?.trim() || "";
+
+    if (userMessage.length === 0 && attachedFiles.length === 0) {
+      return;
+    }
+
+    let finalMessage = userMessage;
+    const annotations: ChatMessageAnnotation[] = [];
+    if (attachedFiles.length > 0) {
+      let filePreamble = "";
+      attachedFiles.forEach((file) => {
+        filePreamble += `"""The user attached the file \`${file.name}\`. Its contents are:\n\n${file.content}\n"""`;
+        annotations.push({
+          file: {
+            filename: file.name,
+            content: file.content,
+          },
+        });
+      });
+      finalMessage = `${filePreamble}${userMessage}`;
+    }
+
     setInput("");
+    setAttachedFiles([]);
     append!({
       role: "user",
       content: "",
       annotations,
       parts: [
-        ...pastedContentsParsed,
         {
           type: "text",
-          text: userMessage,
+          text: finalMessage,
         },
       ],
     });
@@ -161,70 +186,109 @@ export default function PromptInput({
   return (
     <div className="max-w-3xl mx-auto fade-in animate-in">
       <div className="z-10 mx-auto w-full max-w-3xl relative">
-        <fieldset className="flex w-full min-w-0 max-w-full flex-col px-2">
-          <div className="rounded-4xl backdrop-blur-sm transition-all duration-200 bg-muted/80 relative flex w-full flex-col cursor-text z-10 border items-stretch focus-within:border-muted-foreground hover:border-muted-foreground p-3">
+        <fieldset
+          className="flex w-full min-w-0 max-w-full flex-col px-2"
+          disabled={isLoadingTools || disabled}
+        >
+          <div
+            onClick={handleContainerClick}
+            className={cn(
+              "rounded-4xl backdrop-blur-sm transition-all duration-200 bg-muted/80 relative flex w-full flex-col z-10 border items-stretch p-3",
+              isLoadingTools || isUploading
+                ? "cursor-wait border-primary/50 animate-pulse"
+                : "cursor-text focus-within:border-muted-foreground hover:border-muted-foreground",
+            )}
+          >
             <div className="flex flex-col gap-3.5 px-1">
+              {attachedFiles.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  {attachedFiles.map((file, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center gap-2 px-2 py-1 text-sm bg-muted rounded-md"
+                    >
+                      <Paperclip className="size-4" />
+                      <span className="flex-1 truncate">{file.name}</span>
+                      <button
+                        onClick={() => removeFile(index)}
+                        className="p-1 hover:bg-muted-foreground/20 rounded-full"
+                      >
+                        <X className="size-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="relative min-h-[2rem]">
-                <MentionInput
-                  input={input}
-                  onChange={setInput}
-                  onChangeMention={setToolMentionItems}
-                  onEnter={submit}
-                  placeholder={placeholder ?? t("placeholder")}
-                  onPaste={handlePaste}
-                  items={mentionItems}
+                <textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={
+                    disabled
+                      ? t("readOnlyPlaceholder")
+                      : isUploading
+                        ? "Parsing file..."
+                        : (placeholder ?? t("placeholder"))
+                  }
+                  className="w-full resize-none border-none bg-transparent outline-none text-foreground placeholder:text-muted-foreground min-h-[2rem] max-h-[200px] overflow-y-auto leading-6 px-2 py-1 text-base placeholder:text-base"
+                  rows={1}
+                  disabled={
+                    isLoading || isLoadingTools || disabled || isUploading
+                  }
                 />
               </div>
-              <div className="flex w-full items-center gap-2">
-                {pastedContents.map((content, index) => (
-                  <MessagePastesContentCard
-                    key={index}
-                    initialContent={content}
-                    deleteContent={() => {
-                      setPastedContents((prev) => {
-                        const newContents = [...prev];
-                        newContents.splice(index, 1);
-                        return newContents;
-                      });
-                    }}
-                    updateContent={(content) => {
-                      setPastedContents((prev) => {
-                        const newContents = [...prev];
-                        newContents[index] = content;
-                        return newContents;
-                      });
-                    }}
-                  />
-                ))}
-              </div>
+
               <div className="flex w-full items-center z-30 gap-1.5">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  className="hidden"
+                  multiple
+                />
                 <div
-                  className="cursor-pointer text-muted-foreground border rounded-full p-2 bg-transparent hover:bg-muted transition-all duration-200"
-                  onClick={notImplementedToast}
+                  className="cursor-not-allowed opacity-50 text-muted-foreground border rounded-full p-2 bg-transparent transition-all duration-200 interactive-element"
+                  // onClick={() => fileInputRef.current?.click()}
                 >
                   <Paperclip className="size-4" />
                 </div>
 
-                {!toolDisabled && !isInProjectContext && (
+                {!toolDisabled && (
                   <>
-                    <ToolModeDropdown />
-                    <ToolSelectDropdown align="start" side="top" />
+                    <div
+                      className={cn(
+                        "interactive-element",
+                        isInProjectContext && "cursor-not-allowed opacity-50",
+                      )}
+                    >
+                      <ToolModeDropdown disabled={isInProjectContext} />
+                    </div>
+                    <div
+                      className={cn(
+                        "interactive-element",
+                        isInProjectContext && "cursor-not-allowed opacity-50",
+                      )}
+                    >
+                      <ToolSelectDropdown
+                        align="start"
+                        side="top"
+                        disabled={isInProjectContext}
+                      />
+                    </div>
                   </>
                 )}
                 <div className="flex-1" />
 
-                <SelectModel onSelect={setChatModel} defaultModel={chatModel}>
-                  <Button
-                    variant={"ghost"}
-                    className="rounded-full data-[state=open]:bg-input! hover:bg-input!"
-                  >
-                    {chatModel?.model ?? (
-                      <span className="text-muted-foreground">model</span>
-                    )}
-                    <ChevronDown className="size-3" />
-                  </Button>
-                </SelectModel>
-                {!isLoading && !input.length && !voiceDisabled ? (
+                {isUploading ? (
+                  <div className="p-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                  </div>
+                ) : !isLoading &&
+                  !input.length &&
+                  !voiceDisabled &&
+                  !disabled ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div
@@ -238,7 +302,7 @@ export default function PromptInput({
                             },
                           }));
                         }}
-                        className="border fade-in animate-in cursor-pointer text-background rounded-full p-2 bg-primary hover:bg-primary/90 transition-all duration-200"
+                        className="border fade-in animate-in cursor-pointer text-background rounded-full p-2 bg-primary hover:bg-primary/90 transition-all duration-200 interactive-element"
                       >
                         <AudioWaveformIcon size={16} />
                       </div>
@@ -246,25 +310,38 @@ export default function PromptInput({
                     <TooltipContent>{t("VoiceChat.title")}</TooltipContent>
                   </Tooltip>
                 ) : (
-                  <div
-                    onClick={() => {
-                      if (isLoading) {
-                        onStop();
-                      } else {
-                        submit();
-                      }
-                    }}
-                    className="fade-in animate-in cursor-pointer text-muted-foreground rounded-full p-2 bg-secondary hover:bg-accent-foreground hover:text-accent transition-all duration-200"
-                  >
-                    {isLoading ? (
-                      <Pause
-                        size={16}
-                        className="fill-muted-foreground text-muted-foreground"
-                      />
-                    ) : (
-                      <CornerRightUp size={16} />
-                    )}
-                  </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div
+                        onClick={() => {
+                          if (isLoading) {
+                            onStop();
+                          } else {
+                            submit();
+                          }
+                        }}
+                        className={cn(
+                          "fade-in animate-in cursor-pointer rounded-full p-2 transition-all duration-200 interactive-element",
+                          isLoading
+                            ? "text-muted-foreground bg-secondary hover:bg-accent-foreground hover:text-accent"
+                            : "border text-background bg-primary hover:bg-primary/90",
+                          disabled && "opacity-50 cursor-not-allowed",
+                        )}
+                      >
+                        {isLoading ? (
+                          <Pause
+                            size={16}
+                            className="fill-muted-foreground text-muted-foreground"
+                          />
+                        ) : (
+                          <CornerRightUp size={16} />
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {isLoading ? "Stop generation" : "Send a message"}
+                    </TooltipContent>
+                  </Tooltip>
                 )}
               </div>
             </div>

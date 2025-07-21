@@ -1,14 +1,12 @@
 import { pgDb as db } from "../db.pg";
 import {
   ProjectMcpToolConfigSchema,
-  McpServerSchema,
   ProjectSchema,
   UserSchema,
 } from "../schema.pg";
 import { and, eq } from "drizzle-orm";
 import { generateUUID } from "lib/utils";
 import { sql } from "drizzle-orm";
-import { isNull } from "drizzle-orm";
 
 export type ProjectMcpToolConfig = {
   mcpServerId: string;
@@ -87,42 +85,6 @@ export const pgProjectMcpConfigRepository = {
           ),
         );
     }
-  },
-
-  async getProjectMcpConfig(
-    projectId: string,
-    userId: string,
-    organizationId: string | null,
-  ) {
-    const availableServers = await db
-      .select({
-        id: McpServerSchema.id,
-        name: McpServerSchema.name,
-      })
-      .from(McpServerSchema)
-      .where(
-        organizationId
-          ? eq(McpServerSchema.organizationId, organizationId)
-          : and(
-              eq(McpServerSchema.userId, userId),
-              isNull(McpServerSchema.organizationId),
-            ),
-      );
-
-    const toolConfigs = await this.getProjectMcpTools(projectId);
-    const toolConfigMap = new Map(
-      toolConfigs.map((c) => [`${c.mcpServerId}:${c.toolName}`, c]),
-    );
-    const enabledServerIds = new Set(toolConfigs.map((c) => c.mcpServerId));
-
-    return {
-      servers: availableServers.map((server) => ({
-        id: server.id,
-        name: server.name,
-        enabled: enabledServerIds.has(server.id),
-      })),
-      tools: toolConfigMap,
-    };
   },
 
   async initializeProjectDefaults(): Promise<void> {

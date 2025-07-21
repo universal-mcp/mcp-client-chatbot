@@ -64,7 +64,6 @@ export function ChatBotTemporary() {
     api: "/api/chat/temporary",
     experimental_throttle: 100,
     body: {
-      chatModel: temporaryChat.chatModel,
       instructions: temporaryChat.instructions,
     },
     onError: () => {
@@ -220,10 +219,6 @@ function DrawerTemporaryContent({
   const t = useTranslations("Chat");
   const autoScrollRef = useRef(false);
 
-  const [temporaryChat, appStoreMutate] = appStore(
-    useShallow((state) => [state.temporaryChat, state.mutate]),
-  );
-
   useEffect(() => {
     containerRef.current?.scrollTo({
       top: containerRef.current?.scrollHeight,
@@ -255,20 +250,6 @@ function DrawerTemporaryContent({
       };
     }
   }, [isLoading]);
-
-  useEffect(() => {
-    if (!temporaryChat.chatModel) {
-      appStoreMutate((state) => {
-        if (!state.chatModel) return state;
-        return {
-          temporaryChat: {
-            ...temporaryChat,
-            chatModel: state.chatModel,
-          },
-        };
-      });
-    }
-  }, [Boolean(temporaryChat.chatModel)]);
 
   return (
     <div
@@ -312,15 +293,6 @@ function DrawerTemporaryContent({
         <PromptInput
           input={input}
           append={append}
-          model={temporaryChat.chatModel}
-          setModel={(model) => {
-            appStoreMutate({
-              temporaryChat: {
-                ...temporaryChat,
-                chatModel: model,
-              },
-            });
-          }}
           toolDisabled
           placeholder={t("TemporaryChat.feelFreeToAskAnythingTemporarily")}
           setInput={setInput}

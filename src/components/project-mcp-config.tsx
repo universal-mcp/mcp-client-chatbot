@@ -2,7 +2,7 @@
 
 import {
   bulkUpdateProjectMcpToolsAction,
-  getProjectMcpConfigAction,
+  getProjectMcpToolsAction,
 } from "@/app/api/mcp/project-config/actions";
 import { selectMcpClientsAction } from "@/app/api/mcp/actions";
 import { Badge } from "@/components/ui/badge";
@@ -93,11 +93,24 @@ export function ProjectMcpConfig({
         setMcpServers(servers);
 
         if (!isCreateMode) {
-          const config = await getProjectMcpConfigAction(projectId);
-          setOriginalServerConfigs(config.servers);
-          setServerConfigs(config.servers);
-          setOriginalToolConfigs(new Map(config.tools));
-          setToolConfigs(new Map(config.tools));
+          const toolConfigsData = await getProjectMcpToolsAction(projectId);
+          const toolConfigMap = new Map(
+            toolConfigsData.map((c) => [`${c.mcpServerId}:${c.toolName}`, c]),
+          );
+          const enabledServerIds = new Set(
+            toolConfigsData.map((c) => c.mcpServerId),
+          );
+
+          const initialServerConfigs = servers.map((server) => ({
+            id: server.id,
+            name: server.name,
+            enabled: enabledServerIds.has(server.id),
+          }));
+
+          setOriginalServerConfigs(initialServerConfigs);
+          setServerConfigs(initialServerConfigs);
+          setOriginalToolConfigs(toolConfigMap);
+          setToolConfigs(toolConfigMap);
         }
       } catch (_error) {
         toast.error("Failed to load MCP configuration");
@@ -144,14 +157,26 @@ export function ProjectMcpConfig({
 
     setSaving(true);
     try {
-      const toolConfigsToSave = Array.from(toolConfigs.values()).filter(
+      const currentToolConfigs = new Map(toolConfigs);
+      const enabledServerIds = new Set(
+        serverConfigs.filter((s) => s.enabled).map((s) => s.id),
+      );
+
+      for (const [key, config] of currentToolConfigs.entries()) {
+        if (!enabledServerIds.has(config.mcpServerId) && config.enabled) {
+          currentToolConfigs.set(key, { ...config, enabled: false });
+        }
+      }
+
+      const toolConfigsToSave = Array.from(currentToolConfigs.values()).filter(
         (config) => config.enabled,
       );
 
       await bulkUpdateProjectMcpToolsAction(projectId, toolConfigsToSave);
 
+      setToolConfigs(currentToolConfigs);
       setOriginalServerConfigs([...serverConfigs]);
-      setOriginalToolConfigs(new Map(toolConfigs));
+      setOriginalToolConfigs(new Map(currentToolConfigs));
 
       toast.success("Configuration saved successfully");
       setHasChanges(false);
@@ -453,8 +478,8 @@ export function ProjectMcpConfig({
   ) : null;
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex-grow overflow-y-auto pr-4 pb-4">
+    <div className="flex flex-col">
+      <div className="pr-4 pb-4">
         {selectedServer ? toolListView : serverListView}
 
         {mcpServers.length === 0 && (

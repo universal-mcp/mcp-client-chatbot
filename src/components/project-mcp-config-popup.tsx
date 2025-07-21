@@ -22,7 +22,7 @@ export function ProjectMcpConfigPopup({
 }: ProjectMcpConfigPopupProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl w-[50rem] min-w-[50rem] max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-5xl w-[50rem] min-w-[50rem] max-h-[90vh] flex flex-col overflow-y-auto">
         <DialogHeader>
           <DialogTitle>MCP Tools</DialogTitle>
           <DialogDescription>

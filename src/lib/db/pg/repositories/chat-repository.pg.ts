@@ -14,7 +14,7 @@ import {
   UserSchema,
 } from "../schema.pg";
 
-import { and, desc, eq, gte, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, sql, inArray } from "drizzle-orm";
 import { pgUserRepository } from "./user-repository.pg";
 import { UserPreferences } from "app-types/user";
 import { pgProjectMcpConfigRepository } from "./project-mcp-config-repository.pg";
@@ -43,30 +43,36 @@ export const pgChatRepository: ChatRepository = {
     userId: string,
     organizationId: string | null,
   ): Promise<void> => {
-    // Verify the message belongs to a thread in the user's current organization context
-    const messageThread = await db
-      .select({ threadId: ChatMessageSchema.threadId })
-      .from(ChatMessageSchema)
-      .innerJoin(
-        ChatThreadSchema,
-        eq(ChatMessageSchema.threadId, ChatThreadSchema.id),
-      )
+    const threadOwnerSubquery = db
+      .select({ id: ChatThreadSchema.id })
+      .from(ChatThreadSchema)
       .where(
         and(
-          eq(ChatMessageSchema.id, id),
           eq(ChatThreadSchema.userId, userId),
           organizationId
             ? eq(ChatThreadSchema.organizationId, organizationId)
             : isNull(ChatThreadSchema.organizationId),
         ),
-      )
-      .limit(1);
+      );
 
-    if (!messageThread.length) {
-      throw new Error("Message not found or access denied");
-    }
+    await db
+      .delete(ChatMessageSchema)
+      .where(
+        and(
+          eq(ChatMessageSchema.id, id),
+          inArray(ChatMessageSchema.threadId, threadOwnerSubquery),
+        ),
+      );
+  },
 
-    await db.delete(ChatMessageSchema).where(eq(ChatMessageSchema.id, id));
+  getPublicThread: async (id: string): Promise<ChatThread | null> => {
+    const [result] = await db
+      .select()
+      .from(ChatThreadSchema)
+      .where(
+        and(eq(ChatThreadSchema.id, id), eq(ChatThreadSchema.isPublic, true)),
+      );
+    return result;
   },
 
   selectThread: async (
@@ -101,8 +107,6 @@ export const pgChatRepository: ChatRepository = {
     const [thread] = await db
       .select()
       .from(ChatThreadSchema)
-      .leftJoin(ProjectSchema, eq(ChatThreadSchema.projectId, ProjectSchema.id))
-      .leftJoin(UserSchema, eq(ChatThreadSchema.userId, UserSchema.id))
       .where(
         and(
           eq(ChatThreadSchema.id, id),
@@ -123,13 +127,12 @@ export const pgChatRepository: ChatRepository = {
       organizationId,
     );
     return {
-      id: thread.chat_thread.id,
-      title: thread.chat_thread.title,
-      userId: thread.chat_thread.userId,
-      createdAt: thread.chat_thread.createdAt,
-      projectId: thread.chat_thread.projectId,
-      instructions: thread.project?.instructions ?? null,
-      userPreferences: thread.user?.preferences ?? undefined,
+      id: thread.id,
+      title: thread.title,
+      userId: thread.userId,
+      createdAt: thread.createdAt,
+      projectId: thread.projectId,
+      isPublic: thread.isPublic,
       messages,
     };
   },
@@ -222,28 +225,9 @@ export const pgChatRepository: ChatRepository = {
 
   selectMessagesByThreadId: async (
     threadId: string,
-    userId: string,
-    organizationId: string | null,
+    _userId: string,
+    _organizationId: string | null,
   ): Promise<ChatMessage[]> => {
-    // Verify thread belongs to current user and organization context
-    const threadCheck = await db
-      .select({ id: ChatThreadSchema.id })
-      .from(ChatThreadSchema)
-      .where(
-        and(
-          eq(ChatThreadSchema.id, threadId),
-          eq(ChatThreadSchema.userId, userId),
-          organizationId
-            ? eq(ChatThreadSchema.organizationId, organizationId)
-            : isNull(ChatThreadSchema.organizationId),
-        ),
-      )
-      .limit(1);
-
-    if (!threadCheck.length) {
-      throw new Error("Thread not found or access denied");
-    }
-
     const result = await db
       .select()
       .from(ChatMessageSchema)
@@ -267,6 +251,7 @@ export const pgChatRepository: ChatRepository = {
         createdAt: ChatThreadSchema.createdAt,
         userId: ChatThreadSchema.userId,
         projectId: ChatThreadSchema.projectId,
+        isPublic: ChatThreadSchema.isPublic,
         lastMessageAt: sql<string>`MAX(${ChatMessageSchema.createdAt})`.as(
           "last_message_at",
         ),
@@ -294,6 +279,7 @@ export const pgChatRepository: ChatRepository = {
         userId: row.userId,
         projectId: row.projectId,
         createdAt: row.createdAt,
+        isPublic: row.isPublic,
         lastMessageAt: row.lastMessageAt
           ? new Date(row.lastMessageAt).getTime()
           : 0,
@@ -312,6 +298,7 @@ export const pgChatRepository: ChatRepository = {
       .set({
         projectId: thread.projectId,
         title: thread.title,
+        isPublic: thread.isPublic,
       })
       .where(
         and(
@@ -331,10 +318,8 @@ export const pgChatRepository: ChatRepository = {
     userId: string,
     organizationId: string | null,
   ): Promise<void> => {
-    // Verify thread belongs to current user and organization context
-    const threadCheck = await db
-      .select({ id: ChatThreadSchema.id })
-      .from(ChatThreadSchema)
+    await db
+      .delete(ChatThreadSchema)
       .where(
         and(
           eq(ChatThreadSchema.id, id),
@@ -343,44 +328,14 @@ export const pgChatRepository: ChatRepository = {
             ? eq(ChatThreadSchema.organizationId, organizationId)
             : isNull(ChatThreadSchema.organizationId),
         ),
-      )
-      .limit(1);
-
-    if (!threadCheck.length) {
-      throw new Error("Thread not found or access denied");
-    }
-
-    await db
-      .delete(ChatMessageSchema)
-      .where(eq(ChatMessageSchema.threadId, id));
-
-    await db.delete(ChatThreadSchema).where(eq(ChatThreadSchema.id, id));
+      );
   },
 
   insertMessage: async (
     message: Omit<ChatMessage, "createdAt">,
-    userId: string,
-    organizationId: string | null,
+    _userId: string,
+    _organizationId: string | null,
   ): Promise<ChatMessage> => {
-    // Verify thread belongs to current user and organization context
-    const threadCheck = await db
-      .select({ id: ChatThreadSchema.id })
-      .from(ChatThreadSchema)
-      .where(
-        and(
-          eq(ChatThreadSchema.id, message.threadId),
-          eq(ChatThreadSchema.userId, userId),
-          organizationId
-            ? eq(ChatThreadSchema.organizationId, organizationId)
-            : isNull(ChatThreadSchema.organizationId),
-        ),
-      )
-      .limit(1);
-
-    if (!threadCheck.length) {
-      throw new Error("Thread not found or access denied");
-    }
-
     const entity = {
       ...message,
       id: message.id,
@@ -394,28 +349,9 @@ export const pgChatRepository: ChatRepository = {
 
   upsertMessage: async (
     message: Omit<ChatMessage, "createdAt">,
-    userId: string,
-    organizationId: string | null,
+    _userId: string,
+    _organizationId: string | null,
   ): Promise<ChatMessage> => {
-    // Verify thread belongs to current user and organization context
-    const threadCheck = await db
-      .select({ id: ChatThreadSchema.id })
-      .from(ChatThreadSchema)
-      .where(
-        and(
-          eq(ChatThreadSchema.id, message.threadId),
-          eq(ChatThreadSchema.userId, userId),
-          organizationId
-            ? eq(ChatThreadSchema.organizationId, organizationId)
-            : isNull(ChatThreadSchema.organizationId),
-        ),
-      )
-      .limit(1);
-
-    if (!threadCheck.length) {
-      throw new Error("Thread not found or access denied");
-    }
-
     const result = await db
       .insert(ChatMessageSchema)
       .values(message)
@@ -549,6 +485,9 @@ export const pgChatRepository: ChatRepository = {
       .select({
         project: ProjectSchema,
         thread: ChatThreadSchema,
+        lastMessageAt: sql<string>`MAX(${ChatMessageSchema.createdAt})`.as(
+          "last_message_at",
+        ),
       })
       .from(ProjectSchema)
       .where(
@@ -564,10 +503,12 @@ export const pgChatRepository: ChatRepository = {
         ChatThreadSchema,
         eq(ProjectSchema.id, ChatThreadSchema.projectId),
       )
-      .orderBy(
-        desc(ChatThreadSchema.updatedAt),
-        desc(ChatThreadSchema.createdAt),
-      );
+      .leftJoin(
+        ChatMessageSchema,
+        eq(ChatThreadSchema.id, ChatMessageSchema.threadId),
+      )
+      .groupBy(ProjectSchema.id, ChatThreadSchema.id)
+      .orderBy(desc(sql`last_message_at`), desc(ChatThreadSchema.createdAt));
     const project = result[0] ? result[0].project : null;
     const threads = result.map((row) => row.thread!).filter(Boolean);
     if (!project) {
@@ -637,25 +578,6 @@ export const pgChatRepository: ChatRepository = {
     userId: string,
     organizationId: string | null,
   ): Promise<void> => {
-    // Verify project belongs to current user and organization context
-    const projectCheck = await db
-      .select({ id: ProjectSchema.id })
-      .from(ProjectSchema)
-      .where(
-        and(
-          eq(ProjectSchema.id, id),
-          eq(ProjectSchema.userId, userId),
-          organizationId
-            ? eq(ProjectSchema.organizationId, organizationId)
-            : isNull(ProjectSchema.organizationId),
-        ),
-      )
-      .limit(1);
-
-    if (!projectCheck.length) {
-      throw new Error("Project not found or access denied");
-    }
-
     const threadIds = await db
       .select({ id: ChatThreadSchema.id })
       .from(ChatThreadSchema)
@@ -666,46 +588,67 @@ export const pgChatRepository: ChatRepository = {
       ),
     );
 
-    await db.delete(ProjectSchema).where(eq(ProjectSchema.id, id));
+    await db
+      .delete(ProjectSchema)
+      .where(
+        and(
+          eq(ProjectSchema.id, id),
+          eq(ProjectSchema.userId, userId),
+          organizationId
+            ? eq(ProjectSchema.organizationId, organizationId)
+            : isNull(ProjectSchema.organizationId),
+        ),
+      );
   },
 
   insertMessages: async (
     messages: PartialBy<ChatMessage, "createdAt">[],
-    userId: string,
-    organizationId: string | null,
+    _userId: string,
+    _organizationId: string | null,
   ): Promise<ChatMessage[]> => {
     // For bulk operations, we assume they're for the same thread and verify once
     if (messages.length === 0) return [];
-
-    const threadId = messages[0].threadId;
-
-    // Verify thread belongs to current user and organization context
-    const threadCheck = await db
-      .select({ id: ChatThreadSchema.id })
-      .from(ChatThreadSchema)
-      .where(
-        and(
-          eq(ChatThreadSchema.id, threadId),
-          eq(ChatThreadSchema.userId, userId),
-          organizationId
-            ? eq(ChatThreadSchema.organizationId, organizationId)
-            : isNull(ChatThreadSchema.organizationId),
-        ),
-      )
-      .limit(1);
-
-    if (!threadCheck.length) {
-      throw new Error("Thread not found or access denied");
-    }
 
     const result = await db
       .insert(ChatMessageSchema)
       .values(messages)
       .returning();
-    await db
-      .update(ChatThreadSchema)
-      .set({ updatedAt: new Date() })
-      .where(eq(ChatThreadSchema.id, messages[0].threadId));
     return result as ChatMessage[];
+  },
+
+  getProjectInstructionsAndUserPreferences: async (
+    userId: string,
+    projectId: string | null,
+    organizationId: string | null,
+  ): Promise<{
+    instructions: Project["instructions"] | null;
+    userPreferences: UserPreferences | undefined;
+  }> => {
+    const joinConditions = [
+      eq(ProjectSchema.id, projectId!),
+      eq(ProjectSchema.userId, userId),
+      organizationId
+        ? eq(ProjectSchema.organizationId, organizationId)
+        : isNull(ProjectSchema.organizationId),
+    ];
+
+    const [result] = await db
+      .select({
+        userPreferences: UserSchema.preferences,
+        projectInstructions: ProjectSchema.instructions,
+      })
+      .from(UserSchema)
+      .leftJoin(ProjectSchema, projectId ? and(...joinConditions) : sql`false`)
+      .where(eq(UserSchema.id, userId))
+      .limit(1);
+
+    if (!result) {
+      throw new Error("User not found");
+    }
+
+    return {
+      instructions: result.projectInstructions ?? null,
+      userPreferences: result.userPreferences ?? undefined,
+    };
   },
 };

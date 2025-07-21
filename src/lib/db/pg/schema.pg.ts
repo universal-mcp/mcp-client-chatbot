@@ -32,8 +32,8 @@ export const ChatThreadSchema = pgTable("chat_thread", {
     { onDelete: "cascade" },
   ),
   createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: timestamp("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   projectId: uuid("project_id"),
+  isPublic: boolean("is_public").notNull().default(false),
 });
 
 export const ChatMessageSchema = pgTable("chat_message", {
@@ -79,67 +79,6 @@ export const McpServerSchema = pgTable("mcp_server", {
   createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: timestamp("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
-
-// Tool customization table for per-user additional AI instructions
-export const McpToolCustomizationSchema = pgTable(
-  "mcp_server_tool_custom_instructions",
-  {
-    id: uuid("id").primaryKey().notNull().defaultRandom(),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => UserSchema.id, { onDelete: "cascade" }),
-    organizationId: uuid("organization_id").references(
-      () => OrganizationSchema.id,
-      { onDelete: "cascade" },
-    ),
-    toolName: text("tool_name").notNull(),
-    mcpServerId: uuid("mcp_server_id")
-      .notNull()
-      .references(() => McpServerSchema.id, { onDelete: "cascade" }),
-    prompt: text("prompt"),
-    createdAt: timestamp("created_at")
-      .notNull()
-      .default(sql`CURRENT_TIMESTAMP`),
-    updatedAt: timestamp("updated_at")
-      .notNull()
-      .default(sql`CURRENT_TIMESTAMP`),
-  },
-  (table) => [
-    unique().on(
-      table.userId,
-      table.organizationId,
-      table.toolName,
-      table.mcpServerId,
-    ),
-  ],
-);
-
-export const McpServerCustomizationSchema = pgTable(
-  "mcp_server_custom_instructions",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => UserSchema.id, { onDelete: "cascade" }),
-    organizationId: uuid("organization_id").references(
-      () => OrganizationSchema.id,
-      { onDelete: "cascade" },
-    ),
-    mcpServerId: uuid("mcp_server_id")
-      .notNull()
-      .references(() => McpServerSchema.id, { onDelete: "cascade" }),
-    prompt: text("prompt"),
-    createdAt: timestamp("created_at")
-      .default(sql`CURRENT_TIMESTAMP`)
-      .notNull(),
-    updatedAt: timestamp("updated_at")
-      .default(sql`CURRENT_TIMESTAMP`)
-      .notNull(),
-  },
-  (table) => [
-    unique().on(table.userId, table.organizationId, table.mcpServerId),
-  ],
-);
 
 // OAuth tokens and credentials for MCP servers
 export const McpOAuthTokenSchema = pgTable(
@@ -283,10 +222,6 @@ export type ChatThreadEntity = typeof ChatThreadSchema.$inferSelect;
 export type ChatMessageEntity = typeof ChatMessageSchema.$inferSelect;
 export type ProjectEntity = typeof ProjectSchema.$inferSelect;
 export type UserEntity = typeof UserSchema.$inferSelect;
-export type ToolCustomizationEntity =
-  typeof McpToolCustomizationSchema.$inferSelect;
-export type McpServerCustomizationEntity =
-  typeof McpServerCustomizationSchema.$inferSelect;
 export type OrganizationEntity = typeof OrganizationSchema.$inferSelect;
 export type MemberEntity = typeof MemberSchema.$inferSelect;
 export type McpOAuthTokenEntity = typeof McpOAuthTokenSchema.$inferSelect;

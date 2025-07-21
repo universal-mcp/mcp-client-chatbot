@@ -1,25 +1,21 @@
 "use client";
-import { selectMcpClientsAction } from "@/app/api/mcp/actions";
 import { appStore } from "@/app/store";
 import { useObjectState } from "@/hooks/use-object-state";
 import { UserPreferences } from "app-types/user";
 import { authClient } from "auth/client";
 import { fetcher } from "lib/utils";
-import { AlertCircle, ArrowLeft, Loader } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import useSWR from "swr";
 import { safe } from "ts-safe";
-
+import { Loader } from "lucide-react";
 import { Button } from "ui/button";
 import { ExamplePlaceholder } from "ui/example-placeholder";
 import { Input } from "ui/input";
 import { Label } from "ui/label";
 import { Skeleton } from "ui/skeleton";
 import { Textarea } from "ui/textarea";
-import { McpServerCustomizationContent } from "./mcp-customization-popup";
-import { MCPServerInfo } from "app-types/mcp";
 
 export function UserInstructionsContent() {
   const t = useTranslations();
@@ -202,101 +198,6 @@ export function UserInstructionsContent() {
           </Button>
         </div>
       )}
-    </div>
-  );
-}
-
-export function MCPInstructionsContent() {
-  const t = useTranslations("");
-  const [search, setSearch] = useState("");
-  const [mcpServer, setMcpServer] = useState<
-    (MCPServerInfo & { id: string }) | null
-  >(null);
-  const appStoreMutate = appStore((state) => state.mutate);
-  const { isLoading, data: mcpList } = useSWR(
-    "mcp-list",
-    selectMcpClientsAction,
-    {
-      dedupingInterval: 0,
-      fallbackData: [],
-      revalidateOnFocus: false,
-      onSuccess: (data) => {
-        appStoreMutate({ mcpList: data });
-      },
-    },
-  );
-
-  if (mcpServer) {
-    return (
-      <McpServerCustomizationContent
-        title={
-          <div className="flex flex-col">
-            <button
-              onClick={() => setMcpServer(null)}
-              className="flex items-center gap-2 text-muted-foreground text-sm hover:text-foreground transition-colors mb-8"
-            >
-              <ArrowLeft className="size-3" />
-              {t("Common.back")}
-            </button>
-            {mcpServer.name}
-          </div>
-        }
-        mcpServerInfo={mcpServer}
-      />
-    );
-  }
-
-  return (
-    <div className="flex flex-col">
-      <h3 className="text-xl font-semibold">
-        {t("Chat.ChatPreferences.mcpInstructions")}
-      </h3>
-      <p className="text-sm text-muted-foreground py-2 pb-6">
-        {t("Chat.ChatPreferences.mcpInstructionsDescription")}
-      </p>
-
-      <div className="flex flex-col gap-6 w-full">
-        <div className="flex flex-col gap-2 text-foreground flex-1">
-          <Input
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-            }}
-            placeholder={t("Common.search")}
-          />
-        </div>
-        <div className="flex flex-col gap-2 text-foreground flex-1">
-          {isLoading ? (
-            Array.from({ length: 10 }).map((_, index) => (
-              <Skeleton key={index} className="h-14" />
-            ))
-          ) : mcpList.length === 0 ? (
-            <div className="flex flex-col gap-2 text-foreground flex-1">
-              <p className="text-center py-8 text-muted-foreground">
-                {t("MCP.configureYourMcpServerConnectionSettings")}
-              </p>
-            </div>
-          ) : (
-            <div className="flex gap-2">
-              {mcpList.map((mcp) => (
-                <Button
-                  onClick={() => setMcpServer({ ...mcp, id: mcp.id })}
-                  variant={"outline"}
-                  size={"lg"}
-                  key={mcp.id}
-                >
-                  <p>{mcp.name}</p>
-                  {mcp.error ? (
-                    <AlertCircle className="size-3.5 text-destructive" />
-                  ) : mcp.status == "loading" ? (
-                    <Loader className="size-3.5 animate-spin" />
-                  ) : null}
-                </Button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
     </div>
   );
 }

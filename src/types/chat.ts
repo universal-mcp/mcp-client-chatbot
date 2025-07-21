@@ -11,9 +11,10 @@ export type ChatModel = {
 export type ChatThread = {
   id: string;
   title: string;
-  userId: string;
   createdAt: Date;
+  userId: string;
   projectId: string | null;
+  isPublic: boolean;
 };
 
 export type Project = {
@@ -71,6 +72,10 @@ export type ChatMessageAnnotation = {
   mentions?: ChatMention[];
   usageTokens?: number;
   toolChoice?: "auto" | "none" | "manual";
+  file?: {
+    filename: string;
+    content: string;
+  };
   [key: string]: any;
 };
 
@@ -80,7 +85,7 @@ export enum AppDefaultToolkit {
 
 export const chatApiSchemaRequestBodySchema = z.object({
   id: z.string(),
-  projectId: z.string().optional(),
+  projectId: z.string().nullable(),
   message: z.any() as z.ZodType<UIMessage>,
   chatModel: z
     .object({
@@ -115,6 +120,8 @@ export type ChatRepository = {
     organizationId: string | null,
   ): Promise<ChatThread | null>;
 
+  getPublicThread(id: string): Promise<ChatThread | null>;
+
   deleteChatMessage(
     id: string,
     userId: string,
@@ -127,9 +134,7 @@ export type ChatRepository = {
     organizationId: string | null,
   ): Promise<
     | (ChatThread & {
-        instructions: Project["instructions"] | null;
         messages: ChatMessage[];
-        userPreferences?: UserPreferences;
       })
     | null
   >;
@@ -250,4 +255,13 @@ export type ChatRepository = {
     userId: string,
     organizationId: string | null,
   ): Promise<ChatMessage[]>;
+
+  getProjectInstructionsAndUserPreferences(
+    userId: string,
+    projectId: string | null,
+    organizationId: string | null,
+  ): Promise<{
+    instructions: Project["instructions"] | null;
+    userPreferences: UserPreferences | undefined;
+  }>;
 };

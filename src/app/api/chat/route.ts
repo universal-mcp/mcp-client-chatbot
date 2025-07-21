@@ -16,8 +16,7 @@ import { mcpGateway } from "lib/ai/mcp/mcp-gateway";
 import { chatRepository } from "lib/db/repository";
 import logger from "logger";
 import {
-  buildContextServerPrompt,
-  buildMcpServerCustomizationsSystemPrompt,
+  // buildContextServerPrompt,
   buildProjectInstructionsSystemPrompt,
   buildUserSystemPrompt,
 } from "lib/ai/prompts";
@@ -32,7 +31,6 @@ import { errorIf, safe } from "ts-safe";
 import {
   appendAnnotations,
   excludeMcpToolExecution,
-  filterToolsByMentions,
   handleError,
   manualToolExecuteByLastMessage,
   mergeSystemPrompt,
@@ -40,85 +38,76 @@ import {
   extractInProgressToolPart,
   assignToolResult,
   isUserMessage,
-  getAllowedDefaultToolkit,
   filterToolsByAllowedMCPServers,
-  filterMcpServerCustomizations,
   filterToolsByProjectConfig,
   applyProjectToolModes,
 } from "./helper";
-import {
-  generateTitleFromUserMessageAction,
-  rememberMcpServerCustomizationsAction,
-} from "./actions";
+import { generateTitleFromUserMessageAction } from "./actions";
 import { getSessionContext } from "auth/session-context";
-import { getProjectMcpConfigAction } from "../mcp/project-config/actions";
+import { getProjectMcpToolsAction } from "../mcp/project-config/actions";
 
 export async function POST(request: Request) {
   try {
     const json = await request.json();
     const { userId, organizationId, user } = await getSessionContext();
 
-    const {
-      id,
-      message,
-      chatModel,
-      toolChoice,
-      allowedAppDefaultToolkit,
-      allowedMcpServers,
-      projectId,
-    } = chatApiSchemaRequestBodySchema.parse(json);
+    const { id, message, toolChoice, allowedMcpServers, projectId } =
+      chatApiSchemaRequestBodySchema.parse(json);
 
-    const model = customModelProvider.getModel(chatModel);
+    const model = customModelProvider.getModel(undefined);
 
-    let thread = await chatRepository.selectThreadDetails(
+    const thread = await chatRepository.selectThreadDetails(
       id,
       userId,
       organizationId,
     );
 
-    if (!thread) {
-      const title = await generateTitleFromUserMessageAction({
-        message,
-      });
-      const newThread = await chatRepository.insertThread(
-        {
-          id,
-          projectId: projectId ?? null,
-          title,
-          userId,
-        },
-        userId,
-        organizationId,
-      );
-      thread = await chatRepository.selectThreadDetails(
-        newThread.id,
-        userId,
-        organizationId,
-      );
-    }
-
-    if (thread!.userId !== userId) {
+    if (thread && thread.userId !== userId) {
       return new Response("Forbidden", { status: 403 });
     }
+
+    const isNewThread = !thread;
 
     // if is false, it means the last message is manual tool execution
     const isLastMessageUserMessage = isUserMessage(message);
 
     const previousMessages = (thread?.messages ?? []).map(convertToMessage);
 
-    if (!thread) {
-      return new Response("Thread not found", { status: 404 });
-    }
-
     const annotations = (message?.annotations as ChatMessageAnnotation[]) ?? [];
 
     const manager = await mcpGateway.getManager(userId, organizationId);
     const mcpTools = manager.tools();
+    const mcpServers = await manager.getClients();
 
     // Get project-specific MCP configurations
     const projectMcpConfig = projectId
-      ? await getProjectMcpConfigAction(projectId)
+      ? await (async () => {
+          const toolConfigsData = await getProjectMcpToolsAction(projectId);
+          const toolConfigMap = new Map(
+            toolConfigsData.map((c) => [`${c.mcpServerId}:${c.toolName}`, c]),
+          );
+          const enabledServerIds = new Set(
+            toolConfigsData.map((c) => c.mcpServerId),
+          );
+
+          return {
+            servers: mcpServers.map((server) => ({
+              id: server.id,
+              name: server.client.getInfo().name,
+              enabled: enabledServerIds.has(server.id),
+            })),
+            tools: toolConfigMap,
+          };
+        })()
       : undefined;
+
+    // Get project instructions and user preferences in a single query
+    const { instructions: projectInstructions, userPreferences } =
+      await chatRepository.getProjectInstructionsAndUserPreferences(
+        userId,
+        projectId,
+        organizationId,
+      );
 
     const mentions = annotations
       .flatMap((annotation) => annotation.mentions)
@@ -146,11 +135,6 @@ export async function POST(request: Request) {
             filteredTools,
             allowedMcpServers,
           );
-        }
-
-        // Handle mentions in both contexts (mentions can exist everywhere)
-        if (mentions.length) {
-          return filterToolsByMentions(filteredTools, mentions);
         }
 
         return filteredTools;
@@ -185,22 +169,10 @@ export async function POST(request: Request) {
           );
         }
 
-        const userPreferences = thread?.userPreferences || undefined;
-
-        const mcpServerCustomizations = await safe()
-          .map(() => {
-            if (Object.keys(tools ?? {}).length === 0)
-              throw new Error("No tools found");
-            return rememberMcpServerCustomizationsAction(userId);
-          })
-          .map((v) => filterMcpServerCustomizations(tools!, v))
-          .orElse({});
-
         const systemPrompt = mergeSystemPrompt(
           buildUserSystemPrompt(user, userPreferences),
-          buildProjectInstructionsSystemPrompt(thread?.instructions),
-          buildMcpServerCustomizationsSystemPrompt(mcpServerCustomizations),
-          buildContextServerPrompt(),
+          buildProjectInstructionsSystemPrompt(projectInstructions),
+          // buildContextServerPrompt(),
         );
 
         // Precompute toolChoice to avoid repeated tool calls
@@ -231,7 +203,6 @@ export async function POST(request: Request) {
             }
 
             const finalTools = {
-              ...getAllowedDefaultToolkit(allowedAppDefaultToolkit),
               ...processedTools,
             };
 
@@ -250,15 +221,31 @@ export async function POST(request: Request) {
           tools: vercelAITools,
           toolChoice: computedToolChoice,
           onFinish: async ({ response, usage }) => {
+            if (isNewThread) {
+              const title = await generateTitleFromUserMessageAction({
+                message,
+              });
+              await chatRepository.insertThread(
+                {
+                  id,
+                  projectId: projectId,
+                  title,
+                  userId,
+                  isPublic: false,
+                },
+                userId,
+                organizationId,
+              );
+            }
             const appendMessages = appendResponseMessages({
               messages: messages.slice(-1),
               responseMessages: response.messages,
             });
             if (isLastMessageUserMessage) {
-              await chatRepository.insertMessage(
+              await chatRepository.upsertMessage(
                 {
-                  threadId: thread!.id,
-                  model: chatModel?.model ?? null,
+                  threadId: id,
+                  model: null,
                   role: "user",
                   parts: message.parts,
                   attachments: message.experimental_attachments,
@@ -283,8 +270,8 @@ export async function POST(request: Request) {
               dataStream.writeMessageAnnotation(annotations.at(-1)!);
               await chatRepository.upsertMessage(
                 {
-                  model: chatModel?.model ?? null,
-                  threadId: thread!.id,
+                  model: null,
+                  threadId: id,
                   role: assistantMessage.role,
                   id: assistantMessage.id,
                   parts: assistantMessage.parts as UIMessage["parts"],

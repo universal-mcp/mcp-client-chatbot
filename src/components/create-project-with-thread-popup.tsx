@@ -5,7 +5,6 @@ import {
   ArrowRight,
   ArrowLeft,
   Check,
-  ChevronsUpDown,
   WandSparkles,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -22,9 +21,7 @@ import {
 import { Input } from "ui/input";
 import { Label } from "ui/label";
 import { Textarea } from "ui/textarea";
-import { SelectModel } from "./select-model";
 import { cn } from "lib/utils";
-import { appStore } from "@/app/store";
 import { useObjectState } from "@/hooks/use-object-state";
 import { safe } from "ts-safe";
 
@@ -98,8 +95,6 @@ function InstructionsStep({
 }) {
   const t = useTranslations();
   const [isLoading, setIsLoading] = useState(false);
-  const defaultModel = appStore((state) => state.chatModel);
-  const [model, setModel] = useState(defaultModel);
 
   const { complete, completion } = useCompletion({
     api: "/api/chat/summarize",
@@ -115,7 +110,6 @@ function InstructionsStep({
         complete("", {
           body: {
             threadId,
-            chatModel: model,
           },
         }),
       )
@@ -140,12 +134,6 @@ function InstructionsStep({
           )}
           {t("Chat.Project.generateWithAI")}
         </Button>
-        <SelectModel onSelect={setModel} align="end">
-          <Button variant="ghost" className="gap-1 justify-between min-w-24">
-            <span>{model?.model}</span>
-            <ChevronsUpDown className="size-3.5" />
-          </Button>
-        </SelectModel>
       </div>
 
       <div className="flex justify-between items-center mb-2 mt-6">

@@ -8,8 +8,6 @@ import { SidebarGroup } from "ui/sidebar";
 import {
   ChevronDown,
   ChevronUp,
-  FolderOpen,
-  Folders,
   MoreHorizontal,
   Plus,
   Bot,
@@ -97,7 +95,7 @@ export function AppSidebarProjects() {
                         {t("toOrganizeIdeas")}
                       </p>
                     </div>
-                    <FolderOpen className="size-4" />
+                    <Bot className="size-4" />
                   </div>
                 </CreateProjectPopup>
               </div>
@@ -147,7 +145,7 @@ export function AppSidebarProjects() {
                       >
                         <div className="flex gap-1 text-muted-foreground">
                           <div className="p-1 rounded-md hover:bg-foreground/40">
-                            <Folders className="size-4" />
+                            <Bot className="size-4" />
                           </div>
 
                           <p>

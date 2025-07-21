@@ -50,9 +50,10 @@ export function MessageEditor({
         <div key={index} className="flex flex-col gap-2">
           <Textarea
             data-testid={`message-editor-part-${index}`}
-            className="overflow-y-auto bg-transparent outline-none overflow-hidden resize-none !text-base rounded-xl w-full min-h-[100px]"
+            className="overflow-y-auto bg-transparent outline-none resize-none !text-base rounded-xl w-full min-h-[100px] max-h-[400px] overscroll-contain"
             value={part.text}
             onChange={(e) => handlePartChange(index, e.target.value)}
+            onWheel={(e) => e.stopPropagation()}
             placeholder={`Part ${index + 1}`}
           />
         </div>

@@ -4,12 +4,8 @@ import { appStore } from "@/app/store";
 import { ProjectDropdown } from "@/components/project-dropdown";
 import { ProjectSystemMessagePopup } from "@/components/project-system-message-popup";
 import { ProjectMcpConfigPopup } from "@/components/project-mcp-config-popup";
-import PromptInput from "@/components/prompt-input";
-import { ThreadDropdown } from "@/components/thread-dropdown";
-import { useToRef } from "@/hooks/use-latest";
-import { useChat } from "@ai-sdk/react";
-import { ChatApiSchemaRequestBody, Project } from "app-types/chat";
-import { generateUUID } from "lib/utils";
+import { ProjectConversationsModal } from "@/components/project-conversations-modal";
+import ChatBot from "@/components/chat-bot";
 
 import {
   Loader,
@@ -20,15 +16,16 @@ import {
   Settings2,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
-import useSWR, { mutate } from "swr";
+import useSWR from "swr";
 import { Button } from "ui/button";
 import { notImplementedToast } from "ui/shared-toast";
-import { Skeleton } from "ui/skeleton";
 import { useShallow } from "zustand/shallow";
+import { generateUUID } from "lib/utils";
+import { Project } from "app-types/chat";
+import { Separator } from "ui/separator";
 
 interface FeatureCardProps {
   title: string;
@@ -84,60 +81,9 @@ export default function ProjectPage() {
 
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [showMcpConfig, setShowMcpConfig] = useState(false);
-  const [showAllThreads, setShowAllThreads] = useState(false);
+  const [showConversations, setShowConversations] = useState(false);
 
-  const [
-    appStoreMutate,
-    model,
-    toolChoice,
-    allowedMcpServers,
-    allowedAppDefaultToolkit,
-  ] = appStore(
-    useShallow((state) => [
-      state.mutate,
-      state.chatModel,
-      state.toolChoice,
-      state.allowedMcpServers,
-      state.allowedAppDefaultToolkit,
-    ]),
-  );
-
-  const latestRef = useToRef({
-    model,
-    toolChoice,
-    allowedMcpServers,
-    allowedAppDefaultToolkit,
-  });
-
-  const { input, setInput, append, stop, status } = useChat({
-    id: threadId,
-    api: "/api/chat",
-    experimental_prepareRequestBody: ({ messages }) => {
-      const request: ChatApiSchemaRequestBody = {
-        id: threadId,
-        chatModel: latestRef.current.model,
-        toolChoice: latestRef.current.toolChoice,
-        allowedAppDefaultToolkit: latestRef.current.allowedAppDefaultToolkit,
-        allowedMcpServers: latestRef.current.allowedMcpServers,
-        projectId: id as string,
-        message: messages.at(-1)!,
-      };
-      return request;
-    },
-    initialMessages: [],
-    sendExtraMessageFields: true,
-    generateId: generateUUID,
-    experimental_throttle: 100,
-    onFinish: () => {
-      mutate("threads").then(() => {
-        router.push(`/chat/${threadId}`);
-      });
-    },
-  });
-
-  const isCreatingThread = useMemo(() => {
-    return status == "submitted" || status == "streaming";
-  }, [status]);
+  const [appStoreMutate] = appStore(useShallow((state) => [state.mutate]));
 
   useEffect(() => {
     appStoreMutate({
@@ -152,154 +98,112 @@ export default function ProjectPage() {
     };
   }, [id]);
 
-  return (
-    <div className="flex flex-col min-w-0 relative h-full ">
-      <div className="max-w-3xl mx-auto fade-in animate-in w-full mt-14">
-        <div className="px-6 py-6">
-          {isLoading ? (
-            <Skeleton className="h-10" />
-          ) : (
-            <div className="flex items-center gap-1">
-              <h1 className="text-4xl font-semibold truncate">
-                {project?.name}
-              </h1>
-              <div className="flex-1" />
-              <ProjectDropdown
-                project={project ?? { id: id as string, name: "" }}
-              >
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="data-[state=open]:bg-secondary!"
-                >
-                  <MoreHorizontal />
-                </Button>
-              </ProjectDropdown>
-            </div>
-          )}
-        </div>
-        {isCreatingThread && (
-          <div className="pb-6 flex flex-col justify-center fade-in animate-in">
-            <div className="w-fit rounded-2xl px-6 py-4 flex items-center gap-2">
-              <h1 className="font-semibold truncate">{t("creatingChat")}</h1>
-              <Loader className="animate-spin" size={16} />
-            </div>
-          </div>
-        )}
-
-        <PromptInput
-          input={input}
-          append={append}
-          setInput={setInput}
-          isLoading={isLoading}
-          onStop={stop}
-          isInProjectContext={true}
-        />
-        <div className="flex my-4 mx-2 gap-4">
-          <FeatureCard
-            title="Add Files"
-            onClick={notImplementedToast}
-            description={t("chatInThisProjectCanAccessFileContents")}
-            icon={<FileUp size={18} className="text-muted-foreground" />}
-          />
-          <FeatureCard
-            title="Add Instructions"
-            description={
-              project?.instructions?.systemPrompt ||
-              t(
-                "writeHowTheChatbotShouldRespondToThisProjectOrWhatInformationItNeeds",
-              )
-            }
-            icon={<Pencil size={18} className="text-muted-foreground" />}
-            onClick={() => {
-              project && setSelectedProject(project);
-            }}
-          />
-          <FeatureCard
-            title="Configure Tools"
-            description="Manage which MCP tools are available and how they behave"
-            icon={<Settings2 size={18} className="text-muted-foreground" />}
-            onClick={() => setShowMcpConfig(true)}
-          />
-        </div>
-
-        {project?.threads && project.threads.length > 0 ? (
-          <div className="mt-6 mb-4">
-            <h3 className="text-lg font-medium px-4 mb-3 flex items-center gap-2 text-muted-foreground">
-              <span>{t("conversationList")}</span>
-            </h3>
-            <div className="flex flex-col gap-2 px-2">
-              {(showAllThreads
-                ? project.threads
-                : project.threads.slice(0, 10)
-              ).map((thread) => (
-                <div
-                  className="flex gap-1 group/project-thread"
-                  key={thread.id}
-                >
-                  <Link
-                    key={thread.id}
-                    href={`/chat/${thread.id}`}
-                    className="flex w-full min-w-0 items-center gap-2 px-4 py-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                  >
-                    <MessagesSquare size={16} className="text-primary" />
-                    <div className="flex-1 truncate">
-                      <div className="font-medium truncate">{thread.title}</div>
-                    </div>
-                  </Link>
-                  <ThreadDropdown
-                    threadId={thread.id}
-                    beforeTitle={thread.title}
-                    onDeleted={fetchProject}
-                  >
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="ml-auto opacity-0 group-hover/project-thread:opacity-100"
-                    >
-                      <MoreHorizontal className="size-4" />
-                    </Button>
-                  </ThreadDropdown>
-                </div>
-              ))}
-            </div>
-            {project.threads.length > 10 && !showAllThreads && (
-              <div className="px-4 mt-4">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowAllThreads(true)}
-                >
-                  View All Conversations
-                </Button>
-              </div>
-            )}
-          </div>
-        ) : (
-          !isLoading && (
-            <div className="flex flex-col items-center justify-center text-center text-muted-foreground p-8">
-              <h3 className="text-lg font-medium mb-1">
-                {t("noConversationsYet")}
-              </h3>
-              <p className="text-sm">
-                {t("enterNewPromptToStartYourFirstConversation")}
-              </p>
-            </div>
-          )
-        )}
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader className="animate-spin" />
       </div>
-      <ProjectSystemMessagePopup
-        isOpen={!!selectedProject}
-        onOpenChange={() => setSelectedProject(null)}
+    );
+  }
+
+  const projectEmptySlot = (
+    <div className="max-w-3xl mx-auto fade-in animate-in w-full">
+      <div className="px-6 py-6">
+        <div className="mb-4"></div>
+        <div className="flex items-center gap-1">
+          <h1 className="text-4xl font-semibold truncate">{project?.name}</h1>
+          <div className="flex-1" />
+          {project?.threads && project.threads.length > 0 && (
+            <Button
+              variant="outline"
+              onClick={() => setShowConversations(true)}
+              className="mr-2"
+            >
+              <MessagesSquare size={16} className="mr-2" />
+              View past conversations
+            </Button>
+          )}
+          <ProjectDropdown project={project ?? { id: id as string, name: "" }}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="data-[state=open]:bg-secondary!"
+            >
+              <MoreHorizontal />
+            </Button>
+          </ProjectDropdown>
+        </div>
+      </div>
+
+      <div className="flex my-4 mx-2 gap-4">
+        <FeatureCard
+          title="Add Files"
+          onClick={notImplementedToast}
+          description={t("chatInThisProjectCanAccessFileContents")}
+          icon={<FileUp size={18} className="text-muted-foreground" />}
+        />
+        <FeatureCard
+          title="Add Instructions"
+          description={
+            project?.instructions?.systemPrompt ||
+            t(
+              "writeHowTheChatbotShouldRespondToThisProjectOrWhatInformationItNeeds",
+            )
+          }
+          icon={<Pencil size={18} className="text-muted-foreground" />}
+          onClick={() => {
+            project && setSelectedProject(project);
+          }}
+        />
+        <FeatureCard
+          title="Configure Tools"
+          description="Manage which MCP tools are available and how they behave"
+          icon={<Settings2 size={18} className="text-muted-foreground" />}
+          onClick={() => setShowMcpConfig(true)}
+        />
+      </div>
+
+      <div className="my-8 px-4">
+        <Separator />
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col min-w-0 relative h-full">
+      <ChatBot
+        threadId={threadId}
+        initialMessages={[]}
         projectId={id as string}
-        beforeSystemMessage={selectedProject?.instructions?.systemPrompt}
-        onSave={() => {
-          fetchProject();
+        slots={{
+          emptySlot: <div className="pt-6">{projectEmptySlot}</div>,
+          inputBottomSlot: (
+            <>
+              <ProjectSystemMessagePopup
+                isOpen={!!selectedProject}
+                onOpenChange={() => setSelectedProject(null)}
+                projectId={id as string}
+                beforeSystemMessage={
+                  selectedProject?.instructions?.systemPrompt
+                }
+                onSave={() => {
+                  fetchProject();
+                }}
+              />
+              <ProjectMcpConfigPopup
+                isOpen={showMcpConfig}
+                onOpenChange={setShowMcpConfig}
+                projectId={id as string}
+              />
+              <ProjectConversationsModal
+                isOpen={showConversations}
+                onOpenChange={setShowConversations}
+                project={project ?? null}
+                onThreadDeleted={fetchProject}
+              />
+            </>
+          ),
         }}
-      />
-      <ProjectMcpConfigPopup
-        isOpen={showMcpConfig}
-        onOpenChange={setShowMcpConfig}
-        projectId={id as string}
       />
     </div>
   );

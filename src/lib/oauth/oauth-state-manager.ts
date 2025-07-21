@@ -36,7 +36,7 @@ export class OAuthStateManager {
           "Generate a new key with: openssl rand -hex 32 and set it in your .env file",
         );
         this.encryptionKey = createHash("sha256")
-          .update("mcp-client-chatbot-default-dev-key")
+          .update("wingmen-client-default-dev-key")
           .digest();
       }
     } else {

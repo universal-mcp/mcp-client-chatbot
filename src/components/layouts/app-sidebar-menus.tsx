@@ -1,5 +1,5 @@
 "use client";
-import { SidebarMenuButton, useSidebar } from "ui/sidebar";
+import { SidebarMenuButton } from "ui/sidebar";
 import { Tooltip } from "ui/tooltip";
 import { SidebarMenu, SidebarMenuItem } from "ui/sidebar";
 import { SidebarGroupContent } from "ui/sidebar";
@@ -8,16 +8,14 @@ import { SidebarGroup } from "ui/sidebar";
 import { TooltipProvider } from "ui/tooltip";
 import Link from "next/link";
 import { getShortcutKeyList, Shortcuts } from "lib/keyboard-shortcuts";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { MCPIcon } from "ui/mcp-icon";
 import { WriteIcon } from "ui/write-icon";
 
 export function AppSidebarMenus() {
-  const router = useRouter();
   const pathname = usePathname();
   const t = useTranslations("Layout");
-  const { setOpenMobile } = useSidebar();
   return (
     <SidebarGroup>
       <SidebarGroupContent>
@@ -25,15 +23,7 @@ export function AppSidebarMenus() {
           <TooltipProvider>
             <Tooltip>
               <SidebarMenuItem className="mb-1">
-                <Link
-                  href="/"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setOpenMobile(false);
-                    router.push(`/`);
-                    router.refresh();
-                  }}
-                >
+                <Link href="/">
                   <SidebarMenuButton
                     className="flex font-semibold group/new-chat"
                     isActive={pathname === "/"}

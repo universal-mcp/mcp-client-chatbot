@@ -1,11 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import {
-  AppDefaultToolkit,
-  ChatModel,
-  ChatThread,
-  Project,
-} from "app-types/chat";
+import { ChatThread, Project } from "app-types/chat";
 import { AllowedMCPServer, MCPServerInfo } from "app-types/mcp";
 import { OPENAI_VOICE } from "lib/ai/speech/open-ai/use-voice-chat.openai";
 
@@ -17,20 +12,12 @@ export interface AppState {
   currentProjectId: Project["id"] | null;
   toolChoice: "auto" | "none" | "manual";
   allowedMcpServers?: Record<string, AllowedMCPServer>;
-  allowedAppDefaultToolkit?: AppDefaultToolkit[];
-  toolPresets: {
-    allowedMcpServers?: Record<string, AllowedMCPServer>;
-    allowedAppDefaultToolkit?: AppDefaultToolkit[];
-    name: string;
-  }[];
-  chatModel?: ChatModel;
   openShortcutsPopup: boolean;
   openChatPreferences: boolean;
   mcpCustomizationPopup?: MCPServerInfo & { id: string };
   temporaryChat: {
     isOpen: boolean;
     instructions: string;
-    chatModel?: ChatModel;
   };
   voiceChat: {
     isOpen: boolean;
@@ -41,6 +28,7 @@ export interface AppState {
       providerOptions?: Record<string, any>;
     };
   };
+  isMcpClientListLoading: boolean;
 }
 
 export interface AppDispatch {
@@ -55,8 +43,6 @@ const initialState: AppState = {
   currentProjectId: null,
   toolChoice: "auto",
   allowedMcpServers: undefined,
-  allowedAppDefaultToolkit: [],
-  toolPresets: [],
   openShortcutsPopup: false,
   openChatPreferences: false,
   mcpCustomizationPopup: undefined,
@@ -73,6 +59,7 @@ const initialState: AppState = {
       },
     },
   },
+  isMcpClientListLoading: true,
 };
 
 export const appStore = create<AppState & AppDispatch>()(
@@ -84,19 +71,14 @@ export const appStore = create<AppState & AppDispatch>()(
     {
       name: "mc-app-store-v2.0.0",
       partialize: (state) => ({
-        chatModel: state.chatModel || initialState.chatModel,
         toolChoice: state.toolChoice || initialState.toolChoice,
         allowedMcpServers:
           state.allowedMcpServers || initialState.allowedMcpServers,
-        allowedAppDefaultToolkit:
-          state.allowedAppDefaultToolkit ||
-          initialState.allowedAppDefaultToolkit,
         temporaryChat: {
           ...initialState.temporaryChat,
           ...state.temporaryChat,
           isOpen: false,
         },
-        toolPresets: state.toolPresets || initialState.toolPresets,
         voiceChat: {
           ...initialState.voiceChat,
           ...state.voiceChat,

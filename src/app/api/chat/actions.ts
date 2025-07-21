@@ -9,14 +9,10 @@ import {
 
 import type { ChatModel, ChatThread, Project } from "app-types/chat";
 
-import {
-  chatRepository,
-  mcpMcpToolCustomizationRepository,
-  mcpServerCustomizationRepository,
-} from "lib/db/repository";
+import { chatRepository } from "lib/db/repository";
 import { customModelProvider } from "lib/ai/models";
 import { toAny } from "lib/utils";
-import { McpServerCustomizationsPrompt, MCPToolInfo } from "app-types/mcp";
+import { MCPToolInfo } from "app-types/mcp";
 import { serverCache } from "lib/cache";
 import { CacheKeys } from "lib/cache/cache-keys";
 import { getSessionContext } from "@/lib/auth/session-context";
@@ -36,12 +32,9 @@ export async function generateTitleFromUserMessageAction({
 }: { message: Message }) {
   await getSessionContext();
   const prompt = toAny(message.parts?.at(-1))?.text || "unknown";
-  const fixed_model = customModelProvider.getModel({
-    provider: "openai",
-    model: "gpt-4.1",
-  });
+  const model = customModelProvider.getModel(undefined);
   const { text: title } = await generateText({
-    model: fixed_model,
+    model: model,
     system: CREATE_THREAD_TITLE_PROMPT,
     prompt,
     maxTokens: 30,
@@ -71,6 +64,26 @@ export async function selectThreadWithMessagesAction(threadId: string) {
     organizationId,
   );
   return { ...thread, messages: messages ?? [] };
+}
+
+export async function getPublicThreadAction(threadId: string) {
+  const thread = await chatRepository.getPublicThread(threadId);
+
+  if (!thread) {
+    return null;
+  }
+
+  const messages = await chatRepository.selectMessagesByThreadId(
+    threadId,
+    "public",
+    null,
+  );
+
+  return {
+    ...thread,
+    messages: messages ?? [],
+    isOwner: false,
+  };
 }
 
 export async function deleteMessageAction(messageId: string) {
@@ -119,6 +132,14 @@ export async function updateThreadAction(
 ) {
   const { userId, organizationId } = await getSessionContext();
   await chatRepository.updateThread(id, thread, userId, organizationId);
+}
+
+export async function updateThreadVisibilityAction(
+  id: string,
+  isPublic: boolean,
+) {
+  const { userId, organizationId } = await getSessionContext();
+  await chatRepository.updateThread(id, { isPublic }, userId, organizationId);
 }
 
 export async function deleteThreadsAction() {
@@ -302,62 +323,4 @@ export async function updateProjectNameAction(id: string, name: string) {
   );
   await serverCache.delete(CacheKeys.project(id));
   return updatedProject;
-}
-
-export async function rememberMcpServerCustomizationsAction(userId: string) {
-  const key = CacheKeys.mcpServerCustomizations(userId);
-
-  const cachedMcpServerCustomizations =
-    await serverCache.get<Record<string, McpServerCustomizationsPrompt>>(key);
-  if (cachedMcpServerCustomizations) {
-    return cachedMcpServerCustomizations;
-  }
-
-  const { organizationId } = await getSessionContext();
-  const mcpServerCustomizations =
-    await mcpServerCustomizationRepository.selectByUserId(
-      userId,
-      organizationId,
-    );
-  const mcpToolCustomizations =
-    await mcpMcpToolCustomizationRepository.selectByUserId(
-      userId,
-      organizationId,
-    );
-
-  const serverIds: string[] = [
-    ...mcpServerCustomizations.map(
-      (mcpServerCustomization) => mcpServerCustomization.mcpServerId,
-    ),
-    ...mcpToolCustomizations.map(
-      (mcpToolCustomization) => mcpToolCustomization.mcpServerId,
-    ),
-  ];
-
-  const prompts = Array.from(new Set(serverIds)).reduce(
-    (acc, serverId) => {
-      const sc = mcpServerCustomizations.find((v) => v.mcpServerId == serverId);
-      const tc = mcpToolCustomizations.filter(
-        (mcpToolCustomization) => mcpToolCustomization.mcpServerId === serverId,
-      );
-      const data: McpServerCustomizationsPrompt = {
-        name: sc?.serverName || tc[0]?.serverName || "",
-        id: serverId,
-        prompt: sc?.prompt || "",
-        tools: tc.reduce(
-          (acc, v) => {
-            acc[v.toolName] = v.prompt || "";
-            return acc;
-          },
-          {} as Record<string, string>,
-        ),
-      };
-      acc[serverId] = data;
-      return acc;
-    },
-    {} as Record<string, McpServerCustomizationsPrompt>,
-  );
-
-  serverCache.set(key, prompts, 1000 * 60 * 30); // 30 minutes
-  return prompts;
 }

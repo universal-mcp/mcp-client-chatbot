@@ -26,6 +26,7 @@ export async function POST(
         projectId: projectId ?? null,
         title,
         userId,
+        isPublic: false,
       },
       userId,
       organizationId,
