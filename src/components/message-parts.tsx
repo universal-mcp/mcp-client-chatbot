@@ -9,11 +9,11 @@ import {
   ChevronDownIcon,
   RefreshCw,
   X,
-  Wrench,
   Trash2,
   ChevronRight,
   TriangleAlert,
   AlertTriangleIcon,
+  HammerIcon,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "ui/tooltip";
 import { Button } from "ui/button";
@@ -56,7 +56,6 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "ui/hover-card";
 import { Avatar, AvatarFallback, AvatarImage } from "ui/avatar";
 import { DefaultToolName } from "lib/ai/tools";
 import { TavilyResponse } from "lib/ai/tools/web/web-search";
-import { equal } from "assert";
 
 type MessagePart = UIMessage["parts"][number];
 
@@ -203,8 +202,10 @@ export const UserMessagePart = ({
       <div
         data-testid="message-content"
         className={cn(
-          "flex flex-col gap-4 max-w-full bg-accent text-accent-foreground px-4 py-3 rounded-2xl",
+          "flex flex-col gap-4 max-w-full",
+          "flex flex-col gap-4 max-w-full ring ring-input",
           {
+            "bg-accent text-accent-foreground px-4 py-3 rounded-2xl": isLast,
             "opacity-50": isError,
           },
           isError && "border-destructive border",
@@ -564,7 +565,7 @@ export const ToolMessagePart = memo(
                 ) : isError ? (
                   <TriangleAlert className="size-3.5 text-destructive" />
                 ) : (
-                  <Wrench className="size-3.5" />
+                  <HammerIcon className="size-3.5" />
                 )}
               </div>
               <span className="font-bold flex items-center gap-2">
@@ -872,7 +873,7 @@ function SearchToolPart({ part }: { part: ToolMessagePart["toolInvocation"] }) {
           <div className="flex flex-wrap gap-1">
             {result?.isError ? (
               <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <AlertTriangleIcon className="size-3.5" />
+                <AlertTriangleIcon className="size-3" />
                 {result.error || "Error"}
               </p>
             ) : (

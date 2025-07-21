@@ -39,7 +39,6 @@ import {
   filterToolsByProjectConfig,
   applyProjectToolModes,
 } from "./helper";
-import { generateTitleFromUserMessageAction } from "./actions";
 import { getSessionContext } from "auth/session-context";
 import { getProjectMcpToolsAction } from "../mcp/project-config/actions";
 import { APP_DEFAULT_TOOL_KIT } from "lib/ai/tools/tool-kit";
@@ -60,17 +59,34 @@ export async function POST(request: Request) {
 
     const model = customModelProvider.getModel(undefined);
 
-    const thread = await chatRepository.selectThreadDetails(
+    let thread = await chatRepository.selectThreadDetails(
       id,
       userId,
       organizationId,
     );
 
-    if (thread && thread.userId !== userId) {
-      return new Response("Forbidden", { status: 403 });
+    if (!thread) {
+      const newThread = await chatRepository.insertThread(
+        {
+          id,
+          projectId: projectId,
+          title: "",
+          userId,
+          isPublic: false,
+        },
+        userId,
+        organizationId,
+      );
+      thread = await chatRepository.selectThreadDetails(
+        newThread.id,
+        userId,
+        organizationId,
+      );
     }
 
-    const isNewThread = !thread;
+    if (thread!.userId !== userId) {
+      return new Response("Forbidden", { status: 403 });
+    }
 
     // if is false, it means the last message is manual tool execution
     const isLastMessageUserMessage = isUserMessage(message);
@@ -109,14 +125,6 @@ export async function POST(request: Request) {
           };
         })()
       : undefined;
-
-    // Get project instructions and user preferences in a single query
-    const { instructions: projectInstructions, userPreferences } =
-      await chatRepository.getProjectInstructionsAndUserPreferences(
-        userId,
-        projectId,
-        organizationId,
-      );
 
     const inProgressToolStep = extractInProgressToolPart(messages.slice(-2));
 
@@ -179,9 +187,11 @@ export async function POST(request: Request) {
           );
         }
 
+        const userPreferences = thread?.userPreferences || undefined;
+
         const systemPrompt = mergeSystemPrompt(
           buildUserSystemPrompt(user, userPreferences),
-          buildProjectInstructionsSystemPrompt(projectInstructions),
+          buildProjectInstructionsSystemPrompt(thread?.instructions),
           // buildContextServerPrompt(),
         );
 
@@ -225,22 +235,6 @@ export async function POST(request: Request) {
           tools: vercelAITools,
           toolChoice: "auto",
           onFinish: async ({ response, usage }) => {
-            if (isNewThread) {
-              const title = await generateTitleFromUserMessageAction({
-                message,
-              });
-              await chatRepository.insertThread(
-                {
-                  id,
-                  projectId: projectId,
-                  title,
-                  userId,
-                  isPublic: false,
-                },
-                userId,
-                organizationId,
-              );
-            }
             const appendMessages = appendResponseMessages({
               messages: messages.slice(-1),
               responseMessages: response.messages,

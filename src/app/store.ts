@@ -17,6 +17,7 @@ export interface AppState {
   openChatPreferences: boolean;
   mcpCustomizationPopup?: MCPServerInfo & { id: string };
   allowedAppDefaultToolkit?: AppDefaultToolkit[];
+  generatingTitleThreadIds: string[];
   temporaryChat: {
     isOpen: boolean;
     instructions: string;
@@ -63,6 +64,7 @@ const initialState: AppState = {
     },
   },
   isMcpClientListLoading: true,
+  generatingTitleThreadIds: [],
 };
 
 export const appStore = create<AppState & AppDispatch>()(

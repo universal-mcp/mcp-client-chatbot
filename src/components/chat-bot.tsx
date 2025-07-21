@@ -38,6 +38,8 @@ import {
 } from "ui/dialog";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
+import { Think } from "ui/think";
+import { useGenerateThreadTitle } from "@/hooks/queries/use-generate-thread-title";
 
 type Props = {
   threadId: string;
@@ -62,21 +64,24 @@ export default function ChatBot({
   const [
     appStoreMutate,
     toolChoice,
-    allowedMcpServers,
     allowedAppDefaultToolkit,
+    allowedMcpServers,
     threadList,
     isMcpClientListLoading,
   ] = appStore(
     useShallow((state) => [
       state.mutate,
       state.toolChoice,
-      state.allowedMcpServers,
       state.allowedAppDefaultToolkit,
+      state.allowedMcpServers,
       state.threadList,
       state.isMcpClientListLoading,
     ]),
   );
   const router = useRouter();
+  const generateTitle = useGenerateThreadTitle({
+    threadId,
+  });
   const {
     messages,
     input,
@@ -93,6 +98,17 @@ export default function ChatBot({
     api: "/api/chat",
     initialMessages,
     experimental_prepareRequestBody: ({ messages }) => {
+      const isNewThread =
+        !latestRef.current.threadList.some((v) => v.id === threadId) &&
+        messages.filter((v) => v.role === "user" || v.role === "assistant")
+          .length < 2 &&
+        messages.at(-1)?.role === "user";
+      if (isNewThread) {
+        const part = messages.at(-1)!.parts.findLast((v) => v.type === "text");
+        if (part) {
+          generateTitle(part.text);
+        }
+      }
       window.history.replaceState({}, "", `/chat/${threadId}`);
       const lastMessage = messages.at(-1)!;
       vercelAISdkV4ToolInvocationIssueCatcher(lastMessage);
@@ -131,10 +147,11 @@ export default function ChatBot({
 
   const latestRef = useToRef({
     toolChoice,
+    allowedAppDefaultToolkit,
     allowedMcpServers,
     messages,
+    threadList,
     threadId,
-    allowedAppDefaultToolkit,
   });
 
   const isLoading = useMemo(
@@ -198,6 +215,15 @@ export default function ChatBot({
     },
     [addToolResult],
   );
+
+  const showThink = useMemo(() => {
+    if (!isLoading) return false;
+    const lastMessage = messages.at(-1);
+    if (lastMessage?.role == "user") return true;
+    const lastPart = lastMessage?.parts.at(-1);
+    if (lastPart?.type == "step-start") return true;
+    return false;
+  }, [isLoading, messages.at(-1)]);
 
   useEffect(() => {
     appStoreMutate({ currentThreadId: threadId });
@@ -292,6 +318,11 @@ export default function ChatBot({
                 />
               );
             })}
+            {showThink && (
+              <div className="w-full mx-auto max-w-3xl px-6">
+                <Think />
+              </div>
+            )}
             {status === "submitted" && messages.at(-1)?.role === "user" && (
               <div className="min-h-[calc(55dvh-56px)]" />
             )}

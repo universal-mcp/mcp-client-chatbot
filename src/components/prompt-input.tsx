@@ -187,7 +187,7 @@ export default function PromptInput({
     <div className="max-w-3xl mx-auto fade-in animate-in">
       <div className="z-10 mx-auto w-full max-w-3xl relative">
         <fieldset
-          className="flex w-full min-w-0 max-w-full flex-col px-2"
+          className="flex w-full min-w-0 max-w-full flex-col px-4"
           disabled={isLoadingTools || disabled}
         >
           <div

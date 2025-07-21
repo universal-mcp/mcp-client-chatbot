@@ -50,6 +50,16 @@ const PurePreviewMessage = ({
 }: Props) => {
   const isUserMessage = useMemo(() => message.role === "user", [message.role]);
 
+  const showThink = useMemo(() => {
+    if (isLoading && isLastMessage) {
+      const lastPart = message.parts.at(-1);
+      if (lastPart?.type == "text" && !lastPart.text?.trim()) {
+        return true;
+      }
+    }
+    return false;
+  }, [isLoading, isLastMessage, message.parts]);
+
   if (message.role == "system") {
     return null; // system message is not shown
   }
@@ -152,7 +162,7 @@ const PurePreviewMessage = ({
               );
             }
           })}
-          {isLoading && isLastMessage && <Think />}
+          {showThink && <Think />}
         </div>
       </div>
     </div>

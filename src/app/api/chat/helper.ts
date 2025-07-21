@@ -210,7 +210,7 @@ export function appendAnnotations(
 
 export function mergeSystemPrompt(...prompts: (string | undefined)[]): string {
   const filteredPrompts = prompts
-    .map((prompt) => prompt?.trim())
+    .map((prompt) => (prompt ? prompt.trim() : ""))
     .filter(Boolean);
   return filteredPrompts.join("\n\n");
 }

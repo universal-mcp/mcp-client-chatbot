@@ -69,7 +69,6 @@ export type ChatMention =
     };
 
 export type ChatMessageAnnotation = {
-  mentions?: ChatMention[];
   usageTokens?: number;
   toolChoice?: "auto" | "none" | "manual";
   file?: {
@@ -130,7 +129,9 @@ export type ChatRepository = {
     organizationId: string | null,
   ): Promise<
     | (ChatThread & {
+        instructions: Project["instructions"] | null;
         messages: ChatMessage[];
+        userPreferences?: UserPreferences;
       })
     | null
   >;
@@ -174,6 +175,10 @@ export type ChatRepository = {
     thread: Partial<Omit<ChatThread, "id" | "createdAt">>,
     userId: string,
     organizationId: string | null,
+  ): Promise<ChatThread>;
+
+  upsertThread(
+    thread: PartialBy<Omit<ChatThread, "createdAt">, "projectId" | "userId">,
   ): Promise<ChatThread>;
 
   deleteThread(
@@ -251,15 +256,6 @@ export type ChatRepository = {
     userId: string,
     organizationId: string | null,
   ): Promise<ChatMessage[]>;
-
-  getProjectInstructionsAndUserPreferences(
-    userId: string,
-    projectId: string | null,
-    organizationId: string | null,
-  ): Promise<{
-    instructions: Project["instructions"] | null;
-    userPreferences: UserPreferences | undefined;
-  }>;
 };
 
 export const ClientToolInvocationZodSchema = z.object({

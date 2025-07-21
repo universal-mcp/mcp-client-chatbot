@@ -415,6 +415,10 @@ export const tavilySearchTool = createTool({
         include_image_descriptions: true,
       }),
     )
+      .map((result) => ({
+        ...result,
+        guide: `Use the search results to answer the user's question. Summarize the content and ask if they have any additional questions about the topic.`,
+      }))
       .ifFail((e) => {
         return {
           isError: true,
