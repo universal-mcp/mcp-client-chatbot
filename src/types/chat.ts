@@ -79,10 +79,6 @@ export type ChatMessageAnnotation = {
   [key: string]: any;
 };
 
-export enum AppDefaultToolkit {
-  Visualization = "visualization",
-}
-
 export const chatApiSchemaRequestBodySchema = z.object({
   id: z.string(),
   projectId: z.string().nullable(),

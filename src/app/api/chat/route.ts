@@ -7,6 +7,7 @@ import {
   formatDataStreamPart,
   appendClientMessage,
   Message,
+  Tool,
 } from "ai";
 
 import { customModelProvider, isToolCallUnsupportedModel } from "lib/ai/models";
@@ -20,11 +21,7 @@ import {
   buildProjectInstructionsSystemPrompt,
   buildUserSystemPrompt,
 } from "lib/ai/prompts";
-import {
-  chatApiSchemaRequestBodySchema,
-  ChatMention,
-  ChatMessageAnnotation,
-} from "app-types/chat";
+import { chatApiSchemaRequestBodySchema } from "app-types/chat";
 
 import { errorIf, safe } from "ts-safe";
 
@@ -45,14 +42,21 @@ import {
 import { generateTitleFromUserMessageAction } from "./actions";
 import { getSessionContext } from "auth/session-context";
 import { getProjectMcpToolsAction } from "../mcp/project-config/actions";
+import { APP_DEFAULT_TOOL_KIT } from "lib/ai/tools/tool-kit";
 
 export async function POST(request: Request) {
   try {
     const json = await request.json();
     const { userId, organizationId, user } = await getSessionContext();
 
-    const { id, message, toolChoice, allowedMcpServers, projectId } =
-      chatApiSchemaRequestBodySchema.parse(json);
+    const {
+      id,
+      message,
+      toolChoice,
+      allowedMcpServers,
+      allowedAppDefaultToolkit,
+      projectId,
+    } = chatApiSchemaRequestBodySchema.parse(json);
 
     const model = customModelProvider.getModel(undefined);
 
@@ -72,8 +76,6 @@ export async function POST(request: Request) {
     const isLastMessageUserMessage = isUserMessage(message);
 
     const previousMessages = (thread?.messages ?? []).map(convertToMessage);
-
-    const annotations = (message?.annotations as ChatMessageAnnotation[]) ?? [];
 
     const manager = await mcpGateway.getManager(userId, organizationId);
     const mcpTools = manager.tools();
@@ -109,37 +111,8 @@ export async function POST(request: Request) {
         organizationId,
       );
 
-    const mentions = annotations
-      .flatMap((annotation) => annotation.mentions)
-      .filter(Boolean) as ChatMention[];
-
     const isToolCallAllowed =
-      (!isToolCallUnsupportedModel(model) && toolChoice != "none") ||
-      mentions.length > 0;
-
-    const tools = safe(mcpTools)
-      .map(errorIf(() => !isToolCallAllowed && "Not allowed"))
-      .map((tools) => {
-        // First apply project config filters if in project context
-        let filteredTools = tools;
-
-        if (projectMcpConfig) {
-          // In project context: only use project-specific server/tool filtering
-          filteredTools = filterToolsByProjectConfig(
-            filteredTools,
-            projectMcpConfig,
-          );
-        } else {
-          // Outside project context: use global allowedMcpServers setting
-          filteredTools = filterToolsByAllowedMCPServers(
-            filteredTools,
-            allowedMcpServers,
-          );
-        }
-
-        return filteredTools;
-      })
-      .orElse(undefined);
+      !isToolCallUnsupportedModel(model) && toolChoice != "none";
 
     const messages: Message[] = isLastMessageUserMessage
       ? appendClientMessage({
@@ -150,6 +123,44 @@ export async function POST(request: Request) {
 
     return createDataStreamResponse({
       execute: async (dataStream) => {
+        const tools = safe(mcpTools)
+          .map(errorIf(() => !isToolCallAllowed && "Not allowed"))
+          .map((tools) => {
+            // First apply project config filters if in project context
+            let filteredTools = tools;
+
+            if (projectMcpConfig) {
+              // In project context: only use project-specific server/tool filtering
+              filteredTools = filterToolsByProjectConfig(
+                filteredTools,
+                projectMcpConfig,
+              );
+            } else {
+              // Outside project context: use global allowedMcpServers setting
+              filteredTools = filterToolsByAllowedMCPServers(
+                filteredTools,
+                allowedMcpServers,
+              );
+            }
+
+            return filteredTools;
+          })
+          .orElse({});
+
+        const APP_DEFAULT_TOOLS = safe(APP_DEFAULT_TOOL_KIT)
+          .map(errorIf(() => !isToolCallAllowed && "Not allowed"))
+          .map((tools) => {
+            return (
+              allowedAppDefaultToolkit?.reduce(
+                (acc, key) => {
+                  return { ...acc, ...tools[key] };
+                },
+                {} as Record<string, Tool>,
+              ) || {}
+            );
+          })
+          .orElse({});
+
         const inProgressToolStep = extractInProgressToolPart(
           messages.slice(-2),
         );
@@ -177,9 +188,7 @@ export async function POST(request: Request) {
 
         // Precompute toolChoice to avoid repeated tool calls
         const computedToolChoice =
-          isToolCallAllowed && mentions.length > 0 && inProgressToolStep
-            ? "required"
-            : "auto";
+          isToolCallAllowed && inProgressToolStep ? "required" : "auto";
 
         const vercelAITools = safe(tools)
           .map((t) => {
@@ -204,6 +213,7 @@ export async function POST(request: Request) {
 
             const finalTools = {
               ...processedTools,
+              ...APP_DEFAULT_TOOLS,
             };
 
             return finalTools;
@@ -217,7 +227,7 @@ export async function POST(request: Request) {
           maxSteps: 10,
           experimental_continueSteps: true,
           experimental_transform: smoothStream({ chunking: "word" }),
-          maxRetries: 0,
+          maxRetries: 1,
           tools: vercelAITools,
           toolChoice: computedToolChoice,
           onFinish: async ({ response, usage }) => {

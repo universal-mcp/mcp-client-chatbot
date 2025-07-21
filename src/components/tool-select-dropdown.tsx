@@ -1,7 +1,13 @@
 import { selectMcpClientsAction } from "@/app/api/mcp/actions";
 import { appStore } from "@/app/store";
 import { cn } from "lib/utils";
-import { ChevronRight, Loader, Wrench } from "lucide-react";
+import {
+  ChartColumn,
+  ChevronRight,
+  Loader,
+  Wrench,
+  HardDriveUploadIcon,
+} from "lucide-react";
 import Link from "next/link";
 import {
   PropsWithChildren,
@@ -27,12 +33,14 @@ import {
   DropdownMenuTrigger,
 } from "ui/dropdown-menu";
 import { MCPIcon } from "ui/mcp-icon";
+import { AppDefaultToolkit } from "lib/ai/tools";
 
 import { handleErrorWithToast } from "ui/shared-toast";
 import { useTranslations } from "next-intl";
 
 import { Switch } from "ui/switch";
 import { useShallow } from "zustand/shallow";
+import { GlobalIcon } from "ui/global-icon";
 
 interface ToolSelectDropdownProps {
   align?: "start" | "end" | "center";
@@ -89,6 +97,10 @@ export function ToolSelectDropdown({
         <div className="py-2">
           <McpServerSelector />
         </div>
+        <div className="py-1">
+          <DropdownMenuSeparator />
+        </div>
+        <AppDefaultToolKitSelector />
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -315,5 +327,77 @@ function McpServerToolSelector({
         )}
       </div>
     </div>
+  );
+}
+
+function AppDefaultToolKitSelector() {
+  const [appStoreMutate, allowedAppDefaultToolkit] = appStore(
+    useShallow((state) => [state.mutate, state.allowedAppDefaultToolkit]),
+  );
+  const t = useTranslations();
+  const toggleAppDefaultToolkit = useCallback((toolkit: AppDefaultToolkit) => {
+    appStoreMutate((prev) => {
+      const newAllowedAppDefaultToolkit = [
+        ...(prev.allowedAppDefaultToolkit ?? []),
+      ];
+      if (newAllowedAppDefaultToolkit.includes(toolkit)) {
+        newAllowedAppDefaultToolkit.splice(
+          newAllowedAppDefaultToolkit.indexOf(toolkit),
+          1,
+        );
+      } else {
+        newAllowedAppDefaultToolkit.push(toolkit);
+      }
+      return { allowedAppDefaultToolkit: newAllowedAppDefaultToolkit };
+    });
+  }, []);
+
+  const defaultToolInfo = useMemo(() => {
+    const raw = t.raw("Chat.Tool.defaultToolKit");
+    return Object.values(AppDefaultToolkit).map((toolkit) => {
+      const label = raw[toolkit] || toolkit;
+      const id = toolkit;
+      let icon = <Wrench className="size-3.5 text-primary" />;
+      switch (toolkit) {
+        case AppDefaultToolkit.Visualization:
+          icon = <ChartColumn className="size-3.5 text-blue-500 stroke-3" />;
+          break;
+        case AppDefaultToolkit.WebSearch:
+          icon = <GlobalIcon className="text-blue-400 size-3.5" />;
+          break;
+        case AppDefaultToolkit.Http:
+          icon = <HardDriveUploadIcon className="size-3.5 text-blue-400" />;
+          break;
+      }
+      return {
+        label,
+        id,
+        icon,
+      };
+    });
+  }, []);
+
+  return (
+    <DropdownMenuGroup>
+      {defaultToolInfo.map((tool) => {
+        return (
+          <DropdownMenuItem
+            key={tool.id}
+            className="cursor-pointer font-semibold text-xs"
+            onClick={(e) => {
+              e.preventDefault();
+              toggleAppDefaultToolkit(tool.id);
+            }}
+          >
+            {tool.icon}
+            {tool.label}
+            <Switch
+              className="ml-auto"
+              checked={allowedAppDefaultToolkit?.includes(tool.id)}
+            />
+          </DropdownMenuItem>
+        );
+      })}
+    </DropdownMenuGroup>
   );
 }

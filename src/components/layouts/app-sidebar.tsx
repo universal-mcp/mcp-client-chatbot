@@ -11,6 +11,7 @@ import {
 } from "ui/sidebar";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { Session, User } from "better-auth";
 
 import { AppSidebarMenus } from "./app-sidebar-menus";
 import { AppSidebarProjects } from "./app-sidebar-projects";
@@ -22,7 +23,9 @@ import { WorkspacePicker } from "./workspace-picker";
 import { PanelLeft } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 
-export function AppSidebar() {
+export function AppSidebar({
+  session,
+}: { session?: { session: Session; user: User } }) {
   const { toggleSidebar, setOpenMobile } = useSidebar();
   const router = useRouter();
   const isMobile = useIsMobile();
@@ -88,7 +91,7 @@ export function AppSidebar() {
         </div>
       </SidebarContent>
       <SidebarFooter className="flex flex-col items-stretch space-y-2">
-        <AppSidebarUser />
+        <AppSidebarUser session={session} />
       </SidebarFooter>
     </Sidebar>
   );

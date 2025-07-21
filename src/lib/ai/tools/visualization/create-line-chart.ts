@@ -1,9 +1,8 @@
 import { tool as createTool } from "ai";
-import { wait } from "lib/utils";
 import { z } from "zod";
 
-export const createBarChartTool = createTool({
-  description: "Create a bar chart with multiple data series",
+export const createLineChartTool = createTool({
+  description: "Create a line chart with multiple data series",
   parameters: z.object({
     data: z
       .array(
@@ -23,7 +22,6 @@ export const createBarChartTool = createTool({
     yAxisLabel: z.string().optional().describe("Label for Y-axis"),
   }),
   execute: async () => {
-    await wait(1000);
     return "Success";
   },
 });
