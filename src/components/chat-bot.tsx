@@ -66,6 +66,7 @@ export default function ChatBot({
     appStoreMutate,
     toolChoice,
     allowedMcpServers,
+    allowedAppDefaultToolkit,
     threadList,
     isMcpClientListLoading,
   ] = appStore(
@@ -73,6 +74,7 @@ export default function ChatBot({
       state.mutate,
       state.toolChoice,
       state.allowedMcpServers,
+      state.allowedAppDefaultToolkit,
       state.threadList,
       state.isMcpClientListLoading,
     ]),
@@ -101,6 +103,7 @@ export default function ChatBot({
         id: latestRef.current.threadId,
         toolChoice: latestRef.current.toolChoice,
         allowedMcpServers: latestRef.current.allowedMcpServers,
+        allowedAppDefaultToolkit: latestRef.current.allowedAppDefaultToolkit,
         message: lastMessage,
         projectId: projectId ?? currentThread?.projectId ?? null,
       };
@@ -134,6 +137,7 @@ export default function ChatBot({
     allowedMcpServers,
     messages,
     threadId,
+    allowedAppDefaultToolkit,
   });
 
   const isLoading = useMemo(
