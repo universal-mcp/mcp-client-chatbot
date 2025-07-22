@@ -62,13 +62,7 @@ export default function ChatBot({
   isReadOnly,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [
-    appStoreMutate,
-    toolChoice,
-    allowedMcpServers,
-    threadList,
-    isMcpClientListLoading,
-  ] = appStore(
+  const [appStoreMutate, toolChoice, allowedMcpServers, threadList] = appStore(
     useShallow((state) => [
       state.mutate,
       state.toolChoice,
@@ -257,10 +251,7 @@ export default function ChatBot({
         slots?.emptySlot ? (
           slots.emptySlot
         ) : (
-          <ChatGreeting
-            append={append}
-            isLoadingTools={isMcpClientListLoading}
-          />
+          <ChatGreeting />
         )
       ) : (
         <>
