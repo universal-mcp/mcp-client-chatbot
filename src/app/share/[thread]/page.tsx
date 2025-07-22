@@ -21,7 +21,7 @@ export default async function SharedChatPage({
   const sharedBy = thread.userName || thread.userEmail;
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-screen">
       <header className="sticky top-0 z-10 flex items-center justify-between p-4 border-b bg-background/95 backdrop-blur-sm">
         <h1 className="text-lg font-semibold truncate pr-4">{thread.title}</h1>
         {sharedBy && (
