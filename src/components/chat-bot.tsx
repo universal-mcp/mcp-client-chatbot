@@ -22,10 +22,7 @@ import { UIMessage } from "ai";
 
 import { safe } from "ts-safe";
 import { mutate } from "swr";
-import {
-  ChatApiSchemaRequestBody,
-  ChatMessageAnnotation,
-} from "app-types/chat";
+import { ChatApiSchemaRequestBody, ClientToolInvocation } from "app-types/chat";
 import { useToRef } from "@/hooks/use-latest";
 import { isShortcutEvent, Shortcuts } from "lib/keyboard-shortcuts";
 import { Button } from "ui/button";
@@ -41,6 +38,8 @@ import {
 } from "ui/dialog";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
+import { Think } from "ui/think";
+import { useGenerateThreadTitle } from "@/hooks/queries/use-generate-thread-title";
 
 type Props = {
   threadId: string;
@@ -65,19 +64,23 @@ export default function ChatBot({
   const [
     appStoreMutate,
     toolChoice,
+    allowedAppDefaultToolkit,
     allowedMcpServers,
     threadList,
-    isMcpClientListLoading,
   ] = appStore(
     useShallow((state) => [
       state.mutate,
       state.toolChoice,
+      state.allowedAppDefaultToolkit,
       state.allowedMcpServers,
       state.threadList,
       state.isMcpClientListLoading,
     ]),
   );
-  const router = useRouter();
+  // const router = useRouter();
+  const generateTitle = useGenerateThreadTitle({
+    threadId,
+  });
   const {
     messages,
     input,
@@ -101,6 +104,7 @@ export default function ChatBot({
         id: latestRef.current.threadId,
         toolChoice: latestRef.current.toolChoice,
         allowedMcpServers: latestRef.current.allowedMcpServers,
+        allowedAppDefaultToolkit: latestRef.current.allowedAppDefaultToolkit,
         message: lastMessage,
         projectId: projectId ?? currentThread?.projectId ?? null,
       };
@@ -110,11 +114,21 @@ export default function ChatBot({
     generateId: generateUUID,
     experimental_throttle: 100,
     onFinish() {
-      if (threadList[0]?.id !== threadId) {
-        mutate("threads");
-      }
-      if (projectId) {
-        router.replace(`/chat/${threadId}`);
+      const messages = latestRef.current.messages;
+      const prevThread = latestRef.current.threadList.find(
+        (v) => v.id === threadId,
+      );
+      const isNewThread =
+        !prevThread?.title &&
+        messages.filter((v) => v.role === "user" || v.role === "assistant")
+          .length < 3;
+      if (isNewThread) {
+        const part = messages.at(-1)!.parts.find((v) => v.type === "text");
+        if (part) {
+          generateTitle(part.text);
+        }
+      } else if (latestRef.current.threadList[0]?.id !== threadId) {
+        mutate("/api/thread/list");
       }
     },
     onError: (error) => {
@@ -131,8 +145,10 @@ export default function ChatBot({
 
   const latestRef = useToRef({
     toolChoice,
+    allowedAppDefaultToolkit,
     allowedMcpServers,
     messages,
+    threadList,
     threadId,
   });
 
@@ -159,6 +175,7 @@ export default function ChatBot({
         return false;
       const message = messages[index];
       if (message.role === "user") return false;
+      if (message.parts.at(-1)?.type == "step-start") return false;
       return true;
     },
     [messages, error],
@@ -171,35 +188,38 @@ export default function ChatBot({
     if (status != "ready") return false;
     const lastMessage = messages.at(-1);
     if (lastMessage?.role != "assistant") return false;
-    const annotation = lastMessage.annotations?.at(-1) as ChatMessageAnnotation;
-    if (annotation?.toolChoice != "manual") return false;
     const lastPart = lastMessage.parts.at(-1);
     if (!lastPart) return false;
     if (lastPart.type != "tool-invocation") return false;
-    if (lastPart.toolInvocation.state != "call") return false;
+    if (lastPart.toolInvocation.state == "result") return false;
     return true;
   }, [status, messages]);
 
-  const proxyToolCall = useCallback(
-    (answer: boolean) => {
-      if (!isPendingToolCall) throw new Error("Tool call is not supported");
-      setIsExecutingProxyToolCall(true);
-      return safe(async () => {
-        const lastMessage = messages.at(-1)!;
-        const lastPart = lastMessage.parts.at(-1)! as Extract<
-          UIMessage["parts"][number],
-          { type: "tool-invocation" }
-        >;
-        return addToolResult({
-          toolCallId: lastPart.toolInvocation.toolCallId,
-          result: answer,
-        });
-      })
-        .watch(() => setIsExecutingProxyToolCall(false))
-        .unwrap();
-    },
-    [isPendingToolCall, addToolResult],
-  );
+  const proxyToolCall = useCallback((result: ClientToolInvocation) => {
+    setIsExecutingProxyToolCall(true);
+    return safe(async () => {
+      const lastMessage = latestRef.current.messages.at(-1)!;
+      const lastPart = lastMessage.parts.at(-1)! as Extract<
+        UIMessage["parts"][number],
+        { type: "tool-invocation" }
+      >;
+      return addToolResult({
+        toolCallId: lastPart.toolInvocation.toolCallId,
+        result,
+      });
+    })
+      .watch(() => setIsExecutingProxyToolCall(false))
+      .unwrap();
+  }, []);
+
+  const showThink = useMemo(() => {
+    if (!isLoading) return false;
+    const lastMessage = messages.at(-1);
+    if (lastMessage?.role == "user") return true;
+    const lastPart = lastMessage?.parts.at(-1);
+    if (lastPart?.type == "step-start") return true;
+    return false;
+  }, [isLoading, messages.at(-1)]);
 
   useEffect(() => {
     appStoreMutate({ currentThreadId: threadId });
@@ -257,10 +277,7 @@ export default function ChatBot({
         slots?.emptySlot ? (
           slots.emptySlot
         ) : (
-          <ChatGreeting
-            append={append}
-            isLoadingTools={isMcpClientListLoading}
-          />
+          <ChatGreeting />
         )
       ) : (
         <>
@@ -274,13 +291,13 @@ export default function ChatBot({
                 <PreviewMessage
                   threadId={threadId}
                   messageIndex={index}
-                  key={index}
+                  key={message.id}
                   message={message}
                   status={status}
                   onPoxyToolCall={
-                    isLastMessage &&
                     isPendingToolCall &&
-                    !isExecutingProxyToolCall
+                    !isExecutingProxyToolCall &&
+                    isLastMessage
                       ? proxyToolCall
                       : undefined
                   }
@@ -294,8 +311,13 @@ export default function ChatBot({
                 />
               );
             })}
-            {status === "submitted" && messages.at(-1)?.role === "user" && (
-              <div className="min-h-[calc(55dvh-56px)]" />
+            {showThink && (
+              <>
+                <div className="w-full mx-auto max-w-3xl px-6 relative">
+                  <Think />
+                </div>
+                <div className="min-h-[calc(55dvh-56px)]" />
+              </>
             )}
             {error && <ErrorMessage error={error} />}
             <div className="min-w-0 min-h-52" />

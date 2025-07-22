@@ -85,6 +85,7 @@
     "framer-motion": "^12.15.0",
     "hast-util-to-jsx-runtime": "^2.3.6",
     "jose": "^6.0.11",
+    "json-schema": "^0.4.0",
     "lucide-react": "^0.486.0",
     "mermaid": "^11.6.0",
     "nanoid": "^5.1.5",

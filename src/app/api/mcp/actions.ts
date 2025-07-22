@@ -1,7 +1,7 @@
 "use server";
 import { z } from "zod";
 import { Safe, safe } from "ts-safe";
-import { errorToString } from "lib/utils";
+import { errorToString, safeJSONParse } from "lib/utils";
 import { McpServerSchema } from "lib/db/pg/schema.pg";
 import {
   getSessionContext,
@@ -103,15 +103,34 @@ export async function refreshMcpClientAction(id: string) {
 
 function safeCallToolResult(chain: Safe<any>) {
   return chain
+    .map((res) => {
+      if (res?.content && Array.isArray(res.content)) {
+        const parsedResult = {
+          ...res,
+          content: res.content.map((c) => {
+            if (c?.type === "text" && c?.text) {
+              const parsed = safeJSONParse(c.text);
+              return {
+                type: "text",
+                text: parsed.success ? parsed.value : c.text,
+              };
+            }
+            return c;
+          }),
+        };
+        return parsedResult;
+      }
+
+      return res;
+    })
     .ifFail((err) => {
-      console.error(err);
       return {
         isError: true,
-        content: [
-          JSON.stringify({
-            error: { message: errorToString(err), name: err?.name },
-          }),
-        ],
+        error: {
+          message: errorToString(err),
+          name: err?.name || "ERROR",
+        },
+        content: [],
       };
     })
     .unwrap();

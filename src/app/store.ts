@@ -3,6 +3,7 @@ import { persist } from "zustand/middleware";
 import { ChatThread, Project } from "app-types/chat";
 import { AllowedMCPServer, MCPServerInfo } from "app-types/mcp";
 import { OPENAI_VOICE } from "lib/ai/speech/open-ai/use-voice-chat.openai";
+import { AppDefaultToolkit } from "lib/ai/tools";
 
 export interface AppState {
   threadList: ChatThread[];
@@ -15,6 +16,8 @@ export interface AppState {
   openShortcutsPopup: boolean;
   openChatPreferences: boolean;
   mcpCustomizationPopup?: MCPServerInfo & { id: string };
+  allowedAppDefaultToolkit?: AppDefaultToolkit[];
+  generatingTitleThreadIds: string[];
   temporaryChat: {
     isOpen: boolean;
     instructions: string;
@@ -46,6 +49,7 @@ const initialState: AppState = {
   openShortcutsPopup: false,
   openChatPreferences: false,
   mcpCustomizationPopup: undefined,
+  allowedAppDefaultToolkit: [],
   temporaryChat: {
     isOpen: false,
     instructions: "",
@@ -60,6 +64,7 @@ const initialState: AppState = {
     },
   },
   isMcpClientListLoading: true,
+  generatingTitleThreadIds: [],
 };
 
 export const appStore = create<AppState & AppDispatch>()(
@@ -74,6 +79,9 @@ export const appStore = create<AppState & AppDispatch>()(
         toolChoice: state.toolChoice || initialState.toolChoice,
         allowedMcpServers:
           state.allowedMcpServers || initialState.allowedMcpServers,
+        allowedAppDefaultToolkit:
+          state.allowedAppDefaultToolkit ||
+          initialState.allowedAppDefaultToolkit,
         temporaryChat: {
           ...initialState.temporaryChat,
           ...state.temporaryChat,

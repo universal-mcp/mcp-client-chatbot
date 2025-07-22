@@ -25,7 +25,7 @@ import {
   Sun,
   MoonStar,
   ChevronRight,
-  User,
+  User as UserIcon,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { appStore } from "@/app/store";
@@ -38,14 +38,18 @@ import { getLocaleAction } from "@/i18n/get-locale";
 import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { DiscordIcon } from "ui/discord-icon";
+import { Session, User } from "better-auth";
 
-export function AppSidebarUser() {
+export function AppSidebarUser({
+  session,
+}: {
+  session?: { session: Session; user: User };
+}) {
   const appStoreMutate = appStore((state) => state.mutate);
-  const { data } = authClient.useSession();
   const t = useTranslations("Layout");
   const router = useRouter();
 
-  const user = data?.user;
+  const user = session?.user;
 
   const logout = () => {
     authClient.signOut().finally(() => {
@@ -94,7 +98,7 @@ export function AppSidebarUser() {
               className="cursor-pointer"
               onClick={() => router.push("/account")}
             >
-              <User className="size-4 text-foreground" />
+              <UserIcon className="size-4 text-foreground" />
               <span>{t("manageAccount")}</span>
             </DropdownMenuItem>
             <DropdownMenuItem

@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Building2, Users, Settings } from "lucide-react";
+import { ArrowLeft, Building2, Users, Settings, Loader } from "lucide-react";
 import { useActiveOrganization } from "@/lib/auth/client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -21,7 +21,6 @@ import useSWR from "swr";
 import { EditOrganizationModal } from "@/components/organization/edit-organization-modal";
 import { CreateOrganizationModal } from "@/components/organization/create-organization-modal";
 import { DeleteWorkspaceModal } from "@/components/organization/delete-workspace-modal";
-import { MessageLoading } from "@/components/ui/message-loading";
 
 export default function WorkspaceSettingsPage() {
   const { data: activeOrganization } = useActiveOrganization();
@@ -59,8 +58,8 @@ export default function WorkspaceSettingsPage() {
 
   if (isLoadingRole) {
     return (
-      <div className="container flex h-full items-center justify-center p-6">
-        <MessageLoading />
+      <div className="flex h-full w-full items-center justify-center">
+        <Loader className="size-5 animate-spin" />
       </div>
     );
   }

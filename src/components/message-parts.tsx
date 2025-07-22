@@ -9,54 +9,43 @@ import {
   ChevronDownIcon,
   RefreshCw,
   X,
-  Wrench,
   Trash2,
   ChevronRight,
   TriangleAlert,
+  HammerIcon,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "ui/tooltip";
 import { Button } from "ui/button";
 import { Markdown } from "./markdown";
 import { cn, safeJSONParse } from "lib/utils";
 import JsonView from "ui/json-view";
-import {
-  useMemo,
-  useState,
-  memo,
-  useEffect,
-  useRef,
-  Suspense,
-  useCallback,
-} from "react";
+import { useMemo, useState, memo, useEffect, useRef, useCallback } from "react";
 import { MessageEditor } from "./message-editor";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { useCopy } from "@/hooks/use-copy";
-
 import { AnimatePresence, motion } from "framer-motion";
 import {
   deleteMessageAction,
   deleteMessagesByChatIdAfterTimestampAction,
 } from "@/app/api/chat/actions";
-
 import { toast } from "sonner";
 import { safe } from "ts-safe";
-import { ChatMessageAnnotation } from "app-types/chat";
-import { DefaultToolName } from "lib/ai/tools/utils";
+import { ClientToolInvocation, ToolInvocationUIPart } from "app-types/chat";
 import { Skeleton } from "ui/skeleton";
-import { PieChart } from "./tool-invocation/pie-chart";
-import { BarChart } from "./tool-invocation/bar-chart";
-import { LineChart } from "./tool-invocation/line-chart";
 import { useTranslations } from "next-intl";
 import { extractMCPToolId } from "lib/ai/mcp/mcp-tool-id";
 import { Separator } from "ui/separator";
 import { Paperclip, ArrowUpRight } from "lucide-react";
 import { FileContentPopup } from "./file-content-popup";
+import { TextShimmer } from "ui/text-shimmer";
+import { DefaultToolName } from "lib/ai/tools";
+import equal from "fast-deep-equal";
+import dynamic from "next/dynamic";
 
 type MessagePart = UIMessage["parts"][number];
 
 type TextMessagePart = Extract<MessagePart, { type: "text" }>;
 type AssistMessagePart = Extract<MessagePart, { type: "text" }>;
-type ToolMessagePart = Extract<MessagePart, { type: "tool-invocation" }>;
 
 interface UserMessagePartProps {
   part: TextMessagePart;
@@ -81,11 +70,12 @@ interface AssistMessagePartProps {
 }
 
 interface ToolMessagePartProps {
-  part: ToolMessagePart;
-  message: UIMessage;
+  part: ToolInvocationUIPart;
+  messageId: string;
   showActions: boolean;
   isLast?: boolean;
-  onPoxyToolCall?: (answer: boolean) => void;
+  isManualToolInvocation?: boolean;
+  onPoxyToolCall?: (result: ClientToolInvocation) => void;
   isError?: boolean;
   setMessages?: UseChatHelpers["setMessages"];
   isReadOnly?: boolean;
@@ -93,15 +83,12 @@ interface ToolMessagePartProps {
 
 interface HighlightedTextProps {
   text: string;
-  mentions: string[];
 }
 
-const HighlightedText = memo(({ text, mentions }: HighlightedTextProps) => {
-  if (!mentions.length) return text;
-
+const HighlightedText = memo(({ text }: HighlightedTextProps) => {
   const parts = text.split(/(\s+)/);
   return parts.map((part, index) => {
-    if (mentions.includes(part.trim())) {
+    if (part.trim() === "```") {
       return (
         <span key={index} className="mention">
           {part}
@@ -114,187 +101,186 @@ const HighlightedText = memo(({ text, mentions }: HighlightedTextProps) => {
 
 HighlightedText.displayName = "HighlightedText";
 
-export const UserMessagePart = ({
-  part,
-  isLast,
-  status,
-  message,
-  setMessages,
-  reload,
-  isError,
-  isReadOnly,
-}: UserMessagePartProps) => {
-  const { copied, copy } = useCopy();
-  const [mode, setMode] = useState<"view" | "edit">("view");
-  const [isDeleting, setIsDeleting] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const toolMentions = useMemo(() => {
-    if (!message.annotations?.length) return [];
-    return Array.from(
-      new Set(
-        message.annotations
-          .flatMap((annotation) => {
-            return (annotation as ChatMessageAnnotation).mentions ?? [];
-          })
-          .filter(Boolean)
-          .map((v) => `@${v.name}`),
-      ),
-    );
-  }, [message.annotations]);
+export const UserMessagePart = memo(
+  function UserMessagePart({
+    part,
+    isLast,
+    status,
+    message,
+    setMessages,
+    reload,
+    isError,
+    isReadOnly,
+  }: UserMessagePartProps) {
+    const { copied, copy } = useCopy();
+    const [mode, setMode] = useState<"view" | "edit">("view");
+    const [isDeleting, setIsDeleting] = useState(false);
+    const ref = useRef<HTMLDivElement>(null);
+    const scrolledRef = useRef(false);
+    const fileAnnotations = useMemo(() => {
+      if (!message.annotations?.length) return [];
+      return message.annotations
+        .filter(
+          (ann): ann is { file: { filename: string; content: string } } =>
+            typeof ann === "object" &&
+            ann !== null &&
+            "file" in ann &&
+            !!ann.file,
+        )
+        .map((ann) => ann.file);
+    }, [message.annotations]);
 
-  const fileAnnotations = useMemo(() => {
-    if (!message.annotations?.length) return [];
-    return message.annotations
-      .filter(
-        (ann): ann is { file: { filename: string; content: string } } =>
-          typeof ann === "object" &&
-          ann !== null &&
-          "file" in ann &&
-          !!ann.file,
-      )
-      .map((ann) => ann.file);
-  }, [message.annotations]);
+    const deleteMessage = useCallback(() => {
+      safe(() => setIsDeleting(true))
+        .ifOk(() => deleteMessageAction(message.id))
+        .ifOk(() =>
+          setMessages((messages) => {
+            const index = messages.findIndex((m) => m.id === message.id);
+            if (index !== -1) {
+              return messages.filter((_, i) => i !== index);
+            }
+            return messages;
+          }),
+        )
+        .ifFail((error) => toast.error(error.message))
+        .watch(() => setIsDeleting(false))
+        .unwrap();
+    }, [message.id]);
 
-  const deleteMessage = useCallback(() => {
-    safe(() => setIsDeleting(true))
-      .ifOk(() => deleteMessageAction(message.id))
-      .ifOk(() =>
-        setMessages((messages) => {
-          const index = messages.findIndex((m) => m.id === message.id);
-          if (index !== -1) {
-            return messages.filter((_, i) => i !== index);
-          }
-          return messages;
-        }),
-      )
-      .ifFail((error) => toast.error(error.message))
-      .watch(() => setIsDeleting(false))
-      .unwrap();
-  }, [message.id]);
+    useEffect(() => {
+      if (status === "submitted" && isLast && !scrolledRef.current) {
+        scrolledRef.current = true;
+        ref.current?.scrollIntoView({ behavior: "smooth" });
+      }
+    }, [status]);
 
-  useEffect(() => {
-    if (status === "submitted" && isLast) {
-      ref.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [status]);
-
-  if (mode === "edit") {
-    return (
-      <div className="flex flex-row gap-2 items-start w-full">
-        <MessageEditor
-          message={message}
-          setMode={setMode}
-          setMessages={setMessages}
-          reload={reload}
-        />
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col gap-2 items-end my-2">
-      <div
-        data-testid="message-content"
-        className={cn(
-          "flex flex-col gap-4 max-w-full bg-accent text-accent-foreground px-4 py-3 rounded-2xl",
-          {
-            "opacity-50": isError,
-          },
-          isError && "border-destructive border",
-        )}
-      >
-        {fileAnnotations.length > 0 && (
-          <div className="flex flex-col gap-2 text-sm border-b pb-2">
-            {fileAnnotations.map((file, index) => (
-              <FileContentPopup
-                key={index}
-                content={file.content}
-                title={file.filename}
-              >
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs w-full justify-start"
-                >
-                  <Paperclip className="size-4 mr-2" />
-                  <span className="flex-1 truncate">{file.filename}</span>
-                  <ArrowUpRight className="size-4 ml-2" />
-                </Button>
-              </FileContentPopup>
-            ))}
-          </div>
-        )}
-        <p className={cn("whitespace-pre-wrap text-sm break-words")}>
-          <HighlightedText
-            text={part.text.replace(/"""[\s\S]*?"""/g, "")}
-            mentions={toolMentions}
+    if (mode === "edit") {
+      return (
+        <div className="flex flex-row gap-2 items-start w-full">
+          <MessageEditor
+            message={message}
+            setMode={setMode}
+            setMessages={setMessages}
+            reload={reload}
           />
-        </p>
-      </div>
+        </div>
+      );
+    }
 
-      <div className="flex w-full justify-end">
-        {isLast && !isReadOnly && (
-          <>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  data-testid="message-edit-button"
-                  variant="ghost"
-                  size="icon"
-                  className={cn(
-                    "size-3! p-4! opacity-0 group-hover/message:opacity-100",
-                  )}
-                  onClick={() => copy(part.text)}
-                  disabled={isReadOnly}
+    return (
+      <div className="flex flex-col gap-2 items-end my-2">
+        <div
+          data-testid="message-content"
+          className={cn(
+            "flex flex-col gap-4 max-w-full",
+            "flex flex-col gap-4 max-w-full ring ring-input",
+            {
+              "bg-accent text-accent-foreground px-4 py-3 rounded-2xl": isLast,
+              "opacity-50": isError,
+            },
+            isError && "border-destructive border",
+          )}
+        >
+          {fileAnnotations.length > 0 && (
+            <div className="flex flex-col gap-2 text-sm border-b pb-2">
+              {fileAnnotations.map((file, index) => (
+                <FileContentPopup
+                  key={index}
+                  content={file.content}
+                  title={file.filename}
                 >
-                  {copied ? <Check /> : <Copy />}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Copy</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  data-testid="message-edit-button"
-                  variant="ghost"
-                  size="icon"
-                  className="size-3! p-4! opacity-0 group-hover/message:opacity-100"
-                  onClick={() => setMode("edit")}
-                  disabled={isReadOnly}
-                >
-                  <Pencil />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Edit</TooltipContent>
-            </Tooltip>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs w-full justify-start"
+                  >
+                    <Paperclip className="size-4 mr-2" />
+                    <span className="flex-1 truncate">{file.filename}</span>
+                    <ArrowUpRight className="size-4 ml-2" />
+                  </Button>
+                </FileContentPopup>
+              ))}
+            </div>
+          )}
+          <p className={cn("whitespace-pre-wrap text-sm break-words")}>
+            <HighlightedText text={part.text.replace(/"""[\s\S]*?"""/g, "")} />
+          </p>
+        </div>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  disabled={isDeleting || isReadOnly}
-                  onClick={deleteMessage}
-                  variant="ghost"
-                  size="icon"
-                  className="size-3! p-4! opacity-0 group-hover/message:opacity-100 hover:text-destructive"
-                >
-                  {isDeleting ? (
-                    <Loader className="animate-spin" />
-                  ) : (
-                    <Trash2 />
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent className="text-destructive" side="bottom">
-                Delete Message
-              </TooltipContent>
-            </Tooltip>
-          </>
-        )}
+        <div className="flex w-full justify-end">
+          {isLast && !isReadOnly && (
+            <>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    data-testid="message-edit-button"
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                      "size-3! p-4! opacity-0 group-hover/message:opacity-100",
+                    )}
+                    onClick={() => copy(part.text)}
+                    disabled={isReadOnly}
+                  >
+                    {copied ? <Check /> : <Copy />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Copy</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    data-testid="message-edit-button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-3! p-4! opacity-0 group-hover/message:opacity-100"
+                    onClick={() => setMode("edit")}
+                    disabled={isReadOnly}
+                  >
+                    <Pencil />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Edit</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    disabled={isDeleting || isReadOnly}
+                    onClick={deleteMessage}
+                    variant="ghost"
+                    size="icon"
+                    className="size-3! p-4! opacity-0 group-hover/message:opacity-100 hover:text-destructive"
+                  >
+                    {isDeleting ? (
+                      <Loader className="animate-spin" />
+                    ) : (
+                      <Trash2 />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="text-destructive" side="bottom">
+                  Delete Message
+                </TooltipContent>
+              </Tooltip>
+            </>
+          )}
+        </div>
+        <div ref={ref} className="min-w-0" />
       </div>
-      <div ref={ref} className="min-w-0" />
-    </div>
-  );
-};
+    );
+  },
+  (prev, next) => {
+    if (prev.part.text != next.part.text) return false;
+    if (prev.isError != next.isError) return false;
+    if (prev.isLast != next.isLast) return false;
+    if (prev.status != next.status) return false;
+    if (prev.message.id != next.message.id) return false;
+    if (!equal(prev.part, next.part)) return false;
+    return true;
+  },
+);
+UserMessagePart.displayName = "UserMessagePart";
 
 export const AssistMessagePart = ({
   part,
@@ -346,7 +332,6 @@ export const AssistMessagePart = ({
       .ifOk(() =>
         reload({
           body: {
-            action: "update-assistant",
             id: threadId,
           },
         }),
@@ -357,9 +342,7 @@ export const AssistMessagePart = ({
   };
 
   return (
-    <div
-      className={cn(isLoading && "animate-pulse", "flex flex-col gap-2 group")}
-    >
+    <div className={cn(isLoading && "animate-pulse", "flex flex-col gap-2")}>
       <div
         data-testid="message-content"
         className={cn("flex flex-col gap-4 px-2", {
@@ -369,16 +352,14 @@ export const AssistMessagePart = ({
         <Markdown>{part.text}</Markdown>
       </div>
       {showActions && !isReadOnly && (
-        <div className="flex w-full ">
+        <div className="flex w-full">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 data-testid="message-edit-button"
                 variant="ghost"
                 size="icon"
-                className={cn(
-                  "size-3! p-4! opacity-0 group-hover/message:opacity-100",
-                )}
+                className="size-3! p-4!"
                 onClick={() => copy(part.text)}
                 disabled={isReadOnly}
               >
@@ -394,9 +375,7 @@ export const AssistMessagePart = ({
                 variant="ghost"
                 size="icon"
                 onClick={refreshAnswer}
-                className={cn(
-                  "size-3! p-4! opacity-0 group-hover/message:opacity-100",
-                )}
+                className="size-3! p-4!"
                 disabled={isReadOnly}
               >
                 {<RefreshCw />}
@@ -411,7 +390,7 @@ export const AssistMessagePart = ({
                 size="icon"
                 disabled={isDeleting || isReadOnly}
                 onClick={deleteMessage}
-                className="size-3! p-4! opacity-0 group-hover/message:opacity-100 hover:text-destructive"
+                className="size-3! p-4! hover:text-destructive"
               >
                 {isDeleting ? <Loader className="animate-spin" /> : <Trash2 />}
               </Button>
@@ -433,11 +412,12 @@ export const ToolMessagePart = memo(
     showActions,
     onPoxyToolCall,
     isError,
-    message,
+    messageId,
     setMessages,
+    isManualToolInvocation,
     isReadOnly,
   }: ToolMessagePartProps) => {
-    const t = useTranslations("Common");
+    const t = useTranslations("");
     const { toolInvocation } = part;
     const { toolName, toolCallId, state, args } = toolInvocation;
     const [expanded, setExpanded] = useState(false);
@@ -447,10 +427,10 @@ export const ToolMessagePart = memo(
     const isExecuting = state !== "result" && (isLast || onPoxyToolCall);
     const deleteMessage = useCallback(() => {
       safe(() => setIsDeleting(true))
-        .ifOk(() => deleteMessageAction(message.id))
+        .ifOk(() => deleteMessageAction(messageId))
         .ifOk(() =>
           setMessages?.((messages) => {
-            const index = messages.findIndex((m) => m.id === message.id);
+            const index = messages.findIndex((m) => m.id === messageId);
             if (index !== -1) {
               return messages.filter((_, i) => i !== index);
             }
@@ -460,69 +440,79 @@ export const ToolMessagePart = memo(
         .ifFail((error) => toast.error(error.message))
         .watch(() => setIsDeleting(false))
         .unwrap();
-    }, [message.id, setMessages]);
+    }, [messageId]);
+
+    const onToolCallDirect = useMemo(
+      () =>
+        onPoxyToolCall
+          ? (result: any) => {
+              return onPoxyToolCall({
+                action: "direct",
+                result,
+              });
+            }
+          : undefined,
+      [onPoxyToolCall],
+    );
+
+    const result = useMemo(() => {
+      if (state === "result") {
+        return Array.isArray(toolInvocation.result?.content)
+          ? {
+              ...toolInvocation.result,
+              content: toolInvocation.result.content.map((node) => {
+                // mcp tools
+                if (node?.type === "text" && typeof node?.text === "string") {
+                  const parsed = safeJSONParse(node.text);
+                  return {
+                    ...node,
+                    text: parsed.success ? parsed.value : node.text,
+                  };
+                }
+                return node;
+              }),
+            }
+          : toolInvocation.result;
+      }
+      return null;
+    }, [state, (toolInvocation as any).result]);
+
     const ToolResultComponent = useMemo(() => {
+      if (
+        toolName === DefaultToolName.WebSearch ||
+        toolName === DefaultToolName.WebContent
+      ) {
+        return <WebSearchToolInvocation part={toolInvocation} />;
+      }
+
+      if (toolName === DefaultToolName.PythonExecution) {
+        return (
+          <CodeExecutor
+            part={toolInvocation}
+            onResult={onToolCallDirect}
+            type="python"
+          />
+        );
+      }
+
       if (state === "result") {
         switch (toolName) {
           case DefaultToolName.CreatePieChart:
             return (
-              <Suspense
-                fallback={<Skeleton className="h-64 w-full rounded-md" />}
-              >
-                <PieChart
-                  key={`${toolCallId}-${toolName}`}
-                  {...(args as any)}
-                />
-              </Suspense>
+              <PieChart key={`${toolCallId}-${toolName}`} {...(args as any)} />
             );
           case DefaultToolName.CreateBarChart:
             return (
-              <Suspense
-                fallback={<Skeleton className="h-64 w-full rounded-md" />}
-              >
-                <BarChart
-                  key={`${toolCallId}-${toolName}`}
-                  {...(args as any)}
-                />
-              </Suspense>
+              <BarChart key={`${toolCallId}-${toolName}`} {...(args as any)} />
             );
           case DefaultToolName.CreateLineChart:
             return (
-              <Suspense
-                fallback={<Skeleton className="h-64 w-full rounded-md" />}
-              >
-                <LineChart
-                  key={`${toolCallId}-${toolName}`}
-                  {...(args as any)}
-                />
-              </Suspense>
+              <LineChart key={`${toolCallId}-${toolName}`} {...(args as any)} />
             );
         }
       }
       return null;
-    }, [toolName, state]);
-
-    const result = useMemo(() => {
-      if (state === "result") {
-        if (
-          toolInvocation.result?.content &&
-          Array.isArray(toolInvocation.result.content)
-        ) {
-          return toolInvocation.result.content.map((node) => {
-            if (node.type === "text") {
-              const parsed = safeJSONParse(node.text);
-              return {
-                ...node,
-                text: parsed.success ? parsed.value : node.text,
-              };
-            }
-            return node;
-          });
-        }
-        return toolInvocation.result;
-      }
-      return null;
-    }, [state, toolInvocation]);
+    }, [toolName, state, onToolCallDirect, result, args]);
 
     const { serverName: mcpServerName, toolName: mcpToolName } = useMemo(() => {
       return extractMCPToolId(toolName);
@@ -533,7 +523,7 @@ export const ToolMessagePart = memo(
     }, [expanded, result]);
 
     return (
-      <div key={toolCallId} className="group w-full">
+      <div className="group w-full">
         {ToolResultComponent ? (
           ToolResultComponent
         ) : (
@@ -548,11 +538,15 @@ export const ToolMessagePart = memo(
                 ) : isError ? (
                   <TriangleAlert className="size-3.5 text-destructive" />
                 ) : (
-                  <Wrench className="size-3.5" />
+                  <HammerIcon className="size-3.5" />
                 )}
               </div>
               <span className="font-bold flex items-center gap-2">
-                {mcpServerName}
+                {isExecuting ? (
+                  <TextShimmer>{mcpServerName}</TextShimmer>
+                ) : (
+                  mcpServerName
+                )}
               </span>
               {mcpToolName && (
                 <>
@@ -677,27 +671,31 @@ export const ToolMessagePart = memo(
                       </div>
                     )}
 
-                    {onPoxyToolCall && (
+                    {onPoxyToolCall && isManualToolInvocation && (
                       <div className="flex flex-row gap-2 items-center mt-2">
                         <Button
                           variant="secondary"
                           size="sm"
                           className="rounded-full text-xs hover:ring"
-                          onClick={() => onPoxyToolCall(true)}
+                          onClick={() =>
+                            onPoxyToolCall({ action: "manual", result: true })
+                          }
                           disabled={isReadOnly}
                         >
                           <Check />
-                          {t("approve")}
+                          {t("Common.approve")}
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
                           className="rounded-full text-xs"
-                          onClick={() => onPoxyToolCall(false)}
+                          onClick={() =>
+                            onPoxyToolCall({ action: "manual", result: false })
+                          }
                           disabled={isReadOnly}
                         >
                           <X />
-                          {t("reject")}
+                          {t("Common.reject")}
                         </Button>
                       </div>
                     )}
@@ -735,16 +733,28 @@ export const ToolMessagePart = memo(
       </div>
     );
   },
+  (prev, next) => {
+    if (prev.isError !== next.isError) return false;
+    if (prev.isLast !== next.isLast) return false;
+    if (prev.onPoxyToolCall !== next.onPoxyToolCall) return false;
+    if (prev.showActions !== next.showActions) return false;
+    if (prev.isManualToolInvocation !== next.isManualToolInvocation)
+      return false;
+    if (prev.messageId !== next.messageId) return false;
+    return true;
+  },
 );
 
 ToolMessagePart.displayName = "ToolMessagePart";
-export function ReasoningPart({
+
+export const ReasoningPart = memo(function ReasoningPart({
   reasoning,
+  isThinking,
 }: {
   reasoning: string;
   isThinking?: boolean;
 }) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(isThinking);
 
   const variants = {
     collapsed: {
@@ -761,6 +771,12 @@ export function ReasoningPart({
     },
   };
 
+  useEffect(() => {
+    if (!isThinking && isExpanded) {
+      setIsExpanded(false);
+    }
+  }, [isThinking]);
+
   return (
     <div
       className="flex flex-col cursor-pointer"
@@ -769,7 +785,12 @@ export function ReasoningPart({
       }}
     >
       <div className="flex flex-row gap-2 items-center text-ring hover:text-primary transition-colors">
-        <div className="font-medium">Reasoned for a few seconds</div>
+        {isThinking ? (
+          <TextShimmer>Reasoned for a few seconds</TextShimmer>
+        ) : (
+          <div className="font-medium">Reasoned for a few seconds</div>
+        )}
+
         <button
           data-testid="message-reasoning-toggle"
           type="button"
@@ -800,4 +821,56 @@ export function ReasoningPart({
       </div>
     </div>
   );
-}
+});
+ReasoningPart.displayName = "ReasoningPart";
+const loading = memo(function Loading() {
+  return (
+    <div className="px-6 py-4">
+      <Skeleton className="h-44 w-full rounded-md" />
+    </div>
+  );
+});
+
+const PieChart = dynamic(
+  () => import("./tool-invocation/pie-chart").then((mod) => mod.PieChart),
+  {
+    ssr: false,
+    loading,
+  },
+);
+
+const BarChart = dynamic(
+  () => import("./tool-invocation/bar-chart").then((mod) => mod.BarChart),
+  {
+    ssr: false,
+    loading,
+  },
+);
+
+const LineChart = dynamic(
+  () => import("./tool-invocation/line-chart").then((mod) => mod.LineChart),
+  {
+    ssr: false,
+    loading,
+  },
+);
+
+const WebSearchToolInvocation = dynamic(
+  () =>
+    import("./tool-invocation/web-search").then(
+      (mod) => mod.WebSearchToolInvocation,
+    ),
+  {
+    ssr: false,
+    loading,
+  },
+);
+
+const CodeExecutor = dynamic(
+  () =>
+    import("./tool-invocation/code-executor").then((mod) => mod.CodeExecutor),
+  {
+    ssr: false,
+    loading,
+  },
+);

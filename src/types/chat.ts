@@ -69,7 +69,6 @@ export type ChatMention =
     };
 
 export type ChatMessageAnnotation = {
-  mentions?: ChatMention[];
   usageTokens?: number;
   toolChoice?: "auto" | "none" | "manual";
   file?: {
@@ -78,10 +77,6 @@ export type ChatMessageAnnotation = {
   };
   [key: string]: any;
 };
-
-export enum AppDefaultToolkit {
-  Visualization = "visualization",
-}
 
 export const chatApiSchemaRequestBodySchema = z.object({
   id: z.string(),
@@ -120,7 +115,11 @@ export type ChatRepository = {
     organizationId: string | null,
   ): Promise<ChatThread | null>;
 
-  getPublicThread(id: string): Promise<ChatThread | null>;
+  getPublicThread(
+    id: string,
+  ): Promise<
+    (ChatThread & { userEmail: string | null; userName: string | null }) | null
+  >;
 
   deleteChatMessage(
     id: string,
@@ -134,7 +133,9 @@ export type ChatRepository = {
     organizationId: string | null,
   ): Promise<
     | (ChatThread & {
+        instructions: Project["instructions"] | null;
         messages: ChatMessage[];
+        userPreferences?: UserPreferences;
       })
     | null
   >;
@@ -178,6 +179,10 @@ export type ChatRepository = {
     thread: Partial<Omit<ChatThread, "id" | "createdAt">>,
     userId: string,
     organizationId: string | null,
+  ): Promise<ChatThread>;
+
+  upsertThread(
+    thread: PartialBy<Omit<ChatThread, "createdAt">, "projectId" | "userId">,
   ): Promise<ChatThread>;
 
   deleteThread(
@@ -255,13 +260,13 @@ export type ChatRepository = {
     userId: string,
     organizationId: string | null,
   ): Promise<ChatMessage[]>;
-
-  getProjectInstructionsAndUserPreferences(
-    userId: string,
-    projectId: string | null,
-    organizationId: string | null,
-  ): Promise<{
-    instructions: Project["instructions"] | null;
-    userPreferences: UserPreferences | undefined;
-  }>;
 };
+
+export const ClientToolInvocationZodSchema = z.object({
+  action: z.enum(["manual", "direct"]),
+  result: z.any().optional(),
+});
+
+export type ClientToolInvocation = z.infer<
+  typeof ClientToolInvocationZodSchema
+>;

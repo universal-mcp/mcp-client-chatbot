@@ -100,8 +100,8 @@ export default function ProjectPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <Loader className="animate-spin" />
+      <div className="flex h-full w-full items-center justify-center">
+        <Loader className="size-5 animate-spin" />
       </div>
     );
   }
