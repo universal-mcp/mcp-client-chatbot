@@ -67,7 +67,6 @@ export default function ChatBot({
     allowedAppDefaultToolkit,
     allowedMcpServers,
     threadList,
-    isMcpClientListLoading,
   ] = appStore(
     useShallow((state) => [
       state.mutate,
@@ -78,7 +77,7 @@ export default function ChatBot({
       state.isMcpClientListLoading,
     ]),
   );
-  const router = useRouter();
+  // const router = useRouter();
   const generateTitle = useGenerateThreadTitle({
     threadId,
   });
@@ -129,10 +128,7 @@ export default function ChatBot({
           generateTitle(part.text);
         }
       } else if (latestRef.current.threadList[0]?.id !== threadId) {
-        mutate("threads");
-      }
-      if (projectId) {
-        router.replace(`/chat/${threadId}`);
+        mutate("/api/thread/list");
       }
     },
     onError: (error) => {
@@ -281,10 +277,7 @@ export default function ChatBot({
         slots?.emptySlot ? (
           slots.emptySlot
         ) : (
-          <ChatGreeting
-            append={append}
-            isLoadingTools={isMcpClientListLoading}
-          />
+          <ChatGreeting />
         )
       ) : (
         <>

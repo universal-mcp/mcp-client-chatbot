@@ -17,7 +17,8 @@ import { ToolSelectDropdown } from "./tool-select-dropdown";
 import { Tooltip, TooltipContent, TooltipTrigger } from "ui/tooltip";
 import { useTranslations } from "next-intl";
 import { cn } from "lib/utils";
-import { toast } from "sonner";
+import { Button } from "ui/button";
+import { notImplementedToast } from "ui/shared-toast";
 
 interface PromptInputProps {
   placeholder?: string;
@@ -46,11 +47,9 @@ export default function PromptInput({
 }: PromptInputProps) {
   const t = useTranslations("Chat");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [attachedFiles, setAttachedFiles] = useState<
     { name: string; content: string }[]
   >([]);
-  const [isUploading, setIsUploading] = useState(false);
 
   const [
     currentThreadId,
@@ -96,47 +95,6 @@ export default function PromptInput({
 
     if (textareaRef.current) {
       textareaRef.current.focus();
-    }
-  };
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    setIsUploading(true);
-    try {
-      const uploadPromises = Array.from(files).map(async (file) => {
-        const formData = new FormData();
-        formData.append("file", file);
-        const response = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          return { name: data.filename, content: data.content };
-        } else {
-          const errorData = await response.json();
-          toast.error(
-            `Failed to upload ${file.name}: ${errorData.error || "Unknown error"}`,
-          );
-          return null;
-        }
-      });
-
-      const uploadedFiles = (await Promise.all(uploadPromises)).filter(
-        Boolean,
-      ) as { name: string; content: string }[];
-      setAttachedFiles((prev) => [...prev, ...uploadedFiles]);
-    } catch (error) {
-      console.error("File upload error:", error);
-      toast.error("An error occurred during file upload.");
-    } finally {
-      setIsUploading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
     }
   };
 
@@ -194,7 +152,7 @@ export default function PromptInput({
             onClick={handleContainerClick}
             className={cn(
               "rounded-4xl backdrop-blur-sm transition-all duration-200 bg-muted/80 relative flex w-full flex-col z-10 border items-stretch p-3",
-              isLoadingTools || isUploading
+              isLoadingTools
                 ? "cursor-wait border-primary/50 animate-pulse"
                 : "cursor-text focus-within:border-muted-foreground hover:border-muted-foreground",
             )}
@@ -228,32 +186,23 @@ export default function PromptInput({
                   placeholder={
                     disabled
                       ? t("readOnlyPlaceholder")
-                      : isUploading
-                        ? "Parsing file..."
-                        : (placeholder ?? t("placeholder"))
+                      : (placeholder ?? t("placeholder"))
                   }
                   className="w-full resize-none border-none bg-transparent outline-none text-foreground placeholder:text-muted-foreground min-h-[2rem] max-h-[200px] overflow-y-auto leading-6 px-2 py-1 text-base placeholder:text-base"
                   rows={1}
-                  disabled={
-                    isLoading || isLoadingTools || disabled || isUploading
-                  }
+                  disabled={isLoading || isLoadingTools || disabled}
                 />
               </div>
 
               <div className="flex w-full items-center z-30 gap-1.5">
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileChange}
-                  className="hidden"
-                  multiple
-                />
-                <div
-                  className="cursor-not-allowed opacity-50 text-muted-foreground border rounded-full p-2 bg-transparent transition-all duration-200 interactive-element"
-                  // onClick={() => fileInputRef.current?.click()}
+                <Button
+                  variant={"ghost"}
+                  size={"sm"}
+                  className="rounded-full hover:bg-input! p-2!"
+                  onClick={notImplementedToast}
                 >
-                  <Paperclip className="size-4" />
-                </div>
+                  <Paperclip />
+                </Button>
 
                 {!toolDisabled && (
                   <>
@@ -281,14 +230,7 @@ export default function PromptInput({
                 )}
                 <div className="flex-1" />
 
-                {isUploading ? (
-                  <div className="p-2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                  </div>
-                ) : !isLoading &&
-                  !input.length &&
-                  !voiceDisabled &&
-                  !disabled ? (
+                {!isLoading && !input.length && !voiceDisabled && !disabled ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div
