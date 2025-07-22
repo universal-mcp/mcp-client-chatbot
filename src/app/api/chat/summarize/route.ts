@@ -3,14 +3,12 @@ import { selectThreadWithMessagesAction } from "../actions";
 import { customModelProvider } from "lib/ai/models";
 import { SUMMARIZE_PROMPT } from "lib/ai/prompts";
 import logger from "logger";
-import { ChatModel } from "app-types/chat";
 
 export async function POST(request: Request) {
   try {
     const json = await request.json();
-    const { threadId, chatModel } = json as {
+    const { threadId } = json as {
       threadId: string;
-      chatModel?: ChatModel;
     };
 
     const thread = await selectThreadWithMessagesAction(threadId);
@@ -39,7 +37,7 @@ export async function POST(request: Request) {
     );
 
     const result = streamText({
-      model: customModelProvider.getModel(chatModel),
+      model: customModelProvider.getModel(),
       system: SUMMARIZE_PROMPT,
       experimental_transform: smoothStream({ chunking: "word" }),
       messages,

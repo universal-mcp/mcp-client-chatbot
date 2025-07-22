@@ -10,7 +10,7 @@ import {
   Tool,
 } from "ai";
 
-import { customModelProvider, isToolCallUnsupportedModel } from "lib/ai/models";
+import { customModelProvider } from "lib/ai/models";
 
 import { mcpGateway } from "lib/ai/mcp/mcp-gateway";
 
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
       projectId,
     } = chatApiSchemaRequestBodySchema.parse(json);
 
-    const model = customModelProvider.getModel(undefined);
+    const model = customModelProvider.getModel();
 
     let thread = await chatRepository.selectThreadDetails(
       id,
@@ -128,8 +128,7 @@ export async function POST(request: Request) {
 
     const inProgressToolStep = extractInProgressToolPart(messages.slice(-2));
 
-    const isToolCallAllowed =
-      !isToolCallUnsupportedModel(model) && toolChoice != "none";
+    const isToolCallAllowed = toolChoice != "none";
 
     return createDataStreamResponse({
       execute: async (dataStream) => {

@@ -51,13 +51,13 @@ export function AppSidebarMenus() {
           <TooltipProvider>
             <Tooltip>
               <SidebarMenuItem>
-                <Link href="/project">
+                <Link href="/integrations">
                   <SidebarMenuButton
                     className="font-semibold"
-                    isActive={pathname === "/project"}
+                    isActive={pathname === "/integrations"}
                   >
-                    <Bot className="size-4" />
-                    Assistants
+                    <MCPIcon className="size-4 fill-accent-foreground" />
+                    MCP Integrations
                   </SidebarMenuButton>
                 </Link>
               </SidebarMenuItem>
@@ -68,13 +68,13 @@ export function AppSidebarMenus() {
           <TooltipProvider>
             <Tooltip>
               <SidebarMenuItem>
-                <Link href="/integrations">
+                <Link href="/project">
                   <SidebarMenuButton
                     className="font-semibold"
-                    isActive={pathname === "/integrations"}
+                    isActive={pathname === "/project"}
                   >
-                    <MCPIcon className="size-4 fill-accent-foreground" />
-                    MCP Integrations
+                    <Bot className="size-4" />
+                    Assistants
                   </SidebarMenuButton>
                 </Link>
               </SidebarMenuItem>
