@@ -81,6 +81,26 @@ interface ToolMessagePartProps {
   isReadOnly?: boolean;
 }
 
+interface HighlightedTextProps {
+  text: string;
+}
+
+const HighlightedText = memo(({ text }: HighlightedTextProps) => {
+  const parts = text.split(/(\s+)/);
+  return parts.map((part, index) => {
+    if (part.trim() === "```") {
+      return (
+        <span key={index} className="mention">
+          {part}
+        </span>
+      );
+    }
+    return part;
+  });
+});
+
+HighlightedText.displayName = "HighlightedText";
+
 export const UserMessagePart = memo(
   function UserMessagePart({
     part,
@@ -182,6 +202,9 @@ export const UserMessagePart = memo(
               ))}
             </div>
           )}
+          <p className={cn("whitespace-pre-wrap text-sm break-words")}>
+            <HighlightedText text={part.text.replace(/"""[\s\S]*?"""/g, "")} />
+          </p>
         </div>
 
         <div className="flex w-full justify-end">

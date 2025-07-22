@@ -21,17 +21,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "ui/dropdown-menu";
-import {
-  deleteThreadsAction,
-  selectThreadListByUserIdAction,
-} from "@/app/api/chat/actions";
+import { deleteThreadsAction } from "@/app/api/chat/actions";
+import { fetcher } from "lib/utils";
 import { toast } from "sonner";
 import { useShallow } from "zustand/shallow";
 import { useRouter } from "next/navigation";
 import useSWR, { mutate } from "swr";
 import { handleErrorWithToast } from "ui/shared-toast";
-import { useEffect, useMemo, useState } from "react";
-import { authClient } from "auth/client";
+import { useMemo, useState } from "react";
+
 import { useTranslations } from "next-intl";
 import { TextShimmer } from "ui/text-shimmer";
 import { Tooltip, TooltipContent, TooltipTrigger } from "ui/tooltip";
@@ -59,12 +57,7 @@ export function AppSidebarThreads() {
   // State to track if expanded view is active
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const {
-    data: threadList,
-    isLoading,
-    isValidating,
-    error,
-  } = useSWR("threads", selectThreadListByUserIdAction, {
+  const { data: threadList, isLoading } = useSWR("/api/thread/list", fetcher, {
     onError: handleErrorWithToast,
     fallbackData: [],
     onSuccess: (data) => {
@@ -94,7 +87,6 @@ export function AppSidebarThreads() {
         };
       });
     },
-    revalidateOnFocus: false,
   });
 
   // Check if we have 40 or more threads to display "View All" button
@@ -112,7 +104,7 @@ export function AppSidebarThreads() {
     if (!displayThreadList || displayThreadList.length === 0) {
       return [];
     }
-    console.log("displayThreadList", displayThreadList);
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -130,10 +122,12 @@ export function AppSidebarThreads() {
     ];
 
     displayThreadList.forEach((thread) => {
-      const threadDate = thread.lastMessageAt
-        ? new Date(thread.lastMessageAt)
-        : thread.createdAt;
+      const threadDate =
+        (thread.lastMessageAt
+          ? new Date(thread.lastMessageAt)
+          : new Date(thread.createdAt)) || new Date();
       threadDate.setHours(0, 0, 0, 0);
+
       if (threadDate.getTime() === today.getTime()) {
         groups[0].threads.push(thread);
       } else if (threadDate.getTime() === yesterday.getTime()) {
@@ -153,7 +147,7 @@ export function AppSidebarThreads() {
     await toast.promise(deleteThreadsAction(), {
       loading: t("deletingAllChats"),
       success: () => {
-        mutate("threads");
+        mutate("/api/thread/list");
         router.push("/");
         return t("allChatsDeleted");
       },
@@ -161,15 +155,7 @@ export function AppSidebarThreads() {
     });
   };
 
-  useEffect(() => {
-    if (error) {
-      authClient.signOut().finally(() => {
-        window.location.href = "/sign-in";
-      });
-    }
-  }, [error]);
-
-  if (isLoading || isValidating || threadList?.length === 0)
+  if (isLoading || threadList?.length === 0)
     return (
       <SidebarGroup>
         <SidebarGroupContent className="group-data-[collapsible=icon]:hidden group/threads">
@@ -203,7 +189,7 @@ export function AppSidebarThreads() {
                 </DropdownMenu>
               </SidebarGroupLabel>
 
-              {isLoading || isValidating ? (
+              {isLoading ? (
                 Array.from({ length: 12 }).map(
                   (_, index) => mounted && <SidebarMenuSkeleton key={index} />,
                 )

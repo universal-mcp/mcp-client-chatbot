@@ -51,6 +51,14 @@ async function ensurePyodideLoaded(): Promise<any> {
     return (globalThis as any).loadPyodide;
   }
 
+  // For web worker
+  if (typeof self !== "undefined" && "importScripts" in self) {
+    (self as any).importScripts(
+      "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js",
+    );
+    return (globalThis as any).loadPyodide;
+  }
+
   // 이미 script 엘리먼트가 head에 있으면 기다리기만
   const existingScript = document.querySelector<HTMLScriptElement>(
     'script[src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"]',

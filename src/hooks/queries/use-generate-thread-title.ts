@@ -68,7 +68,7 @@ export function useGenerateThreadTitle(option: {
           },
         });
       })
-        .ifOk(() => mutate("threads"))
+        .ifOk(() => mutate("/api/thread/list"))
         .watch(() => {
           appStore.setState((prev) => ({
             generatingTitleThreadIds: prev.generatingTitleThreadIds.filter(
