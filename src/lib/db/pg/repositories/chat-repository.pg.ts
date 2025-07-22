@@ -65,14 +65,30 @@ export const pgChatRepository: ChatRepository = {
       );
   },
 
-  getPublicThread: async (id: string): Promise<ChatThread | null> => {
+  getPublicThread: async (
+    id: string,
+  ): Promise<
+    (ChatThread & { userEmail: string | null; userName: string | null }) | null
+  > => {
     const [result] = await db
-      .select()
+      .select({
+        thread: ChatThreadSchema,
+        userEmail: UserSchema.email,
+        userName: UserSchema.name,
+      })
       .from(ChatThreadSchema)
+      .leftJoin(UserSchema, eq(ChatThreadSchema.userId, UserSchema.id))
       .where(
         and(eq(ChatThreadSchema.id, id), eq(ChatThreadSchema.isPublic, true)),
       );
-    return result;
+
+    if (!result) return null;
+
+    return {
+      ...result.thread,
+      userEmail: result.userEmail,
+      userName: result.userName,
+    };
   },
 
   selectThread: async (
@@ -548,6 +564,7 @@ export const pgChatRepository: ChatRepository = {
         createdAt: ProjectSchema.createdAt,
         updatedAt: ProjectSchema.updatedAt,
         userId: ProjectSchema.userId,
+        instructions: ProjectSchema.instructions,
         lastThreadAt:
           sql<string>`COALESCE(MAX(${ChatThreadSchema.createdAt}), '1970-01-01')`.as(
             `last_thread_at`,

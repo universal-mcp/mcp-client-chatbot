@@ -115,7 +115,11 @@ export type ChatRepository = {
     organizationId: string | null,
   ): Promise<ChatThread | null>;
 
-  getPublicThread(id: string): Promise<ChatThread | null>;
+  getPublicThread(
+    id: string,
+  ): Promise<
+    (ChatThread & { userEmail: string | null; userName: string | null }) | null
+  >;
 
   deleteChatMessage(
     id: string,
