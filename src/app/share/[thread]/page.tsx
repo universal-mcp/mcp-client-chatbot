@@ -8,9 +8,9 @@ import { notFound } from "next/navigation";
 export default async function SharedChatPage({
   params,
 }: {
-  params: { thread: string };
+  params: Promise<{ thread: string }>;
 }) {
-  const threadId = params.thread;
+  const { thread: threadId } = await params;
   const thread = await getPublicThreadAction(threadId);
 
   if (!thread) {

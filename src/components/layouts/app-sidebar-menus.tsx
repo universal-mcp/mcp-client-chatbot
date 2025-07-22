@@ -12,6 +12,7 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { MCPIcon } from "ui/mcp-icon";
 import { WriteIcon } from "ui/write-icon";
+import { Bot } from "lucide-react";
 
 export function AppSidebarMenus() {
   const pathname = usePathname();
@@ -40,6 +41,23 @@ export function AppSidebarMenus() {
                         </span>
                       ))}
                     </div>
+                  </SidebarMenuButton>
+                </Link>
+              </SidebarMenuItem>
+            </Tooltip>
+          </TooltipProvider>
+        </SidebarMenu>
+        <SidebarMenu>
+          <TooltipProvider>
+            <Tooltip>
+              <SidebarMenuItem>
+                <Link href="/project">
+                  <SidebarMenuButton
+                    className="font-semibold"
+                    isActive={pathname === "/project"}
+                  >
+                    <Bot className="size-4" />
+                    Assistants
                   </SidebarMenuButton>
                 </Link>
               </SidebarMenuItem>
