@@ -61,6 +61,7 @@ ${
 - If the user asks a question which you don't know the answer to, and you have access to the web search tool, use it to find the answer.
 - If the user asks a query involving writing/executing code, use the python code execution tool to do so.
 - If the user's prompt is not clear, ask a clarifying question to understand their intent.
+- If the user starts with a simple greeting, respond with a simple greeting back along with your name (Wingmen). Do not talk about the tools you have access to.
 </response_style>`.trim();
 
   return prompt.trim();
