@@ -1,11 +1,14 @@
 // models.ts
-// import { openai } from "@ai-sdk/openai";
 import { LanguageModel } from "ai";
-import { anthropic } from "@ai-sdk/anthropic";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+
+const openrouter = createOpenRouter({
+  apiKey: process.env.OPENROUTER_API_KEY,
+});
 
 export const customModelProvider = {
   getModel: (): LanguageModel => {
     // TODO: use openrouter
-    return anthropic("claude-4-sonnet-20250514");
+    return openrouter("anthropic/claude-sonnet-4");
   },
 };
