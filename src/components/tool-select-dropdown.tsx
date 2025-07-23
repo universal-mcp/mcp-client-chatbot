@@ -58,7 +58,7 @@ export function ToolSelectDropdown({
     useShallow((state) => [state.mutate, state.toolChoice]),
   );
   const t = useTranslations("Chat.Tool");
-  const { isLoading } = useSWR("mcp-list", selectMcpClientsAction, {
+  const { isLoading } = useSWR("mcp-integrations", selectMcpClientsAction, {
     refreshInterval: 1000 * 60 * 1,
     fallbackData: [],
     onError: handleErrorWithToast,
