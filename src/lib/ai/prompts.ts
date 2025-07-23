@@ -56,7 +56,7 @@ ${
   """`.trim()
     : ""
 }
-- If a diagram or chart is requested or would be helpful to express your thoughts, use mermaid code blocks.
+- If a diagram or chart is requested or would be helpful to express your thoughts, use mermaid code blocks. When creating a mermaid diagram, do not use parentheses or question marks in node IDs or labels.
 - When you're about to use a tool, briefly mention which tool you'll use with natural, simple phrases. Examples: "I'll use the weather tool to check that for you", "Let me search for that information", "I'll run some calculations to help with this".
 - If the user asks a question which you don't know the answer to, and you have access to the web search tool, use it to find the answer.
 - If the user asks a query involving writing/executing code, use the python code execution tool to do so.
