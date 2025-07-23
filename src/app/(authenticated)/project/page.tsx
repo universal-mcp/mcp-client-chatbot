@@ -385,21 +385,21 @@ export default function ProjectsPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("assistants");
 
-  const {
-    data: projects = [],
-    isLoading,
-    isValidating,
-  } = useSWR("projects", selectProjectListByUserIdAction, {
-    onError: handleErrorWithToast,
-    revalidateOnFocus: false,
-  });
+  const { data: projects = [], isLoading } = useSWR(
+    "projects",
+    selectProjectListByUserIdAction,
+    {
+      onError: handleErrorWithToast,
+      revalidateOnFocus: false,
+    },
+  );
 
   const handleAssistantClick = (projectId: string) => {
     router.push(`/project/${projectId}`);
   };
 
   const renderAssistantsContent = () => {
-    if (isLoading || isValidating) {
+    if (isLoading) {
       return (
         <div className="flex items-center justify-center h-[60vh]">
           <div className="flex flex-col items-center gap-3">

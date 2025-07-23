@@ -37,16 +37,16 @@ export function AppSidebarProjects() {
     useShallow((state) => [state.mutate, state.currentProjectId]),
   );
 
-  const {
-    data: projectList,
-    isLoading,
-    isValidating,
-  } = useSWR("projects", selectProjectListByUserIdAction, {
-    onError: handleErrorWithToast,
-    fallbackData: [],
-    onSuccess: (data) => storeMutate({ projectList: data }),
-    revalidateOnFocus: false,
-  });
+  const { data: projectList, isLoading } = useSWR(
+    "projects",
+    selectProjectListByUserIdAction,
+    {
+      onError: handleErrorWithToast,
+      fallbackData: [],
+      onSuccess: (data) => storeMutate({ projectList: data }),
+      revalidateOnFocus: false,
+    },
+  );
 
   const visibleProjects = expanded ? projectList : projectList.slice(0, 3);
   const hasMoreProjects = projectList.length > 3;
@@ -81,7 +81,7 @@ export function AppSidebarProjects() {
               </Tooltip>
             </SidebarGroupLabel>
 
-            {isLoading || isValidating ? (
+            {isLoading ? (
               Array.from({ length: 2 }).map(
                 (_, index) => mounted && <SidebarMenuSkeleton key={index} />,
               )
