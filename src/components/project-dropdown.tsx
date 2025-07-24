@@ -70,7 +70,7 @@ export function ProjectDropdown({ project, children, side, align }: Props) {
         if (currentProjectId === project.id) {
           router.push("/");
         }
-        mutate("threads");
+        mutate("/api/thread/list");
         mutate("projects");
       })
       .unwrap();
@@ -90,7 +90,8 @@ export function ProjectDropdown({ project, children, side, align }: Props) {
               <CommandItem className="cursor-pointer p-0">
                 <div
                   className="flex items-center gap-2 w-full px-2 py-1 rounded"
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     appStoreMutate((state) => ({
                       voiceChat: {
                         ...state.voiceChat,
@@ -111,7 +112,10 @@ export function ProjectDropdown({ project, children, side, align }: Props) {
                   onUpdated={() => setOpen(false)}
                   projectId={project.id}
                 >
-                  <div className="flex items-center gap-2 w-full px-2 py-1 rounded">
+                  <div
+                    className="flex items-center gap-2 w-full px-2 py-1 rounded"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <PencilLine className="text-foreground" />
                     {t("Chat.Project.renameProject")}
                   </div>
@@ -178,7 +182,7 @@ function UpdateProjectNameDialog({
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent hideClose>
+      <DialogContent hideClose onClick={(e) => e.stopPropagation()}>
         <DialogHeader>
           <DialogTitle>{t("Chat.Project.renameProject")}</DialogTitle>
         </DialogHeader>
@@ -187,11 +191,14 @@ function UpdateProjectNameDialog({
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
           />
         </DialogDescription>
         <DialogFooter>
           <DialogClose asChild>
-            <Button variant="secondary">{t("Common.cancel")}</Button>
+            <Button variant="secondary" onClick={(e) => e.stopPropagation()}>
+              {t("Common.cancel")}
+            </Button>
           </DialogClose>
 
           <Button variant="outline" onClick={handleUpdate}>

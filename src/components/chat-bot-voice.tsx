@@ -163,7 +163,7 @@ export function ChatBotVoice() {
     }).ifOk((isSaved) => {
       if (isSaved) {
         nextTick().then(() => {
-          mutate("threads");
+          mutate("/api/thread/list");
           router.push(`/chat/${voiceChat.threadId}`);
           if (window.location.pathname === `/chat/${voiceChat.threadId}`) {
             router.refresh();
