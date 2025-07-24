@@ -35,7 +35,7 @@ export function callCodeRunWorker(
     };
   });
 
-  return Promise.race([
+  const race = Promise.race([
     promise,
     new Promise<CodeRunnerResult>((timeout) => {
       tk = setTimeout(() => {
@@ -62,4 +62,13 @@ export function callCodeRunWorker(
       }, option.timeout || 40000);
     }),
   ]);
+
+  return Promise.all([
+    race,
+    new Promise((resolve) => {
+      setTimeout(() => {
+        resolve(true);
+      }, 1000);
+    }),
+  ]).then(([result]) => result);
 }

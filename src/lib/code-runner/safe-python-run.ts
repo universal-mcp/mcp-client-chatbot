@@ -51,40 +51,47 @@ async function ensurePyodideLoaded(): Promise<any> {
     return (globalThis as any).loadPyodide;
   }
 
-  // For web worker
-  if (typeof self !== "undefined" && "importScripts" in self) {
-    (self as any).importScripts(
-      "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js",
-    );
-    return (globalThis as any).loadPyodide;
-  }
+  const isWorker = typeof (globalThis as any).importScripts !== "undefined";
 
-  // 이미 script 엘리먼트가 head에 있으면 기다리기만
-  const existingScript = document.querySelector<HTMLScriptElement>(
-    'script[src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"]',
-  );
-
-  if (existingScript) {
-    if ((globalThis as any).loadPyodide) {
-      return (globalThis as any).loadPyodide;
-    }
-    await new Promise<void>((resolve, reject) => {
-      existingScript.addEventListener("load", () => resolve(), { once: true });
-      existingScript.addEventListener(
-        "error",
-        () => reject(new Error("Failed to load Pyodide script")),
-        { once: true },
+  if (isWorker) {
+    try {
+      (globalThis as any).importScripts(
+        "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js",
       );
-    });
+      return (globalThis as any).loadPyodide;
+    } catch {
+      throw new Error("Failed to load Pyodide script in worker");
+    }
   } else {
-    await new Promise<void>((resolve, reject) => {
-      const script = document.createElement("script");
-      script.src = "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js";
-      script.async = true;
-      script.onload = () => resolve();
-      script.onerror = () => reject(new Error("Failed to load Pyodide script"));
-      document.head.appendChild(script);
-    });
+    const existingScript = document.querySelector<HTMLScriptElement>(
+      'script[src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"]',
+    );
+
+    if (existingScript) {
+      if ((globalThis as any).loadPyodide) {
+        return (globalThis as any).loadPyodide;
+      }
+      await new Promise<void>((resolve, reject) => {
+        existingScript.addEventListener("load", () => resolve(), {
+          once: true,
+        });
+        existingScript.addEventListener(
+          "error",
+          () => reject(new Error("Failed to load Pyodide script")),
+          { once: true },
+        );
+      });
+    } else {
+      await new Promise<void>((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js";
+        script.async = true;
+        script.onload = () => resolve();
+        script.onerror = () =>
+          reject(new Error("Failed to load Pyodide script"));
+        document.head.appendChild(script);
+      });
+    }
   }
 
   return (globalThis as any).loadPyodide;
