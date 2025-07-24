@@ -3,23 +3,22 @@
 import { appStore } from "@/app/store";
 import { useCompletion } from "@ai-sdk/react";
 import { ChatModel } from "app-types/chat";
-import { useCallback, useEffect } from "react";
+import { useCallback } from "react";
 import { mutate } from "swr";
-import { safe } from "ts-safe";
 
 export function useGenerateThreadTitle(option: {
   threadId: string;
   projectId?: string;
   chatModel?: ChatModel;
 }) {
-  const { complete, completion } = useCompletion({
+  const { complete } = useCompletion({
     api: "/api/chat/title",
   });
 
   const updateTitle = useCallback(
     (title: string) => {
       appStore.setState((prev) => {
-        if (prev.threadList.some((v) => v.id !== option.threadId)) {
+        if (!prev.threadList.some((v) => v.id === option.threadId)) {
           return {
             threadList: [
               {
@@ -51,41 +50,36 @@ export function useGenerateThreadTitle(option: {
   );
 
   const generateTitle = useCallback(
-    (message: string) => {
+    async (message: string) => {
       const { threadId, projectId } = option;
       if (appStore.getState().generatingTitleThreadIds.includes(threadId))
         return;
       appStore.setState((prev) => ({
         generatingTitleThreadIds: [...prev.generatingTitleThreadIds, threadId],
       }));
-      safe(() => {
-        updateTitle("");
-        return complete("", {
+      updateTitle("");
+      try {
+        const title = await complete("", {
           body: {
             message,
             threadId,
             projectId,
           },
         });
-      })
-        .ifOk(() => mutate("/api/thread/list"))
-        .watch(() => {
-          appStore.setState((prev) => ({
-            generatingTitleThreadIds: prev.generatingTitleThreadIds.filter(
-              (v) => v !== threadId,
-            ),
-          }));
-        });
+        if (title) {
+          updateTitle(title.trim());
+        }
+        mutate("/api/thread/list");
+      } finally {
+        appStore.setState((prev) => ({
+          generatingTitleThreadIds: prev.generatingTitleThreadIds.filter(
+            (v) => v !== threadId,
+          ),
+        }));
+      }
     },
-    [updateTitle],
+    [updateTitle, complete, option],
   );
-
-  useEffect(() => {
-    const title = completion.trim();
-    if (title) {
-      updateTitle(title);
-    }
-  }, [completion, updateTitle]);
 
   return generateTitle;
 }

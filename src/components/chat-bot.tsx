@@ -77,15 +77,16 @@ export default function ChatBot({
       state.isMcpClientListLoading,
     ]),
   );
-  // const router = useRouter();
+  const router = useRouter();
   const generateTitle = useGenerateThreadTitle({
     threadId,
+    projectId,
   });
   const {
     messages,
     input,
     setInput,
-    append,
+    append: originalAppend,
     status,
     reload,
     setMessages,
@@ -127,6 +128,9 @@ export default function ChatBot({
         if (part) {
           generateTitle(part.text);
         }
+        if (projectId) {
+          router.replace(`/chat/${threadId}`);
+        }
       } else if (latestRef.current.threadList[0]?.id !== threadId) {
         mutate("/api/thread/list");
       }
@@ -140,6 +144,16 @@ export default function ChatBot({
       );
     },
   });
+
+  const append = useCallback(
+    (...args: Parameters<typeof originalAppend>) => {
+      if (projectId) {
+        appStoreMutate({ currentProjectId: undefined });
+      }
+      return originalAppend(...args);
+    },
+    [originalAppend, projectId, appStoreMutate],
+  );
 
   const [isDeleteThreadPopupOpen, setIsDeleteThreadPopupOpen] = useState(false);
 
