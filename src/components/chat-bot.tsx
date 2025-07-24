@@ -124,10 +124,20 @@ export default function ChatBot({
         messages.filter((v) => v.role === "user" || v.role === "assistant")
           .length < 3;
       if (isNewThread) {
-        const part = messages.at(-1)!.parts.find((v) => v.type === "text");
-        if (part) {
-          generateTitle(part.text);
+        const userMessage = messages.findLast((v) => v.role === "user");
+        const assistantMessage = messages.findLast(
+          (v) => v.role === "assistant",
+        );
+
+        const userContent =
+          userMessage?.parts.find((v) => v.type === "text")?.text ?? "";
+        const assistantContent =
+          assistantMessage?.parts.find((v) => v.type === "text")?.text ?? "";
+
+        if (userContent || assistantContent) {
+          generateTitle(userContent + assistantContent);
         }
+
         if (projectId) {
           router.replace(`/chat/${threadId}`);
         }
