@@ -50,7 +50,7 @@ export function AppSidebarMenus() {
         <SidebarMenu>
           <TooltipProvider>
             <Tooltip>
-              <SidebarMenuItem>
+              <SidebarMenuItem className="mb-1">
                 <Link href="/integrations">
                   <SidebarMenuButton
                     className="font-semibold"
