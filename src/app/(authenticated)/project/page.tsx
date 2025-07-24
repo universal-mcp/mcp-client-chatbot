@@ -264,13 +264,13 @@ function AssistantCard({
   return (
     <Card
       key={id}
-      className="h-full cursor-pointer transition-all duration-200 hover:shadow-md hover:border-accent-foreground/20 group"
+      className="h-full cursor-pointer transition-all duration-200 hover:shadow-md hover:border-accent-foreground/20 group overflow-hidden"
       onClick={handleCardClick}
     >
       <CardHeader className="pb-0">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10 group-hover:bg-primary/15 transition-colors">
+        <div className="flex items-start justify-between gap-2 overflow-hidden">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="p-2 rounded-lg bg-primary/10 group-hover:bg-primary/15 transition-colors flex-shrink-0">
               <Bot className="size-5 text-primary" />
             </div>
             <div className="min-w-0 flex-1">
@@ -281,17 +281,19 @@ function AssistantCard({
           </div>
 
           {project && (
-            <ProjectDropdown project={project}>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
-                data-dropdown-trigger
-                onClick={(e) => e.stopPropagation()}
-              >
-                <MoreHorizontal className="size-4" />
-              </Button>
-            </ProjectDropdown>
+            <div className="flex-shrink-0">
+              <ProjectDropdown project={project}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+                  data-dropdown-trigger
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </ProjectDropdown>
+            </div>
           )}
         </div>
       </CardHeader>
@@ -306,9 +308,9 @@ function AssistantCard({
           </p>
 
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <MessageSquare className="size-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <MessageSquare className="size-4 text-muted-foreground flex-shrink-0" />
+              <span className="text-sm text-muted-foreground truncate">
                 {formatLastActive(lastActiveAt)}
               </span>
             </div>
