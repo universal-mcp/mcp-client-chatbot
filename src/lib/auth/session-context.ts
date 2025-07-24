@@ -1,10 +1,11 @@
 import { getActiveMember, getSession } from "@/lib/auth/server";
 import { UUID } from "crypto";
+import { redirect } from "next/navigation";
 
 export async function getSessionContext() {
   const session = await getSession();
   if (!session?.user?.id) {
-    throw new Error("Unauthorized: No active session");
+    redirect("/sign-in");
   }
 
   return {

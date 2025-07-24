@@ -12,6 +12,7 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { MCPIcon } from "ui/mcp-icon";
 import { WriteIcon } from "ui/write-icon";
+import { Bot } from "lucide-react";
 
 export function AppSidebarMenus() {
   const pathname = usePathname();
@@ -49,7 +50,7 @@ export function AppSidebarMenus() {
         <SidebarMenu>
           <TooltipProvider>
             <Tooltip>
-              <SidebarMenuItem>
+              <SidebarMenuItem className="mb-1">
                 <Link href="/integrations">
                   <SidebarMenuButton
                     className="font-semibold"
@@ -57,6 +58,23 @@ export function AppSidebarMenus() {
                   >
                     <MCPIcon className="size-4 fill-accent-foreground" />
                     MCP Integrations
+                  </SidebarMenuButton>
+                </Link>
+              </SidebarMenuItem>
+            </Tooltip>
+          </TooltipProvider>
+        </SidebarMenu>
+        <SidebarMenu>
+          <TooltipProvider>
+            <Tooltip>
+              <SidebarMenuItem>
+                <Link href="/project">
+                  <SidebarMenuButton
+                    className="font-semibold"
+                    isActive={pathname === "/project"}
+                  >
+                    <Bot className="size-4" />
+                    Assistants
                   </SidebarMenuButton>
                 </Link>
               </SidebarMenuItem>

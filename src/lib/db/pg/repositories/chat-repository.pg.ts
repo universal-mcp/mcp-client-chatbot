@@ -65,14 +65,30 @@ export const pgChatRepository: ChatRepository = {
       );
   },
 
-  getPublicThread: async (id: string): Promise<ChatThread | null> => {
+  getPublicThread: async (
+    id: string,
+  ): Promise<
+    (ChatThread & { userEmail: string | null; userName: string | null }) | null
+  > => {
     const [result] = await db
-      .select()
+      .select({
+        thread: ChatThreadSchema,
+        userEmail: UserSchema.email,
+        userName: UserSchema.name,
+      })
       .from(ChatThreadSchema)
+      .leftJoin(UserSchema, eq(ChatThreadSchema.userId, UserSchema.id))
       .where(
         and(eq(ChatThreadSchema.id, id), eq(ChatThreadSchema.isPublic, true)),
       );
-    return result;
+
+    if (!result) return null;
+
+    return {
+      ...result.thread,
+      userEmail: result.userEmail,
+      userName: result.userName,
+    };
   },
 
   selectThread: async (
@@ -107,6 +123,8 @@ export const pgChatRepository: ChatRepository = {
     const [thread] = await db
       .select()
       .from(ChatThreadSchema)
+      .leftJoin(ProjectSchema, eq(ChatThreadSchema.projectId, ProjectSchema.id))
+      .leftJoin(UserSchema, eq(ChatThreadSchema.userId, UserSchema.id))
       .where(
         and(
           eq(ChatThreadSchema.id, id),
@@ -127,12 +145,14 @@ export const pgChatRepository: ChatRepository = {
       organizationId,
     );
     return {
-      id: thread.id,
-      title: thread.title,
-      userId: thread.userId,
-      createdAt: thread.createdAt,
-      projectId: thread.projectId,
-      isPublic: thread.isPublic,
+      id: thread.chat_thread.id,
+      title: thread.chat_thread.title,
+      userId: thread.chat_thread.userId,
+      createdAt: thread.chat_thread.createdAt,
+      projectId: thread.chat_thread.projectId,
+      instructions: thread.project?.instructions ?? null,
+      userPreferences: thread.user?.preferences ?? undefined,
+      isPublic: thread.chat_thread.isPublic,
       messages,
     };
   },
@@ -309,6 +329,22 @@ export const pgChatRepository: ChatRepository = {
             : isNull(ChatThreadSchema.organizationId),
         ),
       )
+      .returning();
+    return result;
+  },
+
+  upsertThread: async (
+    thread: Omit<ChatThread, "createdAt">,
+  ): Promise<ChatThread> => {
+    const [result] = await db
+      .insert(ChatThreadSchema)
+      .values(thread)
+      .onConflictDoUpdate({
+        target: [ChatThreadSchema.id],
+        set: {
+          title: thread.title,
+        },
+      })
       .returning();
     return result;
   },
@@ -528,6 +564,7 @@ export const pgChatRepository: ChatRepository = {
         createdAt: ProjectSchema.createdAt,
         updatedAt: ProjectSchema.updatedAt,
         userId: ProjectSchema.userId,
+        instructions: ProjectSchema.instructions,
         lastThreadAt:
           sql<string>`COALESCE(MAX(${ChatThreadSchema.createdAt}), '1970-01-01')`.as(
             `last_thread_at`,
@@ -614,41 +651,5 @@ export const pgChatRepository: ChatRepository = {
       .values(messages)
       .returning();
     return result as ChatMessage[];
-  },
-
-  getProjectInstructionsAndUserPreferences: async (
-    userId: string,
-    projectId: string | null,
-    organizationId: string | null,
-  ): Promise<{
-    instructions: Project["instructions"] | null;
-    userPreferences: UserPreferences | undefined;
-  }> => {
-    const joinConditions = [
-      eq(ProjectSchema.id, projectId!),
-      eq(ProjectSchema.userId, userId),
-      organizationId
-        ? eq(ProjectSchema.organizationId, organizationId)
-        : isNull(ProjectSchema.organizationId),
-    ];
-
-    const [result] = await db
-      .select({
-        userPreferences: UserSchema.preferences,
-        projectInstructions: ProjectSchema.instructions,
-      })
-      .from(UserSchema)
-      .leftJoin(ProjectSchema, projectId ? and(...joinConditions) : sql`false`)
-      .where(eq(UserSchema.id, userId))
-      .limit(1);
-
-    if (!result) {
-      throw new Error("User not found");
-    }
-
-    return {
-      instructions: result.projectInstructions ?? null,
-      userPreferences: result.userPreferences ?? undefined,
-    };
   },
 };

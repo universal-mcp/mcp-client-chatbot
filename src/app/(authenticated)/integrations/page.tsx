@@ -425,122 +425,217 @@ export default function IntegrationsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto p-6">
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">
-              Integrations
-            </h1>
-            <p className="text-muted-foreground">
-              Manage your Model Context Protocol (MCP) server connections
-            </p>
+    <div className="flex flex-col h-full bg-background">
+      <div className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
+        <div className="flex justify-center p-6">
+          <div
+            className="flex items-center justify-between w-full"
+            style={{ maxWidth: "1008px" }}
+          >
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight">
+                Integrations
+              </h1>
+              <p className="text-muted-foreground mt-1">
+                Manage your Model Context Protocol (MCP) server connections
+              </p>
+            </div>
+            {!isLoadingData && isAdmin && (
+              <Button onClick={handleAddServerClick} className="gap-2">
+                <Plus className="size-4" />
+                Add Server
+              </Button>
+            )}
           </div>
-          {!isLoadingData && isAdmin && (
-            <Button onClick={handleAddServerClick}>
-              <Plus className="h-4 w-4" />
-              Add Server
-            </Button>
-          )}
         </div>
+      </div>
 
-        <div className="space-y-6">
-          {isLoadingData && (
-            <div className="flex items-center justify-center py-12">
-              <Loader className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          )}
-
-          {!isLoadingData && displayServers && displayServers.length > 0 && (
-            <div className="space-y-4">
-              {displayServers.map((server: McpServerWithId) => (
-                <ServerCard
-                  key={server.id}
-                  server={server}
-                  isLoading={loadingServerId === server.id}
-                  isAdmin={isAdmin}
-                  onDelete={handleDeleteServer}
-                  onRefresh={handleRefreshServer}
-                  onEdit={handleEditServer}
-                  onAuthorize={handleAuthorizeServer}
-                  onRevokeAuth={handleRevokeAuthorization}
-                  onConnect={
-                    server.isDefault && server.defaultConfig
-                      ? () => handleConnectDefaultServer(server.defaultConfig!)
-                      : undefined
-                  }
-                />
-              ))}
-            </div>
-          )}
-
-          {!isLoadingData &&
-            (!mcpServers || mcpServers.length === 0) &&
-            !isAdmin && (
-              <div className="text-center py-12">
-                <Settings className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-foreground mb-2">
-                  No integrations available
-                </h3>
-                <p className="text-muted-foreground mb-6">
-                  Contact your administrator to set up MCP server integrations
-                </p>
+      <div className="flex-1 overflow-auto">
+        <div className="p-6 flex justify-center">
+          <div className="w-full space-y-6" style={{ maxWidth: "1008px" }}>
+            {isLoadingData && (
+              <div className="flex items-center justify-center h-[60vh]">
+                <div className="flex flex-col items-center gap-3">
+                  <Loader className="size-5 animate-spin" />
+                </div>
               </div>
             )}
 
-          {/* Add Server Modal */}
-          <Dialog
-            open={addServerModalOpen}
-            onOpenChange={setAddServerModalOpen}
-          >
-            <DialogContent onKeyDown={handleKeyDownAddServer}>
-              <DialogHeader>
-                <DialogTitle>Add New Server</DialogTitle>
-                <DialogDescription>
-                  Connect a new MCP server by providing its name and URL.
-                </DialogDescription>
-              </DialogHeader>
+            {!isLoadingData && displayServers && displayServers.length > 0 && (
               <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="new-server-name">Server Name</Label>
-                  <Input
-                    id="new-server-name"
-                    placeholder="my-server"
-                    value={newServerName}
-                    onChange={(e) => setNewServerName(e.target.value)}
-                    onBlur={() => setTouched((t) => ({ ...t, name: true }))}
+                {displayServers.map((server: McpServerWithId) => (
+                  <ServerCard
+                    key={server.id}
+                    server={server}
+                    isLoading={loadingServerId === server.id}
+                    isAdmin={isAdmin}
+                    onDelete={handleDeleteServer}
+                    onRefresh={handleRefreshServer}
+                    onEdit={handleEditServer}
+                    onAuthorize={handleAuthorizeServer}
+                    onRevokeAuth={handleRevokeAuthorization}
+                    onConnect={
+                      server.isDefault && server.defaultConfig
+                        ? () =>
+                            handleConnectDefaultServer(server.defaultConfig!)
+                        : undefined
+                    }
                   />
-                  {touched.name && nameError && (
-                    <p className="text-sm text-destructive">{nameError}</p>
-                  )}
+                ))}
+              </div>
+            )}
+
+            {!isLoadingData &&
+              (!mcpServers || mcpServers.length === 0) &&
+              !isAdmin && (
+                <div className="text-center py-12">
+                  <Settings className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-foreground mb-2">
+                    No integrations available
+                  </h3>
+                  <p className="text-muted-foreground mb-6">
+                    Contact your administrator to set up MCP server integrations
+                  </p>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="new-server-url">Server URL</Label>
-                  <Input
-                    id="new-server-url"
-                    placeholder="https://example.com/mcp"
-                    value={newServerUrl}
-                    onChange={(e) => setNewServerUrl(e.target.value)}
-                    onBlur={() => setTouched((t) => ({ ...t, url: true }))}
-                  />
-                  {touched.url && urlError && (
-                    <p className="text-sm text-destructive">{urlError}</p>
-                  )}
-                </div>
-                {isOrganizationWorkspace && isAdmin && (
+              )}
+
+            {/* Add Server Modal */}
+            <Dialog
+              open={addServerModalOpen}
+              onOpenChange={setAddServerModalOpen}
+            >
+              <DialogContent onKeyDown={handleKeyDownAddServer}>
+                <DialogHeader>
+                  <DialogTitle>Add New Server</DialogTitle>
+                  <DialogDescription>
+                    Connect a new MCP server by providing its name and URL.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="credential-type">Credential Type</Label>
+                    <Label htmlFor="new-server-name">Server Name</Label>
+                    <Input
+                      id="new-server-name"
+                      placeholder="my-server"
+                      value={newServerName}
+                      onChange={(e) => setNewServerName(e.target.value)}
+                      onBlur={() => setTouched((t) => ({ ...t, name: true }))}
+                    />
+                    {touched.name && nameError && (
+                      <p className="text-sm text-destructive">{nameError}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="new-server-url">Server URL</Label>
+                    <Input
+                      id="new-server-url"
+                      placeholder="https://example.com/mcp"
+                      value={newServerUrl}
+                      onChange={(e) => setNewServerUrl(e.target.value)}
+                      onBlur={() => setTouched((t) => ({ ...t, url: true }))}
+                    />
+                    {touched.url && urlError && (
+                      <p className="text-sm text-destructive">{urlError}</p>
+                    )}
+                  </div>
+                  {isOrganizationWorkspace && isAdmin && (
+                    <div className="space-y-2">
+                      <Label htmlFor="credential-type">Credential Type</Label>
+                      <Select
+                        value={newServerCredentialType}
+                        onValueChange={(value) =>
+                          setNewServerCredentialType(
+                            value as "personal" | "shared",
+                          )
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue>
+                            {newServerCredentialType === "personal"
+                              ? "Personal"
+                              : "Shared"}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="personal">
+                            <div className="space-y-1">
+                              <div className="font-medium">Personal</div>
+                              <div className="text-xs text-muted-foreground">
+                                Each user manages their own credentials
+                              </div>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="shared">
+                            <div className="space-y-1">
+                              <div className="font-medium">Shared</div>
+                              <div className="text-xs text-muted-foreground">
+                                Administrators manage credentials for all users
+                              </div>
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setAddServerModalOpen(false);
+                      setNewServerName("");
+                      setNewServerUrl("");
+                      setNewServerCredentialType("personal");
+                      setTouched({ name: false, url: false });
+                    }}
+                    disabled={isAddingServer}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleAddServer}
+                    disabled={isAddingServer || !isFormValid}
+                  >
+                    {isAddingServer && (
+                      <Loader className="h-4 w-4 animate-spin mr-2" />
+                    )}
+                    Add Server
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            {/* Default Server Connect Modal */}
+            <Dialog
+              open={defaultServerModalOpen}
+              onOpenChange={setDefaultServerModalOpen}
+            >
+              <DialogContent onKeyDown={handleKeyDownDefaultServer}>
+                <DialogHeader>
+                  <DialogTitle className="text-lg font-semibold">
+                    Add {selectedDefaultServer?.name}
+                  </DialogTitle>
+                  <DialogDescription className="mt-3 text-muted-foreground">
+                    Choose how credentials should be managed for the
+                    integration.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="default-server-credential-type">
+                      Credential Type
+                    </Label>
                     <Select
-                      value={newServerCredentialType}
+                      value={defaultServerCredentialType}
                       onValueChange={(value) =>
-                        setNewServerCredentialType(
+                        setDefaultServerCredentialType(
                           value as "personal" | "shared",
                         )
                       }
                     >
                       <SelectTrigger>
                         <SelectValue>
-                          {newServerCredentialType === "personal"
+                          {defaultServerCredentialType === "personal"
                             ? "Personal"
                             : "Shared"}
                         </SelectValue>
@@ -565,114 +660,32 @@ export default function IntegrationsPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                )}
-              </div>
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setAddServerModalOpen(false);
-                    setNewServerName("");
-                    setNewServerUrl("");
-                    setNewServerCredentialType("personal");
-                    setTouched({ name: false, url: false });
-                  }}
-                  disabled={isAddingServer}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleAddServer}
-                  disabled={isAddingServer || !isFormValid}
-                >
-                  {isAddingServer && (
-                    <Loader className="h-4 w-4 animate-spin mr-2" />
-                  )}
-                  Add Server
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-          {/* Default Server Connect Modal */}
-          <Dialog
-            open={defaultServerModalOpen}
-            onOpenChange={setDefaultServerModalOpen}
-          >
-            <DialogContent onKeyDown={handleKeyDownDefaultServer}>
-              <DialogHeader>
-                <DialogTitle className="text-lg font-semibold">
-                  Add {selectedDefaultServer?.name}
-                </DialogTitle>
-                <DialogDescription className="mt-3 text-muted-foreground">
-                  Choose how credentials should be managed for the integration.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="default-server-credential-type">
-                    Credential Type
-                  </Label>
-                  <Select
-                    value={defaultServerCredentialType}
-                    onValueChange={(value) =>
-                      setDefaultServerCredentialType(
-                        value as "personal" | "shared",
-                      )
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue>
-                        {defaultServerCredentialType === "personal"
-                          ? "Personal"
-                          : "Shared"}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="personal">
-                        <div className="space-y-1">
-                          <div className="font-medium">Personal</div>
-                          <div className="text-xs text-muted-foreground">
-                            Each user manages their own credentials
-                          </div>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="shared">
-                        <div className="space-y-1">
-                          <div className="font-medium">Shared</div>
-                          <div className="text-xs text-muted-foreground">
-                            Administrators manage credentials for all users
-                          </div>
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setDefaultServerModalOpen(false);
-                    setDefaultServerCredentialType("personal");
-                    setSelectedDefaultServer(null);
-                  }}
-                  disabled={isAddingServer}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleDefaultServerConnect}
-                  disabled={isAddingServer}
-                >
-                  {isAddingServer && (
-                    <Loader className="h-4 w-4 animate-spin mr-2" />
-                  )}
-                  Add
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setDefaultServerModalOpen(false);
+                      setDefaultServerCredentialType("personal");
+                      setSelectedDefaultServer(null);
+                    }}
+                    disabled={isAddingServer}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleDefaultServerConnect}
+                    disabled={isAddingServer}
+                  >
+                    {isAddingServer && (
+                      <Loader className="h-4 w-4 animate-spin mr-2" />
+                    )}
+                    Add
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
       </div>
     </div>
@@ -1145,9 +1158,9 @@ function ServerCard({
                                 {tool.name}
                               </code>
                             </h4>
-                            <p className="text-sm text-muted-foreground leading-relaxed">
-                              {tool.description}
-                            </p>
+                            <TruncatedDescription
+                              description={tool.description}
+                            />
                           </div>
                         </div>
                       </div>
@@ -1238,5 +1251,39 @@ function ServerCard({
         </Dialog>
       )}
     </Card>
+  );
+}
+
+function TruncatedDescription({
+  description,
+  maxLength = 150,
+}: {
+  description: string;
+  maxLength?: number;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  if (description.length <= maxLength) {
+    return (
+      <p className="text-sm text-muted-foreground leading-relaxed break-words hyphens-auto">
+        {description}
+      </p>
+    );
+  }
+
+  return (
+    <div>
+      <p className="text-sm text-muted-foreground leading-relaxed break-words hyphens-auto">
+        {isExpanded ? description : `${description.substring(0, maxLength)}...`}
+      </p>
+      <Button
+        variant="link"
+        size="sm"
+        className="px-0 h-auto mt-1 text-xs"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        {isExpanded ? "Show less" : "Show more"}
+      </Button>
+    </div>
   );
 }

@@ -65,7 +65,7 @@ export function ThreadDropdown({
         }
       })
       .ifOk(() => updateThreadAction(threadId, { title }))
-      .ifOk(() => mutate("threads"))
+      .ifOk(() => mutate("/api/thread/list"))
       .watch(({ isOk, error }) => {
         if (isOk) {
           toast.success(t("threadUpdated"));
@@ -93,7 +93,7 @@ export function ThreadDropdown({
         if (currentThreadId === threadId) {
           push.current("/");
         }
-        mutate("threads");
+        mutate("/api/thread/list");
       })
       .unwrap();
   };

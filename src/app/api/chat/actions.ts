@@ -32,7 +32,7 @@ export async function generateTitleFromUserMessageAction({
 }: { message: Message }) {
   await getSessionContext();
   const prompt = toAny(message.parts?.at(-1))?.text || "unknown";
-  const model = customModelProvider.getModel(undefined);
+  const model = customModelProvider.getTitleModel();
   const { text: title } = await generateText({
     model: model,
     system: CREATE_THREAD_TITLE_PROMPT,
@@ -152,7 +152,7 @@ export async function generateExampleToolSchemaAction(options: {
   toolInfo: MCPToolInfo;
   prompt?: string;
 }) {
-  const model = customModelProvider.getModel(options.model);
+  const model = customModelProvider.getModel();
 
   const schema = jsonSchema(
     toAny({

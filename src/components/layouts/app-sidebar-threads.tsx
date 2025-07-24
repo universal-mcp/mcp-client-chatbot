@@ -21,18 +21,20 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "ui/dropdown-menu";
-import {
-  deleteThreadsAction,
-  selectThreadListByUserIdAction,
-} from "@/app/api/chat/actions";
+import { deleteThreadsAction } from "@/app/api/chat/actions";
+import { fetcher } from "lib/utils";
 import { toast } from "sonner";
 import { useShallow } from "zustand/shallow";
 import { useRouter } from "next/navigation";
 import useSWR, { mutate } from "swr";
 import { handleErrorWithToast } from "ui/shared-toast";
-import { useEffect, useMemo, useState } from "react";
-import { authClient } from "auth/client";
+import { useMemo, useState } from "react";
+
 import { useTranslations } from "next-intl";
+import { TextShimmer } from "ui/text-shimmer";
+import { Tooltip, TooltipContent, TooltipTrigger } from "ui/tooltip";
+import { deduplicateByKey, groupBy } from "lib/utils";
+import { ChatThread } from "app-types/chat";
 
 type ThreadGroup = {
   label: string;
@@ -45,22 +47,46 @@ export function AppSidebarThreads() {
   const mounted = useMounted();
   const router = useRouter();
   const t = useTranslations("Layout");
-  const [storeMutate, currentThreadId] = appStore(
-    useShallow((state) => [state.mutate, state.currentThreadId]),
+  const [storeMutate, currentThreadId, generatingTitleThreadIds] = appStore(
+    useShallow((state) => [
+      state.mutate,
+      state.currentThreadId,
+      state.generatingTitleThreadIds,
+    ]),
   );
   // State to track if expanded view is active
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const {
-    data: threadList,
-    isLoading,
-    isValidating,
-    error,
-  } = useSWR("threads", selectThreadListByUserIdAction, {
+  const { data: threadList, isLoading } = useSWR("/api/thread/list", fetcher, {
     onError: handleErrorWithToast,
     fallbackData: [],
-    onSuccess: (data) => storeMutate({ threadList: data }),
-    revalidateOnFocus: false,
+    onSuccess: (data) => {
+      storeMutate((prev) => {
+        const groupById = groupBy(prev.threadList, "id");
+
+        const generatingTitleThreads = prev.generatingTitleThreadIds
+          .map((id) => {
+            return groupById[id]?.[0];
+          })
+          .filter(Boolean) as ChatThread[];
+        const list = deduplicateByKey(
+          generatingTitleThreads.concat(data),
+          "id",
+        );
+        return {
+          threadList: list.map((v) => {
+            const target = groupById[v.id]?.[0];
+            if (!target) return v;
+            if (target.title && !v.title)
+              return {
+                ...v,
+                title: target.title,
+              };
+            return v;
+          }),
+        };
+      });
+    },
   });
 
   // Check if we have 40 or more threads to display "View All" button
@@ -78,7 +104,7 @@ export function AppSidebarThreads() {
     if (!displayThreadList || displayThreadList.length === 0) {
       return [];
     }
-    console.log("displayThreadList", displayThreadList);
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -96,8 +122,12 @@ export function AppSidebarThreads() {
     ];
 
     displayThreadList.forEach((thread) => {
-      const threadDate = new Date(thread.lastMessageAt);
+      const threadDate =
+        (thread.lastMessageAt
+          ? new Date(thread.lastMessageAt)
+          : new Date(thread.createdAt)) || new Date();
       threadDate.setHours(0, 0, 0, 0);
+
       if (threadDate.getTime() === today.getTime()) {
         groups[0].threads.push(thread);
       } else if (threadDate.getTime() === yesterday.getTime()) {
@@ -117,7 +147,7 @@ export function AppSidebarThreads() {
     await toast.promise(deleteThreadsAction(), {
       loading: t("deletingAllChats"),
       success: () => {
-        mutate("threads");
+        mutate("/api/thread/list");
         router.push("/");
         return t("allChatsDeleted");
       },
@@ -125,15 +155,7 @@ export function AppSidebarThreads() {
     });
   };
 
-  useEffect(() => {
-    if (error) {
-      authClient.signOut().finally(() => {
-        window.location.href = "/sign-in";
-      });
-    }
-  }, [error]);
-
-  if (isLoading || isValidating || threadList?.length === 0)
+  if (isLoading || threadList?.length === 0)
     return (
       <SidebarGroup>
         <SidebarGroupContent className="group-data-[collapsible=icon]:hidden group/threads">
@@ -167,7 +189,7 @@ export function AppSidebarThreads() {
                 </DropdownMenu>
               </SidebarGroupLabel>
 
-              {isLoading || isValidating ? (
+              {isLoading ? (
                 Array.from({ length: 12 }).map(
                   (_, index) => mounted && <SidebarMenuSkeleton key={index} />,
                 )
@@ -234,18 +256,35 @@ export function AppSidebarThreads() {
                           beforeTitle={thread.title}
                         >
                           <div className="flex items-center data-[state=open]:bg-input! group-hover/thread:bg-input! rounded-lg">
-                            <SidebarMenuButton
-                              asChild
-                              className="group-hover/thread:bg-transparent!"
-                              isActive={currentThreadId === thread.id}
-                            >
-                              <Link
-                                href={`/chat/${thread.id}`}
-                                className="flex items-center"
-                              >
-                                <p className="truncate ">{thread.title}</p>
-                              </Link>
-                            </SidebarMenuButton>
+                            <Tooltip delayDuration={1000}>
+                              <TooltipTrigger asChild>
+                                <SidebarMenuButton
+                                  asChild
+                                  className="group-hover/thread:bg-transparent!"
+                                  isActive={currentThreadId === thread.id}
+                                >
+                                  <Link
+                                    href={`/chat/${thread.id}`}
+                                    className="flex items-center"
+                                  >
+                                    {generatingTitleThreadIds.includes(
+                                      thread.id,
+                                    ) ? (
+                                      <TextShimmer className="truncate min-w-0">
+                                        {thread.title || "New Chat"}
+                                      </TextShimmer>
+                                    ) : (
+                                      <p className="truncate min-w-0">
+                                        {thread.title || "New Chat"}
+                                      </p>
+                                    )}
+                                  </Link>
+                                </SidebarMenuButton>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-[200px] p-4 break-all overflow-y-auto max-h-[200px]">
+                                {thread.title || "New Chat"}
+                              </TooltipContent>
+                            </Tooltip>
 
                             <SidebarMenuAction className="data-[state=open]:bg-input data-[state=open]:opacity-100 opacity-0 group-hover/thread:opacity-100">
                               <MoreHorizontal />

@@ -85,6 +85,7 @@
     "framer-motion": "^12.15.0",
     "hast-util-to-jsx-runtime": "^2.3.6",
     "jose": "^6.0.11",
+    "json-schema": "^0.4.0",
     "lucide-react": "^0.486.0",
     "mermaid": "^11.6.0",
     "nanoid": "^5.1.5",
@@ -114,7 +115,8 @@
     "vaul": "^1.1.2",
     "zod": "^3.25.47",
     "zod-to-json-schema": "^3.24.5",
-    "zustand": "^5.0.5"
+    "zustand": "^5.0.5",
+    "drizzle-kit": "^0.30.6"
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
@@ -124,7 +126,6 @@
     "@types/react": "^19.1.6",
     "@types/react-dom": "^19.1.5",
     "cross-env": "^7.0.3",
-    "drizzle-kit": "^0.30.6",
     "eslint": "^9.28.0",
     "eslint-config-next": "15.3.0",
     "husky": "^9.1.7",
