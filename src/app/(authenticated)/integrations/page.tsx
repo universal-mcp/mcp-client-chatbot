@@ -1158,9 +1158,9 @@ function ServerCard({
                                 {tool.name}
                               </code>
                             </h4>
-                            <p className="text-sm text-muted-foreground leading-relaxed break-words hyphens-auto">
-                              {tool.description}
-                            </p>
+                            <TruncatedDescription
+                              description={tool.description}
+                            />
                           </div>
                         </div>
                       </div>
@@ -1251,5 +1251,39 @@ function ServerCard({
         </Dialog>
       )}
     </Card>
+  );
+}
+
+function TruncatedDescription({
+  description,
+  maxLength = 150,
+}: {
+  description: string;
+  maxLength?: number;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  if (description.length <= maxLength) {
+    return (
+      <p className="text-sm text-muted-foreground leading-relaxed break-words hyphens-auto">
+        {description}
+      </p>
+    );
+  }
+
+  return (
+    <div>
+      <p className="text-sm text-muted-foreground leading-relaxed break-words hyphens-auto">
+        {isExpanded ? description : `${description.substring(0, maxLength)}...`}
+      </p>
+      <Button
+        variant="link"
+        size="sm"
+        className="px-0 h-auto mt-1 text-xs"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        {isExpanded ? "Show less" : "Show more"}
+      </Button>
+    </div>
   );
 }
