@@ -67,6 +67,7 @@ export default function ChatBot({
     allowedAppDefaultToolkit,
     allowedMcpServers,
     threadList,
+    llmModel,
   ] = appStore(
     useShallow((state) => [
       state.mutate,
@@ -74,7 +75,7 @@ export default function ChatBot({
       state.allowedAppDefaultToolkit,
       state.allowedMcpServers,
       state.threadList,
-      state.isMcpClientListLoading,
+      state.llmModel,
     ]),
   );
   const router = useRouter();
@@ -108,6 +109,7 @@ export default function ChatBot({
         allowedAppDefaultToolkit: latestRef.current.allowedAppDefaultToolkit,
         message: lastMessage,
         projectId: projectId ?? currentThread?.projectId ?? null,
+        llmModel: latestRef.current.llmModel,
       };
       return request;
     },
@@ -174,6 +176,7 @@ export default function ChatBot({
     messages,
     threadList,
     threadId,
+    llmModel,
   });
 
   const isLoading = useMemo(

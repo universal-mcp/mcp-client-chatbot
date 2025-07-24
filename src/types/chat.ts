@@ -91,6 +91,7 @@ export const chatApiSchemaRequestBodySchema = z.object({
   toolChoice: z.enum(["auto", "none", "manual"]),
   allowedMcpServers: z.record(z.string(), AllowedMCPServerZodSchema).optional(),
   allowedAppDefaultToolkit: z.array(z.string()).optional(),
+  llmModel: z.string(),
 });
 
 export type ChatApiSchemaRequestBody = z.infer<

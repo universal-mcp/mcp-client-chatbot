@@ -55,9 +55,10 @@ export async function POST(request: Request) {
       allowedMcpServers,
       allowedAppDefaultToolkit,
       projectId,
+      llmModel,
     } = chatApiSchemaRequestBodySchema.parse(json);
 
-    const model = customModelProvider.getModel();
+    const model = customModelProvider.getModel(llmModel);
 
     let thread = await chatRepository.selectThreadDetails(
       id,
