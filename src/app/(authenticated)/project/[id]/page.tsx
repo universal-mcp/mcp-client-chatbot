@@ -25,7 +25,6 @@ import { notImplementedToast } from "ui/shared-toast";
 import { useShallow } from "zustand/shallow";
 import { generateUUID } from "lib/utils";
 import { Project } from "app-types/chat";
-import { Separator } from "ui/separator";
 
 interface FeatureCardProps {
   title: string;
@@ -135,7 +134,7 @@ export default function ProjectPage() {
         </div>
       </div>
 
-      <div className="flex my-4 mx-2 gap-4">
+      <div className="flex my-4 px-4 gap-4">
         <FeatureCard
           title="Add Files"
           onClick={notImplementedToast}
@@ -163,9 +162,7 @@ export default function ProjectPage() {
         />
       </div>
 
-      <div className="my-8 px-4">
-        <Separator />
-      </div>
+      <div className="my-8 px-4"></div>
     </div>
   );
 

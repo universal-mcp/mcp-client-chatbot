@@ -157,136 +157,232 @@ export default function PromptInput({
                 : "cursor-text focus-within:border-muted-foreground hover:border-muted-foreground",
             )}
           >
-            <div className="flex flex-col gap-3.5 px-1">
-              {attachedFiles.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  {attachedFiles.map((file, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center gap-2 px-2 py-1 text-sm bg-muted rounded-md"
-                    >
-                      <Paperclip className="size-4" />
-                      <span className="flex-1 truncate">{file.name}</span>
-                      <button
-                        onClick={() => removeFile(index)}
-                        className="p-1 hover:bg-muted-foreground/20 rounded-full"
+            {isInProjectContext ? (
+              // Project context layout - send button on same line as text input
+              <div className="flex flex-col gap-3.5 px-1">
+                {attachedFiles.length > 0 && (
+                  <div className="flex flex-col gap-2">
+                    {attachedFiles.map((file, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center gap-2 px-2 py-1 text-sm bg-muted rounded-md"
                       >
-                        <X className="size-4" />
-                      </button>
-                    </div>
-                  ))}
+                        <Paperclip className="size-4" />
+                        <span className="flex-1 truncate">{file.name}</span>
+                        <button
+                          onClick={() => removeFile(index)}
+                          className="p-1 hover:bg-muted-foreground/20 rounded-full"
+                        >
+                          <X className="size-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex items-end gap-2">
+                  <div className="flex-1 relative min-h-[2rem]">
+                    <textarea
+                      ref={textareaRef}
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder={
+                        disabled
+                          ? t("readOnlyPlaceholder")
+                          : (placeholder ?? t("placeholder"))
+                      }
+                      className="w-full resize-none border-none bg-transparent outline-none text-foreground placeholder:text-muted-foreground min-h-[2rem] max-h-[200px] overflow-y-auto leading-6 px-2 py-1 text-base placeholder:text-base"
+                      rows={1}
+                      disabled={isLoading || isLoadingTools || disabled}
+                    />
+                  </div>
+
+                  {!isLoading &&
+                  !input.length &&
+                  !voiceDisabled &&
+                  !disabled ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div
+                          onClick={() => {
+                            appStoreMutate((state) => ({
+                              voiceChat: {
+                                ...state.voiceChat,
+                                isOpen: true,
+                                threadId: currentThreadId ?? undefined,
+                                projectId: currentProjectId ?? undefined,
+                              },
+                            }));
+                          }}
+                          className="border fade-in animate-in cursor-pointer text-background rounded-full p-2 bg-primary hover:bg-primary/90 transition-all duration-200 interactive-element"
+                        >
+                          <AudioWaveformIcon size={16} />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>{t("VoiceChat.title")}</TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div
+                          onClick={() => {
+                            if (isLoading) {
+                              onStop();
+                            } else {
+                              submit();
+                            }
+                          }}
+                          className={cn(
+                            "fade-in animate-in cursor-pointer rounded-full p-2 transition-all duration-200 interactive-element",
+                            isLoading
+                              ? "text-muted-foreground bg-secondary hover:bg-accent-foreground hover:text-accent"
+                              : "border text-background bg-primary hover:bg-primary/90",
+                            disabled && "opacity-50 cursor-not-allowed",
+                          )}
+                        >
+                          {isLoading ? (
+                            <Square
+                              size={16}
+                              className="fill-muted-foreground text-muted-foreground"
+                            />
+                          ) : (
+                            <CornerRightUp size={16} />
+                          )}
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {isLoading ? "Stop generation" : "Send a message"}
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
                 </div>
-              )}
-              <div className="relative min-h-[2rem]">
-                <textarea
-                  ref={textareaRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder={
-                    disabled
-                      ? t("readOnlyPlaceholder")
-                      : (placeholder ?? t("placeholder"))
-                  }
-                  className="w-full resize-none border-none bg-transparent outline-none text-foreground placeholder:text-muted-foreground min-h-[2rem] max-h-[200px] overflow-y-auto leading-6 px-2 py-1 text-base placeholder:text-base"
-                  rows={1}
-                  disabled={isLoading || isLoadingTools || disabled}
-                />
               </div>
-
-              <div className="flex w-full items-center z-30 gap-1.5">
-                <Button
-                  variant={"ghost"}
-                  size={"sm"}
-                  className="rounded-full hover:bg-input! p-2!"
-                  onClick={notImplementedToast}
-                >
-                  <Paperclip />
-                </Button>
-
-                {!toolDisabled && (
-                  <>
-                    <div
-                      className={cn(
-                        "interactive-element",
-                        isInProjectContext && "cursor-not-allowed opacity-50",
-                      )}
-                    >
-                      <ToolModeDropdown disabled={isInProjectContext} />
-                    </div>
-                    <div
-                      className={cn(
-                        "interactive-element",
-                        isInProjectContext && "cursor-not-allowed opacity-50",
-                      )}
-                    >
-                      <ToolSelectDropdown
-                        align="start"
-                        side="top"
-                        disabled={isInProjectContext}
-                      />
-                    </div>
-                  </>
-                )}
-                <div className="flex-1" />
-
-                {!isLoading && !input.length && !voiceDisabled && !disabled ? (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
+            ) : (
+              // Regular layout for non-project context
+              <div className="flex flex-col gap-3.5 px-1">
+                {attachedFiles.length > 0 && (
+                  <div className="flex flex-col gap-2">
+                    {attachedFiles.map((file, index) => (
                       <div
-                        onClick={() => {
-                          appStoreMutate((state) => ({
-                            voiceChat: {
-                              ...state.voiceChat,
-                              isOpen: true,
-                              threadId: currentThreadId ?? undefined,
-                              projectId: currentProjectId ?? undefined,
-                            },
-                          }));
-                        }}
-                        className="border fade-in animate-in cursor-pointer text-background rounded-full p-2 bg-primary hover:bg-primary/90 transition-all duration-200 interactive-element"
+                        key={index}
+                        className="flex items-center gap-2 px-2 py-1 text-sm bg-muted rounded-md"
                       >
-                        <AudioWaveformIcon size={16} />
+                        <Paperclip className="size-4" />
+                        <span className="flex-1 truncate">{file.name}</span>
+                        <button
+                          onClick={() => removeFile(index)}
+                          className="p-1 hover:bg-muted-foreground/20 rounded-full"
+                        >
+                          <X className="size-4" />
+                        </button>
                       </div>
-                    </TooltipTrigger>
-                    <TooltipContent>{t("VoiceChat.title")}</TooltipContent>
-                  </Tooltip>
-                ) : (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div
-                        onClick={() => {
-                          if (isLoading) {
-                            onStop();
-                          } else {
-                            submit();
-                          }
-                        }}
-                        className={cn(
-                          "fade-in animate-in cursor-pointer rounded-full p-2 transition-all duration-200 interactive-element",
-                          isLoading
-                            ? "text-muted-foreground bg-secondary hover:bg-accent-foreground hover:text-accent"
-                            : "border text-background bg-primary hover:bg-primary/90",
-                          disabled && "opacity-50 cursor-not-allowed",
-                        )}
-                      >
-                        {isLoading ? (
-                          <Square
-                            size={16}
-                            className="fill-muted-foreground text-muted-foreground"
-                          />
-                        ) : (
-                          <CornerRightUp size={16} />
-                        )}
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {isLoading ? "Stop generation" : "Send a message"}
-                    </TooltipContent>
-                  </Tooltip>
+                    ))}
+                  </div>
                 )}
+                <div className="relative min-h-[2rem]">
+                  <textarea
+                    ref={textareaRef}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder={
+                      disabled
+                        ? t("readOnlyPlaceholder")
+                        : (placeholder ?? t("placeholder"))
+                    }
+                    className="w-full resize-none border-none bg-transparent outline-none text-foreground placeholder:text-muted-foreground min-h-[2rem] max-h-[200px] overflow-y-auto leading-6 px-2 py-1 text-base placeholder:text-base"
+                    rows={1}
+                    disabled={isLoading || isLoadingTools || disabled}
+                  />
+                </div>
+
+                <div className="flex w-full items-center z-30 gap-1.5">
+                  <Button
+                    variant={"ghost"}
+                    size={"sm"}
+                    className="rounded-full hover:bg-input! p-2!"
+                    onClick={notImplementedToast}
+                  >
+                    <Paperclip />
+                  </Button>
+
+                  {!toolDisabled && (
+                    <>
+                      <div className="interactive-element">
+                        <ToolModeDropdown disabled={false} />
+                      </div>
+                      <div className="interactive-element">
+                        <ToolSelectDropdown
+                          align="start"
+                          side="top"
+                          disabled={false}
+                        />
+                      </div>
+                    </>
+                  )}
+                  <div className="flex-1" />
+
+                  {!isLoading &&
+                  !input.length &&
+                  !voiceDisabled &&
+                  !disabled ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div
+                          onClick={() => {
+                            appStoreMutate((state) => ({
+                              voiceChat: {
+                                ...state.voiceChat,
+                                isOpen: true,
+                                threadId: currentThreadId ?? undefined,
+                                projectId: currentProjectId ?? undefined,
+                              },
+                            }));
+                          }}
+                          className="border fade-in animate-in cursor-pointer text-background rounded-full p-2 bg-primary hover:bg-primary/90 transition-all duration-200 interactive-element"
+                        >
+                          <AudioWaveformIcon size={16} />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>{t("VoiceChat.title")}</TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div
+                          onClick={() => {
+                            if (isLoading) {
+                              onStop();
+                            } else {
+                              submit();
+                            }
+                          }}
+                          className={cn(
+                            "fade-in animate-in cursor-pointer rounded-full p-2 transition-all duration-200 interactive-element",
+                            isLoading
+                              ? "text-muted-foreground bg-secondary hover:bg-accent-foreground hover:text-accent"
+                              : "border text-background bg-primary hover:bg-primary/90",
+                            disabled && "opacity-50 cursor-not-allowed",
+                          )}
+                        >
+                          {isLoading ? (
+                            <Square
+                              size={16}
+                              className="fill-muted-foreground text-muted-foreground"
+                            />
+                          ) : (
+                            <CornerRightUp size={16} />
+                          )}
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {isLoading ? "Stop generation" : "Send a message"}
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </fieldset>
       </div>
