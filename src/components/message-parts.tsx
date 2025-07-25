@@ -175,7 +175,7 @@ export const UserMessagePart = memo(
             "flex flex-col gap-4 max-w-full",
             "flex flex-col gap-4 max-w-full ring ring-input",
             {
-              "bg-accent text-accent-foreground px-4 py-3 rounded-2xl": isLast,
+              "bg-accent text-accent-foreground px-4 py-3 rounded-2xl": true, // Always apply user message styling
               "opacity-50": isError,
             },
             isError && "border-destructive border",

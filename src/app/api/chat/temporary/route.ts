@@ -20,7 +20,7 @@ export async function POST(request: Request) {
       messages: Message[];
       instructions?: string;
     };
-    const model = customModelProvider.getModel();
+    const model = customModelProvider.getModel(undefined);
     const userPreferences =
       (await userRepository.getPreferences(userId)) || undefined;
 

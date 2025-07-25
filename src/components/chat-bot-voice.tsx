@@ -1,7 +1,7 @@
 "use client";
 
 import { TextPart, UIMessage } from "ai";
-import { DEFAULT_VOICE_TOOLS, UIMessageWithCompleted } from "lib/ai/speech";
+import { UIMessageWithCompleted } from "lib/ai/speech";
 
 import {
   OPENAI_VOICE,
@@ -85,17 +85,6 @@ function mergeConsecutiveMessages(messages: UIMessage[]): UIMessage[] {
 
   return merged;
 }
-
-const prependTools = [
-  {
-    id: "Browser",
-    name: "Browser",
-    tools: DEFAULT_VOICE_TOOLS.map((tool) => ({
-      name: tool.name,
-      description: tool.description,
-    })),
-  },
-];
 
 export function ChatBotVoice() {
   const t = useTranslations("Chat");
@@ -308,7 +297,7 @@ export function ChatBotVoice() {
                 <EnabledMcpToolsDropdown
                   align="start"
                   side="bottom"
-                  prependTools={prependTools}
+                  prependTools={[]}
                 />
 
                 <div className="flex-1" />

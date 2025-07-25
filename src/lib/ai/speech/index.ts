@@ -19,21 +19,3 @@ export interface VoiceChatSession {
 export type VoiceChatHook = (props?: {
   [key: string]: any;
 }) => VoiceChatSession;
-
-export const DEFAULT_VOICE_TOOLS = [
-  {
-    type: "function",
-    name: "changeBrowserTheme",
-    description: "Change the browser theme",
-    parameters: {
-      type: "object",
-      properties: {
-        theme: {
-          type: "string",
-          enum: ["light", "dark"],
-        },
-      },
-      required: ["theme"],
-    },
-  },
-];
