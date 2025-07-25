@@ -78,7 +78,7 @@ export function ProjectSystemMessagePopup({
             id="system-prompt"
             value={systemPrompt}
             onChange={(e) => setSystemPrompt(e.target.value)}
-            placeholder="e.g. You are a Korean travel guide ChatBot. Respond only in Korean, include precise times for every itinerary item, and present transportation, budget, and dining recommendations succinctly in a table format."
+            placeholder="e.g. You are a Korean travel guide assistant. Respond only in Korean, include precise times for every itinerary item, and present transportation, budget, and dining recommendations succinctly in a table format."
             className="resize-none min-h-[200px] max-h-[400px] w-full"
           />
         </div>
