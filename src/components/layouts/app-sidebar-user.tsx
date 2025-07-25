@@ -13,7 +13,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuCheckboxItem,
 } from "ui/dropdown-menu";
-import { AvatarFallback, Avatar } from "ui/avatar";
+import { AvatarFallback, Avatar, AvatarImage } from "ui/avatar";
 import { SidebarMenuButton, SidebarMenuItem, SidebarMenu } from "ui/sidebar";
 import {
   ChevronsUpDown,
@@ -69,6 +69,7 @@ export function AppSidebarUser({
               size={"lg"}
             >
               <Avatar className="rounded-full size-8 border">
+                <AvatarImage src={user?.image || ""} />
                 <AvatarFallback>{user?.name?.slice(0, 1) || ""}</AvatarFallback>
               </Avatar>
               <span className="truncate">{user?.email}</span>
@@ -83,6 +84,7 @@ export function AppSidebarUser({
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-full">
+                  <AvatarImage src={user?.image || ""} />
                   <AvatarFallback className="rounded-lg">
                     {user?.name?.slice(0, 1) || ""}
                   </AvatarFallback>

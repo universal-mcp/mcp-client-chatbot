@@ -32,6 +32,7 @@ import {
   X,
   SmartphoneIcon,
   LaptopIcon,
+  Upload,
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -242,12 +243,62 @@ export default function UserCard(props: {
   );
 }
 
-async function convertImageToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+async function handleUpdate(image: File, name: string | undefined) {
+  const imageName = `${crypto.randomUUID()}-${image.name}`;
+  let presignedUrl = "";
+  try {
+    const res = await fetch("/api/r2/upload", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        filename: imageName,
+        contentType: image.type,
+      }),
+    });
+
+    if (!res.ok) {
+      throw new Error("Failed to get presigned URL");
+    }
+
+    console.log(res);
+
+    const data = await res.json();
+    presignedUrl = data.signedUrl;
+  } catch (_e) {
+    toast.error("Failed to get presigned URL");
+    return;
+  }
+
+  try {
+    const res = await fetch(presignedUrl, {
+      method: "PUT",
+      body: image,
+      headers: {
+        "Content-Type": image.type,
+      },
+    });
+
+    if (!res.ok) {
+      throw new Error("Failed to upload image");
+    }
+  } catch (_e) {
+    toast.error("Failed to upload image");
+    return;
+  }
+
+  await authClient.updateUser({
+    image: `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${imageName}`,
+    name,
+    fetchOptions: {
+      onSuccess: () => {
+        toast.success("User updated successfully");
+      },
+      onError: (error) => {
+        toast.error(error.error.message);
+      },
+    },
   });
 }
 
@@ -370,15 +421,29 @@ function EditUserDialog() {
   const router = useRouter();
   const [image, setImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFileName, setImageFileName] = useState<string | null>(null);
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setImage(file);
+      setImageFileName(file.name);
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result as string);
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setImage(null);
+    setImagePreview(null);
+    setImageFileName(null);
+    const fileInput = document.getElementById(
+      "image-upload",
+    ) as HTMLInputElement;
+    if (fileInput) {
+      fileInput.value = "";
     }
   };
   const [open, setOpen] = useState<boolean>(false);
@@ -407,38 +472,55 @@ function EditUserDialog() {
               setName(e.target.value);
             }}
           />
-          <div className="grid gap-2">
-            <Label htmlFor="image">Profile Image</Label>
-            <div className="flex items-end gap-4">
-              {imagePreview && (
-                <div className="relative w-16 h-16 rounded-sm overflow-hidden">
-                  <Image
-                    src={imagePreview}
-                    alt="Profile preview"
-                    layout="fill"
-                    objectFit="cover"
-                  />
-                </div>
+          <div className="flex flex-col gap-2">
+            <Label>Profile Image (Optional)</Label>
+            <div className="relative">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageChange}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                id="image-upload"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full justify-start"
+                asChild
+              >
+                <label htmlFor="image-upload" className="cursor-pointer">
+                  <Upload className="mr-2 h-4 w-4" />
+                  {image ? "Change Image" : "Upload Image"}
+                </label>
+              </Button>
+              {image && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0"
+                  onClick={handleRemoveImage}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               )}
-              <div className="flex items-center gap-2 w-full">
-                <Input
-                  id="image"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageChange}
-                  className="w-full text-muted-foreground"
-                />
-                {imagePreview && (
-                  <X
-                    className="cursor-pointer"
-                    onClick={() => {
-                      setImage(null);
-                      setImagePreview(null);
-                    }}
-                  />
-                )}
-              </div>
             </div>
+            {imageFileName && (
+              <p className="text-sm text-muted-foreground truncate">
+                Selected: {imageFileName}
+              </p>
+            )}
+            {imagePreview && (
+              <div className="mt-2">
+                <Image
+                  src={imagePreview}
+                  alt="Profile preview"
+                  className="w-16 h-16 object-cover rounded-md"
+                  width={64}
+                  height={64}
+                />
+              </div>
+            )}
           </div>
         </div>
         <DialogFooter>
@@ -446,22 +528,26 @@ function EditUserDialog() {
             disabled={isLoading}
             onClick={async () => {
               setIsLoading(true);
-              await authClient.updateUser({
-                image: image ? await convertImageToBase64(image) : undefined,
-                name: name ? name : undefined,
-                fetchOptions: {
-                  onSuccess: () => {
-                    toast.success(t("userUpdated"));
+              if (image) {
+                await handleUpdate(image, name);
+              } else {
+                await authClient.updateUser({
+                  name: name ? name : undefined,
+                  fetchOptions: {
+                    onSuccess: () => {
+                      toast.success(t("userUpdated"));
+                    },
+                    onError: (error) => {
+                      toast.error(error.error.message);
+                    },
                   },
-                  onError: (error) => {
-                    toast.error(error.error.message);
-                  },
-                },
-              });
+                });
+              }
               setName("");
               router.refresh();
               setImage(null);
               setImagePreview(null);
+              setImageFileName(null);
               setIsLoading(false);
               setOpen(false);
             }}
