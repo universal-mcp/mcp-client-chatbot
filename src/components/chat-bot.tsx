@@ -260,12 +260,12 @@ export default function ChatBot({
   }, [threadList, threadId]);
 
   useEffect(() => {
-    if (isInitialThreadEntry)
+    if (isInitialThreadEntry && !isReadOnly)
       containerRef.current?.scrollTo({
         top: containerRef.current?.scrollHeight,
         behavior: "instant",
       });
-  }, [isInitialThreadEntry]);
+  }, [isInitialThreadEntry, isReadOnly]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
