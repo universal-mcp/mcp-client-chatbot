@@ -67,7 +67,7 @@ const DEFAULT_SERVERS: DefaultServerConfig[] = [
   {
     id: "default-agentr",
     name: "AgentR",
-    url: "https://mcp.agentr.dev/mcp",
+    url: "https://mcp.agentr.dev/sse",
     badgeText: "Recommended",
   },
   // Add more default servers here in the future
