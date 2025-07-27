@@ -19,11 +19,11 @@ jobs:
               run: exec porter apply
               env:
                 PORTER_APP_NAME: wingmen
-                PORTER_CLUSTER: "4695"
-                PORTER_DEPLOYMENT_TARGET_ID: 04a04d75-5a86-4a8c-807d-12e98a19ca6a
+                PORTER_CLUSTER: "5017"
+                PORTER_DEPLOYMENT_TARGET_ID: d7b92340-2d7b-484b-99f8-19e4b1a41ae4
                 PORTER_HOST: https://dashboard.porter.run
                 PORTER_PR_NUMBER: ${{ github.event.number }}
                 PORTER_PROJECT: "15101"
                 PORTER_REPO_NAME: ${{ github.event.repository.name }}
                 PORTER_TAG: ${{ steps.vars.outputs.sha_short }}
-                PORTER_TOKEN: ${{ secrets.PORTER_APP_15101_4695 }}
+                PORTER_TOKEN: ${{ secrets.PORTER_APP_15101_5017 }}
