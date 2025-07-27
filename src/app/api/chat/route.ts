@@ -48,6 +48,7 @@ export async function POST(request: Request) {
     const json = await request.json();
     const { userId, organizationId, user } = await getSessionContext();
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const {
       id,
       message,
@@ -55,10 +56,9 @@ export async function POST(request: Request) {
       allowedMcpServers,
       allowedAppDefaultToolkit,
       projectId,
-      llmModel,
     } = chatApiSchemaRequestBodySchema.parse(json);
 
-    const model = customModelProvider.getModel(llmModel);
+    const model = customModelProvider.getModel();
 
     let thread = await chatRepository.selectThreadDetails(
       id,

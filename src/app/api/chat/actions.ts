@@ -152,7 +152,7 @@ export async function generateExampleToolSchemaAction(options: {
   toolInfo: MCPToolInfo;
   prompt?: string;
 }) {
-  const model = customModelProvider.getModel(undefined);
+  const model = customModelProvider.getModel();
 
   const schema = jsonSchema(
     toAny({
