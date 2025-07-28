@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
     );
     const mcpTools = mcpClientsManager.tools();
     const mcpServers = await mcpClientsManager.getClients();
+    console.log("mcpServers", mcpServers);
 
     // Get project-specific MCP configurations
     const projectMcpConfig = projectId

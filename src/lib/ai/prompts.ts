@@ -113,6 +113,10 @@ ${userPreferences.responseStyleExample}
     : ""
 }
 </response_style>`.trim();
+  prompt += `
+### Tool Usage Guidelines ###
+- When tools are provided, make sure you only call the tools that are provided to you. Do not use any other tools. Do not hallucinate a tool name or call a tool that is not in the list.
+`.trim();
 
   return prompt.trim();
 };
