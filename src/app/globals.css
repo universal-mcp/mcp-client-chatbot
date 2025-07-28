@@ -813,6 +813,7 @@
   --sidebar-border: hsl(180 50% 90%);
   --sidebar-ring: hsl(150 80% 40%);
 }
+
 /* Tropical Paradise Dark */
 [data-theme="tropical-paradise-dark"] {
   color-scheme: dark;
@@ -1455,6 +1456,7 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }
@@ -1476,10 +1478,12 @@
     padding: 0.2rem 0.6rem;
     margin: 0 0.1rem;
   }
+
   .duration-3000 {
     --tw-duration: 3000ms;
     transition-duration: var(--tw-duration);
   }
+
   .duration-5000 {
     --tw-duration: 5000ms;
     transition-duration: var(--tw-duration);
@@ -1494,11 +1498,113 @@
     0% {
       opacity: 0;
     }
+
     80% {
       opacity: 0;
     }
+
     100% {
       opacity: 1;
     }
   }
+}
+
+/* Tiptap Editor Styles */
+.ProseMirror {
+  outline: none;
+  line-height: 1.5;
+  min-height: 200px;
+  height: 100%;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  color: hsl(var(--muted-foreground));
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+.ProseMirror p {
+  margin: 0.5em 0;
+}
+
+.ProseMirror h1,
+.ProseMirror h2,
+.ProseMirror h3,
+.ProseMirror h4,
+.ProseMirror h5,
+.ProseMirror h6 {
+  margin: 1em 0 0.5em 0;
+  font-weight: 600;
+}
+
+.ProseMirror ul,
+.ProseMirror ol {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+
+.ProseMirror blockquote {
+  border-left: 3px solid hsl(var(--border));
+  margin: 0.5em 0;
+  padding-left: 1em;
+  font-style: italic;
+}
+
+.ProseMirror code {
+  background-color: hsl(var(--muted));
+  padding: 0.2em 0.4em;
+  border-radius: 0.25em;
+  font-size: 0.875em;
+}
+
+.ProseMirror pre {
+  background-color: hsl(var(--muted));
+  padding: 1em;
+  border-radius: 0.5em;
+  overflow-x: auto;
+}
+
+.ProseMirror pre code {
+  background-color: transparent;
+  padding: 0;
+}
+
+/* Make the editor area fully clickable */
+.ProseMirror-focused {
+  outline: none;
+}
+
+/* Ensure the editor container is clickable */
+.tiptap-editor-container {
+  position: relative;
+  cursor: text;
+}
+
+.tiptap-editor-container .ProseMirror {
+  position: relative;
+  z-index: 1;
+}
+
+/* List marker styles */
+.ProseMirror ul {
+  list-style-type: disc;
+}
+
+.ProseMirror ol {
+  list-style-type: decimal;
+}
+
+.ProseMirror li {
+  display: list-item;
+  margin: 0.25em 0;
+}
+
+.ProseMirror ul li {
+  list-style-type: disc;
+}
+
+.ProseMirror ol li {
+  list-style-type: decimal;
 }
