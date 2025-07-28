@@ -205,9 +205,11 @@ function McpServerSelector() {
               </span>
               {Boolean(server.error) ? (
                 <span
-                  className={cn("text-xs text-destructive ml-1 p-1 rounded")}
+                  className={cn(
+                    "text-xs text-yellow-600 ml-1 p-1 rounded flex items-center gap-1",
+                  )}
                 >
-                  error
+                  Disconnected
                 </span>
               ) : null}
             </DropdownMenuSubTrigger>
