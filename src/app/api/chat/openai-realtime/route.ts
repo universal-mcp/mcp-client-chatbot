@@ -125,6 +125,7 @@ export async function POST(request: NextRequest) {
         voice: voice || "alloy",
         input_audio_transcription: {
           model: "whisper-1",
+          language: "en",
         },
         instructions: systemPrompt,
         tools: [...openAITools],
