@@ -3,6 +3,7 @@
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
+import Code from "@tiptap/extension-code";
 import { useEffect } from "react";
 import { Button } from "ui/button";
 import {
@@ -12,6 +13,9 @@ import {
   ListOrdered,
   Heading1,
   Heading2,
+  Heading3,
+  Heading4,
+  Code as CodeIcon,
 } from "lucide-react";
 
 interface TiptapProps {
@@ -35,6 +39,7 @@ const Tiptap = ({
       Placeholder.configure({
         placeholder: placeholder || "",
       }),
+      Code,
     ],
     content: value || "",
     // Don't render immediately on the server to avoid SSR issues
@@ -103,6 +108,28 @@ const Tiptap = ({
         >
           <Heading2 className="h-4 w-4" />
         </Button>
+        <Button
+          variant={
+            editor.isActive("heading", { level: 3 }) ? "default" : "ghost"
+          }
+          size="sm"
+          onClick={() =>
+            editor.chain().focus().toggleHeading({ level: 3 }).run()
+          }
+        >
+          <Heading3 className="h-4 w-4" />
+        </Button>
+        <Button
+          variant={
+            editor.isActive("heading", { level: 4 }) ? "default" : "ghost"
+          }
+          size="sm"
+          onClick={() =>
+            editor.chain().focus().toggleHeading({ level: 4 }).run()
+          }
+        >
+          <Heading4 className="h-4 w-4" />
+        </Button>
         <div className="w-px h-4 bg-border mx-1" />
         <Button
           variant={editor.isActive("bulletList") ? "default" : "ghost"}
@@ -117,6 +144,14 @@ const Tiptap = ({
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
         >
           <ListOrdered className="h-4 w-4" />
+        </Button>
+        <div className="w-px h-4 bg-border mx-1" />
+        <Button
+          variant={editor.isActive("codeBlock") ? "default" : "ghost"}
+          size="sm"
+          onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+        >
+          <CodeIcon className="h-4 w-4" />
         </Button>
       </div>
       <EditorContent
