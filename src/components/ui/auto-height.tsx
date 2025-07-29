@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { Easing, motion } from "framer-motion";
 import { ReactNode, useRef, useLayoutEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -45,7 +45,7 @@ export function AutoHeight({
       animate={{ height }}
       transition={{
         duration,
-        ease,
+        ease: ease as Easing,
       }}
     >
       <div ref={contentRef}>{children}</div>

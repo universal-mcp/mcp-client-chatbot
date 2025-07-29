@@ -83,13 +83,19 @@ export default function SignInPage() {
     setForgotPasswordError("");
 
     try {
-      await authClient.requestPasswordReset({
+      const { data, error } = await authClient.requestPasswordReset({
         email: forgotPasswordEmail,
         redirectTo: "/reset-password",
       });
-      setForgotPasswordSubmitted(true);
-    } catch (_err) {
-      setForgotPasswordError("An error occurred. Please try again.");
+      console.log(data, error);
+      if (error) {
+        console.log(error);
+        setForgotPasswordError(
+          error.message || "An error occurred. Please try again.",
+        );
+      } else {
+        setForgotPasswordSubmitted(true);
+      }
     } finally {
       setForgotPasswordLoading(false);
     }
