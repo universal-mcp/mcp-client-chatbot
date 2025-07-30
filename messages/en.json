@@ -75,8 +75,8 @@
       "emailPlaceholder": "Enter your email",
       "sendButton": "Send reset link",
       "sendingButton": "Sending...",
-      "successTitle": "Check your email",
-      "successDescription": "We've sent a password reset link to your email.",
+      "successTitle": "Forgot password",
+      "successDescription": "If this email exists in our system, check your email for the reset link.",
       "successAlert": "If you don't see the email, check your spam folder.",
       "backToReset": "Back to reset password",
       "backToSignIn": "Back to sign in",
@@ -253,8 +253,8 @@
       "noConversationsYet": "No conversations yet",
       "projectInstructions": "Assistant Instructions",
       "projectInstructionsUpdated": "Assistant instructions updated",
-      "howCanTheChatBotBestHelpYouWithThisProject": "How can the ChatBot best help you with this assistant?",
-      "youCanAskTheChatBotToFocusOnASpecificTopicOrToRespondInAParticularToneOrFormat": "You can ask the ChatBot to focus on a specific topic or to respond in a particular tone or format."
+      "howCanTheChatBotBestHelpYouWithThisProject": "How can the assistant best help you?",
+      "youCanAskTheChatBotToFocusOnASpecificTopicOrToRespondInAParticularToneOrFormat": "You can ask the assistant to focus on a specific topic, respond in a particular format, or use specific tools."
     },
     "ChatPreferences": {
       "title": "Chat Preferences",

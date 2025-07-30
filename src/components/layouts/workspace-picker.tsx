@@ -208,7 +208,7 @@ export const WorkspacePicker = () => {
       <CreateOrganizationModal
         open={isCreateModalOpen}
         onOpenChange={setIsCreateModalOpen}
-        switchToNewWorkspace={false}
+        switchToNewWorkspace={true}
       />
     </>
   );

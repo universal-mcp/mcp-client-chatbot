@@ -38,6 +38,7 @@ function OrgMembers({
 
     await organization.removeMember({
       memberIdOrEmail: member.id,
+      organizationId: activeOrganization?.id || "",
     });
   };
 

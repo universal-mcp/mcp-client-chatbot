@@ -12,13 +12,13 @@ import {
 
 import { Button } from "ui/button";
 import { Loader } from "lucide-react";
-import { Textarea } from "ui/textarea";
 import { useEffect, useState } from "react";
 import { safe } from "ts-safe";
 import { updateProjectAction } from "@/app/api/chat/actions";
 import { toast } from "sonner";
 import { handleErrorWithToast } from "ui/shared-toast";
 import { useTranslations } from "next-intl";
+import Tiptap from "./tiptap";
 
 interface ProjectSystemMessagePopupProps {
   isOpen: boolean;
@@ -72,14 +72,11 @@ export function ProjectSystemMessagePopup({
             </div>
           </DialogDescription>
         </DialogHeader>
-        <div className="flex items-center gap-2 w-full overflow-x-auto">
-          <Textarea
-            autoFocus
-            id="system-prompt"
+        <div className="w-full">
+          <Tiptap
             value={systemPrompt}
-            onChange={(e) => setSystemPrompt(e.target.value)}
+            onChange={setSystemPrompt}
             placeholder="e.g. You are a Korean travel guide assistant. Respond only in Korean, include precise times for every itinerary item, and present transportation, budget, and dining recommendations succinctly in a table format."
-            className="resize-none min-h-[200px] max-h-[400px] w-full"
           />
         </div>
         <DialogFooter>
@@ -88,7 +85,7 @@ export function ProjectSystemMessagePopup({
           </DialogClose>
           <Button
             type="submit"
-            disabled={isLoading || !systemPrompt.trim()}
+            disabled={isLoading}
             onClick={handleSave}
             variant={"secondary"}
           >

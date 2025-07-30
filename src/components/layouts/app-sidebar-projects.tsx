@@ -69,7 +69,7 @@ export function AppSidebarProjects() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="opacity-0 group-hover/projects:opacity-100 hover:bg-input!"
+                      className="opacity-0 group-hover/projects:opacity-100 hover:bg-input! h-6 w-6 p-0"
                     >
                       <Plus />
                     </Button>
@@ -112,24 +112,19 @@ export function AppSidebarProjects() {
                         <SidebarMenuButton
                           asChild
                           isActive={isSelected}
-                          className="data-[state=open]:bg-input!"
+                          className="data-[state=open]:bg-input! flex items-center gap-1"
                         >
-                          <div className="flex items-center gap-1">
-                            <Link
-                              href={`/project/${project.id}`}
-                              className="flex w-full min-w-0 items-center gap-1"
-                            >
-                              <div className="p-1 rounded-md hover:bg-foreground/40">
-                                <Bot className="size-4" />
-                              </div>
-                              <p className="truncate">{project.name}</p>
-                            </Link>
+                          <Link href={`/project/${project.id}`}>
+                            <div className="p-1 rounded-md hover:bg-foreground/40">
+                              <Bot className="size-4" />
+                            </div>
+                            <p className="truncate">{project.name}</p>
                             <ProjectDropdown project={project} side="right">
                               <SidebarMenuAction className="opacity-0 group-hover/project:opacity-100 mr-2">
                                 <MoreHorizontal className="size-4" />
                               </SidebarMenuAction>
                             </ProjectDropdown>
-                          </div>
+                          </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                     </SidebarMenu>

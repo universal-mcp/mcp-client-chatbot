@@ -10,7 +10,6 @@ import ChatBot from "@/components/chat-bot";
 import {
   Loader,
   MoreHorizontal,
-  FileUp,
   Pencil,
   MessagesSquare,
   Settings2,
@@ -21,7 +20,6 @@ import { useEffect, useMemo, useState } from "react";
 
 import useSWR from "swr";
 import { Button } from "ui/button";
-import { notImplementedToast } from "ui/shared-toast";
 import { useShallow } from "zustand/shallow";
 import { generateUUID } from "lib/utils";
 import { Project } from "app-types/chat";
@@ -135,12 +133,6 @@ export default function ProjectPage() {
       </div>
 
       <div className="flex my-4 px-4 gap-4">
-        <FeatureCard
-          title="Add Files"
-          onClick={notImplementedToast}
-          description={t("chatInThisProjectCanAccessFileContents")}
-          icon={<FileUp size={18} className="text-muted-foreground" />}
-        />
         <FeatureCard
           title="Add Instructions"
           description={

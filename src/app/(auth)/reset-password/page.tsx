@@ -12,11 +12,10 @@ import {
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
 import { authClient } from "@/lib/auth/client";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Loader } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
-import { MCPIcon } from "@/components/ui/mcp-icon";
 
 export default function ResetPassword() {
   const [password, setPassword] = useState("");
@@ -24,37 +23,57 @@ export default function ResetPassword() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters long");
+      return;
+    }
+
     setIsSubmitting(true);
     setError("");
-    const res = await authClient.resetPassword({
-      newPassword: password,
-      token: new URLSearchParams(window.location.search).get("token")!,
-    });
-    if (res.error) {
-      toast.error(res.error.message);
+
+    try {
+      const res = await authClient.resetPassword({
+        newPassword: password,
+        token: new URLSearchParams(window.location.search).get("token")!,
+      });
+
+      if (res.error) {
+        setError(res.error.message || "An error occurred. Please try again.");
+      } else {
+        toast.success("Password reset successfully!");
+        router.push("/sign-in");
+      }
+    } catch (_err) {
+      setError("An error occurred. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsSubmitting(false);
-    router.push("/sign-in");
   }
+
   return (
-    <main className="relative flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-primary/10 via-background to-accent/10 transition-colors duration-500">
-      <div className="absolute inset-0 pointer-events-none z-0" />
-      <Card className="w-full max-w-sm shadow-xl rounded-2xl z-10 animate-fade-in">
-        <CardHeader className="flex flex-col items-center gap-2">
-          <MCPIcon className="w-10 h-10 text-primary mb-2 animate-fade-in" />
-          <CardTitle className="text-2xl font-bold tracking-tight">
-            Reset password
+    <div className="w-full h-full flex flex-col p-4 md:p-8 justify-center">
+      <Card className="w-full md:max-w-md bg-background border-none mx-auto shadow-none animate-in fade-in duration-1000">
+        <CardHeader className="my-4">
+          <CardTitle className="text-2xl text-center my-1">
+            Reset Password
           </CardTitle>
-          <CardDescription className="text-base text-muted-foreground">
-            Enter new password and confirm it to reset your password
+          <CardDescription className="text-center text-muted-foreground">
+            Enter your new password below and confirm it to reset your password.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="password">New password</Label>
+        <CardContent className="flex flex-col">
+          <div className="flex flex-col gap-6">
+            <div className="grid gap-2">
+              <Label htmlFor="password">New Password</Label>
               <PasswordInput
                 id="password"
                 value={password}
@@ -62,12 +81,13 @@ export default function ResetPassword() {
                   setPassword(e.target.value)
                 }
                 autoComplete="new-password"
-                placeholder="Password"
-                className="transition-all focus:ring-2 focus:ring-primary/50"
+                placeholder="Enter your new password"
+                disabled={isSubmitting}
+                required
               />
             </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="confirm-password">Confirm password</Label>
+            <div className="grid gap-2">
+              <Label htmlFor="confirm-password">Confirm Password</Label>
               <PasswordInput
                 id="confirm-password"
                 value={confirmPassword}
@@ -75,8 +95,14 @@ export default function ResetPassword() {
                   setConfirmPassword(e.target.value)
                 }
                 autoComplete="new-password"
-                placeholder="Password"
-                className="transition-all focus:ring-2 focus:ring-primary/50"
+                placeholder="Confirm your new password"
+                disabled={isSubmitting}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleSubmit(e);
+                  }
+                }}
+                required
               />
             </div>
             {error && (
@@ -89,15 +115,19 @@ export default function ResetPassword() {
               </Alert>
             )}
             <Button
-              className="w-full mt-2 font-semibold text-base transition-all duration-200"
-              type="submit"
+              className="w-full"
+              onClick={handleSubmit}
               disabled={isSubmitting}
             >
-              {isSubmitting ? "Resetting..." : "Reset password"}
+              {isSubmitting ? (
+                <Loader className="size-4 animate-spin ml-1" />
+              ) : (
+                "Reset Password"
+              )}
             </Button>
-          </form>
+          </div>
         </CardContent>
       </Card>
-    </main>
+    </div>
   );
 }
