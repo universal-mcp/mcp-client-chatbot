@@ -22,6 +22,7 @@ import { existsByEmailAction } from "@/app/api/auth/actions";
 import { authClient } from "auth/client";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
+import posthog from "posthog-js";
 
 export default function SignUpPage() {
   const t = useTranslations();
@@ -95,7 +96,8 @@ export default function SignUpPage() {
       toast.error(t("Auth.SignUp.passwordRequired"));
       return;
     }
-    await safeProcessWithLoading(() =>
+
+    const { data, error } = await safeProcessWithLoading(() =>
       authClient.signUp.email(
         {
           email: formData.email,
@@ -112,6 +114,14 @@ export default function SignUpPage() {
         },
       ),
     ).unwrap();
+    if (error) {
+      toast.error(error.message || error.statusText);
+      return;
+    }
+    posthog.identify(data?.user.id, {
+      email: formData.email,
+      name: formData.name,
+    });
   };
 
   return (
