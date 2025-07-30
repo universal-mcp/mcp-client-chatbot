@@ -83,13 +83,11 @@ export default function SignInPage() {
     setForgotPasswordError("");
 
     try {
-      const { data, error } = await authClient.requestPasswordReset({
+      const { error } = await authClient.requestPasswordReset({
         email: forgotPasswordEmail,
         redirectTo: "/reset-password",
       });
-      console.log(data, error);
       if (error) {
-        console.log(error);
         setForgotPasswordError(
           error.message || "An error occurred. Please try again.",
         );
