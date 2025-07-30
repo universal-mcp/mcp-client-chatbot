@@ -66,9 +66,9 @@ const Tiptap = ({
 
   return (
     <div
-      className={`border border-input bg-background rounded-md ${className || ""}`}
+      className={`border border-input bg-background rounded-md flex flex-col ${className || ""}`}
     >
-      <div className="flex items-center gap-1 p-2 border-b border-input">
+      <div className="flex items-center gap-1 p-2 border-b border-input flex-shrink-0">
         <Button
           variant={editor.isActive("bold") ? "default" : "ghost"}
           size="sm"
@@ -154,10 +154,12 @@ const Tiptap = ({
           <CodeIcon className="h-4 w-4" />
         </Button>
       </div>
-      <EditorContent
-        editor={editor}
-        className="resize-none min-h-[200px] max-h-[400px] w-full px-3 py-2 text-sm focus-visible:outline-none"
-      />
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <EditorContent
+          editor={editor}
+          className="h-full min-h-[200px] max-h-[400px] w-full px-3 py-2 text-sm focus-visible:outline-none overflow-y-auto"
+        />
+      </div>
     </div>
   );
 };
