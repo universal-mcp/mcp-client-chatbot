@@ -1,12 +1,13 @@
 import { motion } from "framer-motion";
 import { ReactNode, useRef, useLayoutEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { Easing } from "framer-motion";
 
 interface AutoHeightProps {
   children: ReactNode;
   className?: string;
   duration?: number;
-  ease?: string;
+  ease?: Easing;
 }
 
 export function AutoHeight({
@@ -45,7 +46,7 @@ export function AutoHeight({
       animate={{ height }}
       transition={{
         duration,
-        ease,
+        ease: ease,
       }}
     >
       <div ref={contentRef}>{children}</div>
