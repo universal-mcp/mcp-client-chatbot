@@ -1,8 +1,14 @@
 // models.ts
 import { LanguageModel } from "ai";
-// import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import { openai } from "@ai-sdk/openai";
-import { anthropic } from "@ai-sdk/anthropic";
+// import { openai } from "@ai-sdk/openai";
+// import { anthropic } from "@ai-sdk/anthropic";
+import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
+
+const bedrock = createAmazonBedrock({
+  region: process.env.AWS_REGION!,
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+});
 
 // const openrouter = createOpenRouter({
 //   apiKey: process.env.OPENROUTER_API_KEY,
@@ -10,10 +16,9 @@ import { anthropic } from "@ai-sdk/anthropic";
 
 export const customModelProvider = {
   getModel: (): LanguageModel => {
-    // TODO: use openrouter
-    return anthropic("claude-4-sonnet-20250514");
+    return bedrock("apac.anthropic.claude-sonnet-4-20250514-v1:0");
   },
   getTitleModel: (): LanguageModel => {
-    return openai("gpt-4.1");
+    return bedrock("apac.anthropic.claude-3-5-sonnet-20240620-v1:0");
   },
 };
