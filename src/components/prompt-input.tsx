@@ -2,8 +2,10 @@
 
 import {
   AudioWaveformIcon,
+  Bot,
   CornerRightUp,
   Paperclip,
+  PlusIcon,
   Square,
   X,
 } from "lucide-react";
@@ -14,6 +16,7 @@ import { useShallow } from "zustand/shallow";
 import { ChatMessageAnnotation } from "app-types/chat";
 import { ToolModeDropdown } from "./tool-mode-dropdown";
 import { ToolSelectDropdown } from "./tool-select-dropdown";
+import { ProjectSelector } from "./project-selector";
 import { Tooltip, TooltipContent, TooltipTrigger } from "ui/tooltip";
 import { useTranslations } from "next-intl";
 import { cn } from "lib/utils";
@@ -29,7 +32,6 @@ interface PromptInputProps {
   toolDisabled?: boolean;
   isLoading?: boolean;
   voiceDisabled?: boolean;
-  isInProjectContext?: boolean;
   disabled?: boolean;
 }
 
@@ -42,7 +44,6 @@ export default function PromptInput({
   isLoading,
   toolDisabled,
   voiceDisabled,
-  isInProjectContext,
   disabled,
 }: PromptInputProps) {
   const t = useTranslations("Chat");
@@ -53,13 +54,15 @@ export default function PromptInput({
 
   const [
     currentThreadId,
-    currentProjectId,
+    selectedProjectForPrompt,
+    selectedProjectName,
     appStoreMutate,
     isMcpClientListLoading,
   ] = appStore(
     useShallow((state) => [
       state.currentThreadId,
-      state.currentProjectId,
+      state.selectedProjectForPrompt,
+      state.selectedProjectName,
       state.mutate,
       state.isMcpClientListLoading,
     ]),
@@ -158,6 +161,23 @@ export default function PromptInput({
             )}
           >
             <div className="flex flex-col gap-3.5 px-1">
+              {selectedProjectName && (
+                <div className="flex items-center gap-2 px-2 py-1 text-xs bg-primary/10 text-primary rounded-md font-medium">
+                  <Bot className="size-3.5" />
+                  <span className="truncate">{selectedProjectName}</span>
+                  <button
+                    onClick={() => {
+                      appStoreMutate((_state) => ({
+                        selectedProjectForPrompt: null,
+                        selectedProjectName: null,
+                      }));
+                    }}
+                    className="ml-auto p-1 hover:bg-primary/20 rounded-full"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </div>
+              )}
               {attachedFiles.length > 0 && (
                 <div className="flex flex-col gap-2">
                   {attachedFiles.map((file, index) => (
@@ -194,14 +214,14 @@ export default function PromptInput({
                 />
               </div>
 
-              <div className="flex w-full items-center z-30 gap-1.5">
+              <div className="flex w-full items-center z-30">
                 <Button
                   variant={"ghost"}
                   size={"sm"}
                   className="rounded-full hover:bg-input! p-2!"
                   onClick={notImplementedToast}
                 >
-                  <Paperclip />
+                  <PlusIcon />
                 </Button>
 
                 {!toolDisabled && (
@@ -209,25 +229,31 @@ export default function PromptInput({
                     <div
                       className={cn(
                         "interactive-element",
-                        isInProjectContext && "cursor-not-allowed opacity-50",
+                        selectedProjectForPrompt &&
+                          "cursor-not-allowed opacity-50",
                       )}
                     >
-                      <ToolModeDropdown disabled={isInProjectContext} />
+                      <ToolModeDropdown disabled={!!selectedProjectForPrompt} />
                     </div>
                     <div
                       className={cn(
-                        "interactive-element",
-                        isInProjectContext && "cursor-not-allowed opacity-50",
+                        "interactive-element ml-1",
+                        selectedProjectForPrompt &&
+                          "cursor-not-allowed opacity-50",
                       )}
                     >
                       <ToolSelectDropdown
                         align="start"
                         side="top"
-                        disabled={isInProjectContext}
+                        disabled={!!selectedProjectForPrompt}
                       />
                     </div>
                   </>
                 )}
+
+                <div className="ml-1">
+                  <ProjectSelector />
+                </div>
                 <div className="flex-1" />
 
                 {!isLoading && !input.length && !voiceDisabled && !disabled ? (
@@ -240,7 +266,7 @@ export default function PromptInput({
                               ...state.voiceChat,
                               isOpen: true,
                               threadId: currentThreadId ?? undefined,
-                              projectId: currentProjectId ?? undefined,
+                              projectId: selectedProjectForPrompt ?? undefined,
                             },
                           }));
                         }}

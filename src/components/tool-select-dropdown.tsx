@@ -78,9 +78,11 @@ export function ToolSelectDropdown({
         {children ?? (
           <Button
             variant={"outline"}
+            disabled={disabled}
             className={cn(
               "rounded-full font-semibold bg-secondary",
               toolChoice == "none" && "text-muted-foreground bg-transparent",
+              disabled && "opacity-50 cursor-not-allowed",
             )}
           >
             {isLoading ? (

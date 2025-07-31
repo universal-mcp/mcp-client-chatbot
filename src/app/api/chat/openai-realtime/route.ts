@@ -50,11 +50,22 @@ export async function POST(request: NextRequest) {
     const projectMcpConfig = projectId
       ? await (async () => {
           const toolConfigsData = await getProjectMcpToolsAction(projectId);
+          const mcpTools = toolConfigsData.filter(
+            (c) => c.mcpServerId !== null,
+          );
           const toolConfigMap = new Map(
-            toolConfigsData.map((c) => [`${c.mcpServerId}:${c.toolName}`, c]),
+            mcpTools.map((c) => [
+              `${c.mcpServerId as string}:${c.toolName}`,
+              {
+                mcpServerId: c.mcpServerId as string,
+                toolName: c.toolName,
+                enabled: c.enabled,
+                mode: c.mode,
+              },
+            ]),
           );
           const enabledServerIds = new Set(
-            toolConfigsData.map((c) => c.mcpServerId),
+            mcpTools.map((c) => c.mcpServerId as string),
           );
 
           return {

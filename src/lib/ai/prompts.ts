@@ -125,14 +125,16 @@ ${userPreferences.responseStyleExample}
 export const buildProjectInstructionsSystemPrompt = (
   instructions?: Project["instructions"] | null,
 ) => {
-  if (!instructions?.systemPrompt?.trim()) return undefined;
+  if (!instructions?.systemPrompt?.trim() && !instructions?.expert?.trim())
+    return undefined;
 
   return `
 ### Project Context ###
 <project_instructions>
+You are an expert in ${instructions?.expert?.trim() || "all fields"}.
 - The assistant is supporting a project with the following background and goals.
 - Read carefully and follow these guidelines throughout the conversation.
-${instructions.systemPrompt.trim()}
+${instructions?.systemPrompt?.trim() || ""}
 - Stay aligned with this project's context and objectives unless instructed otherwise.
 </project_instructions>`.trim();
 };

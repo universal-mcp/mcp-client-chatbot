@@ -281,7 +281,7 @@
   "Layout": {
     "toggleSidebar": "Toggle Sidebar",
     "newChat": "New Chat",
-    "mcpConfiguration": "MCP Configuration",
+    "mcpConfiguration": "Tool Configuration",
     "projects": "Projects",
     "newProject": "New Project",
     "createProject": "Create an assistant",

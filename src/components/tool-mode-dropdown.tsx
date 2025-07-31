@@ -6,9 +6,15 @@ import {
   isShortcutEvent,
   Shortcuts,
 } from "lib/keyboard-shortcuts";
-import { capitalizeFirstLetter, cn } from "lib/utils";
-import { Check, ClipboardCheck, Infinity, PenOff } from "lucide-react";
-import { useEffect } from "react";
+import {
+  Check,
+  CheckIcon,
+  ClipboardCheck,
+  Infinity,
+  PenOff,
+  Settings2,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 import { Button } from "ui/button";
 import { useTranslations } from "next-intl";
 
@@ -22,14 +28,22 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "ui/dropdown-menu";
-import { Separator } from "ui/separator";
+
 import { useShallow } from "zustand/shallow";
+import { Tooltip, TooltipContent, TooltipTrigger } from "ui/tooltip";
+
+import { capitalizeFirstLetter, cn, createDebounce } from "lib/utils";
+
+const debounce = createDebounce();
 
 export const ToolModeDropdown = ({ disabled }: { disabled?: boolean }) => {
   const t = useTranslations("Chat.Tool");
   const [toolChoice, appStoreMutate] = appStore(
     useShallow((state) => [state.toolChoice, state.mutate]),
   );
+  const [open, setOpen] = useState(false);
+
+  const [toolChoiceChangeInfo, setToolChoiceChangeInfo] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -46,6 +60,10 @@ export const ToolModeDropdown = ({ disabled }: { disabled?: boolean }) => {
                   : "auto",
           };
         });
+        setToolChoiceChangeInfo(true);
+        debounce(() => {
+          setToolChoiceChangeInfo(false);
+        }, 1000);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -53,23 +71,46 @@ export const ToolModeDropdown = ({ disabled }: { disabled?: boolean }) => {
   }, []);
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild disabled={disabled}>
-        <Button
-          variant={"outline"}
-          className={cn(
-            toolChoice == "none" ? "text-muted-foreground" : "",
-            "font-semibold mr-1 rounded-full flex items-center gap-2 bg-transparent",
-          )}
-        >
-          <span>{capitalizeFirstLetter(toolChoice)}</span>
-          <Separator orientation="vertical" className="h-4 hidden sm:block" />
-          <span className="text-xs text-muted-foreground hidden sm:block">
-            ⌘P
-          </span>
-        </Button>
+        <div className="relative">
+          <Tooltip open={toolChoiceChangeInfo}>
+            <TooltipTrigger asChild>
+              <span className="absolute inset-0 -z-10" />
+            </TooltipTrigger>
+            <TooltipContent className="flex items-center gap-2">
+              {capitalizeFirstLetter(toolChoice)}
+              <CheckIcon className="size-2.5" />
+            </TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={"ghost"}
+                size={"sm"}
+                disabled={disabled}
+                className={cn(
+                  "rounded-full p-2! data-[state=open]:bg-input! hover:bg-input!",
+                  toolChoice == "none" && "text-muted-foreground",
+                  open && "bg-input!",
+                  disabled && "opacity-50 cursor-not-allowed",
+                )}
+                onClick={() => !disabled && setOpen(true)}
+              >
+                <Settings2 />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent className="flex items-center gap-2" side="top">
+              {t("selectToolMode")}
+              <span className="text-muted-foreground ml-2">
+                {getShortcutKeyList(Shortcuts.toolMode).join("")}
+              </span>
+            </TooltipContent>
+          </Tooltip>
+        </div>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start">
+      <DropdownMenuContent align="start" side="top">
         <DropdownMenuLabel className="text-muted-foreground flex items-center gap-2">
           {t("selectToolMode")}
           <DropdownMenuShortcut>

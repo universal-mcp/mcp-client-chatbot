@@ -20,9 +20,11 @@ export type ChatThread = {
 export type Project = {
   id: string;
   name: string;
+  description?: string;
   userId: string;
   instructions: {
     systemPrompt: string;
+    expert: string;
   };
   createdAt: Date;
   updatedAt: Date;

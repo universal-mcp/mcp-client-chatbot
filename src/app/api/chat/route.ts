@@ -105,15 +105,37 @@ export async function POST(request: Request) {
     const mcpTools = manager.tools();
     const mcpServers = await manager.getClients();
 
-    // Get project-specific MCP configurations
+    // Get project-specific tool configurations
     const projectMcpConfig = projectId
       ? await (async () => {
           const toolConfigsData = await getProjectMcpToolsAction(projectId);
-          const toolConfigMap = new Map(
-            toolConfigsData.map((c) => [`${c.mcpServerId}:${c.toolName}`, c]),
+
+          // Separate default tools and MCP tools
+          const defaultTools = toolConfigsData.filter(
+            (c) => c.mcpServerId === null,
           );
+          const mcpTools = toolConfigsData.filter(
+            (c) => c.mcpServerId !== null,
+          );
+
+          // Get default tool names as strings
+          const enabledDefaultTools = defaultTools.map((c) => c.toolName);
+
+          const mcpToolMap = new Map(
+            mcpTools.map((c) => [
+              `${c.mcpServerId as string}:${c.toolName}`,
+              {
+                mcpServerId: c.mcpServerId as string,
+                toolName: c.toolName,
+                enabled: c.enabled,
+                mode: c.mode,
+              },
+            ]),
+          );
+
+          // Get enabled server IDs (only for MCP tools)
           const enabledServerIds = new Set(
-            toolConfigsData.map((c) => c.mcpServerId),
+            mcpTools.map((c) => c.mcpServerId as string),
           );
 
           return {
@@ -122,7 +144,8 @@ export async function POST(request: Request) {
               name: server.client.getInfo().name,
               enabled: enabledServerIds.has(server.id),
             })),
-            tools: toolConfigMap,
+            tools: mcpToolMap,
+            defaultTools: enabledDefaultTools,
           };
         })()
       : undefined;
@@ -160,14 +183,25 @@ export async function POST(request: Request) {
         const APP_DEFAULT_TOOLS = safe(APP_DEFAULT_TOOL_KIT)
           .map(errorIf(() => !isToolCallAllowed && "Not allowed"))
           .map((tools) => {
-            return (
-              allowedAppDefaultToolkit?.reduce(
+            if (projectMcpConfig) {
+              // In project context: filter default tools based on project configuration
+              return projectMcpConfig.defaultTools?.reduce(
                 (acc, key) => {
                   return { ...acc, ...tools[key] };
                 },
                 {} as Record<string, Tool>,
-              ) || {}
-            );
+              );
+            } else {
+              // Outside project context: use global allowedAppDefaultToolkit setting
+              return (
+                allowedAppDefaultToolkit?.reduce(
+                  (acc, key) => {
+                    return { ...acc, ...tools[key] };
+                  },
+                  {} as Record<string, Tool>,
+                ) || {}
+              );
+            }
           })
           .orElse({});
 

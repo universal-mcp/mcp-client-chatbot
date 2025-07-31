@@ -45,7 +45,6 @@ type Props = {
   threadId: string;
   initialMessages: Array<UIMessage>;
   selectedChatModel?: string;
-  projectId?: string;
   isReadOnly?: boolean;
   slots?: {
     emptySlot?: ReactNode;
@@ -57,7 +56,6 @@ export default function ChatBot({
   threadId,
   initialMessages,
   slots,
-  projectId,
   isReadOnly,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -68,6 +66,7 @@ export default function ChatBot({
     allowedMcpServers,
     threadList,
     llmModel,
+    selectedProjectForPrompt,
   ] = appStore(
     useShallow((state) => [
       state.mutate,
@@ -76,12 +75,12 @@ export default function ChatBot({
       state.allowedMcpServers,
       state.threadList,
       state.llmModel,
+      state.selectedProjectForPrompt,
     ]),
   );
-  const router = useRouter();
   const generateTitle = useGenerateThreadTitle({
     threadId,
-    projectId,
+    projectId: selectedProjectForPrompt ?? undefined,
   });
   const {
     messages,
@@ -108,7 +107,7 @@ export default function ChatBot({
         allowedMcpServers: latestRef.current.allowedMcpServers,
         allowedAppDefaultToolkit: latestRef.current.allowedAppDefaultToolkit,
         message: lastMessage,
-        projectId: projectId ?? currentThread?.projectId ?? null,
+        projectId: latestRef.current.selectedProjectForPrompt ?? null,
         llmModel: latestRef.current.llmModel,
       };
       return request;
@@ -139,10 +138,6 @@ export default function ChatBot({
         if (userContent || assistantContent) {
           generateTitle(userContent + assistantContent);
         }
-
-        if (projectId) {
-          router.replace(`/chat/${threadId}`);
-        }
       } else if (latestRef.current.threadList[0]?.id !== threadId) {
         mutate("/api/thread/list");
       }
@@ -157,16 +152,6 @@ export default function ChatBot({
     },
   });
 
-  const append = useCallback(
-    (...args: Parameters<typeof originalAppend>) => {
-      if (projectId) {
-        appStoreMutate({ currentProjectId: undefined });
-      }
-      return originalAppend(...args);
-    },
-    [originalAppend, projectId, appStoreMutate],
-  );
-
   const [isDeleteThreadPopupOpen, setIsDeleteThreadPopupOpen] = useState(false);
 
   const latestRef = useToRef({
@@ -177,6 +162,7 @@ export default function ChatBot({
     threadList,
     threadId,
     llmModel,
+    selectedProjectForPrompt,
   });
 
   const isLoading = useMemo(
@@ -255,10 +241,6 @@ export default function ChatBot({
     };
   }, [threadId]);
 
-  const currentThread = useMemo(() => {
-    return threadList.find((thread) => thread.id === threadId);
-  }, [threadList, threadId]);
-
   useEffect(() => {
     if (isInitialThreadEntry && !isReadOnly)
       containerRef.current?.scrollTo({
@@ -296,7 +278,7 @@ export default function ChatBot({
   return (
     <div
       className={cn(
-        emptyMessage && !projectId && "justify-center pb-24",
+        emptyMessage && "justify-center pb-24",
         "flex flex-col min-w-0 relative h-full",
       )}
     >
@@ -357,11 +339,10 @@ export default function ChatBot({
         >
           <PromptInput
             input={input}
-            append={append}
+            append={originalAppend}
             setInput={setInput}
             isLoading={isLoading || isPendingToolCall}
             onStop={stop}
-            isInProjectContext={!!projectId || !!currentThread?.projectId}
           />
           {slots?.inputBottomSlot}
         </div>

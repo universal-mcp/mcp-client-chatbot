@@ -1523,6 +1523,11 @@
   float: left;
   height: 0;
   pointer-events: none;
+  opacity: 0.6;
+}
+
+.ProseMirror p[data-placeholder]:not(.is-editor-empty):first-child::before {
+  display: none;
 }
 
 .ProseMirror p {
@@ -1607,4 +1612,84 @@
 
 .ProseMirror ol li {
   list-style-type: decimal;
+}
+
+/* Styles for HTML content rendered from Tiptap */
+.prose {
+  color: inherit;
+}
+
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4,
+.prose h5,
+.prose h6 {
+  font-weight: 600;
+  line-height: 1.25;
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+}
+
+.prose h1 {
+  font-size: 1.5rem;
+}
+
+.prose h2 {
+  font-size: 1.25rem;
+}
+
+.prose h3 {
+  font-size: 1.125rem;
+}
+
+.prose h4 {
+  font-size: 1rem;
+}
+
+.prose p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.prose ul,
+.prose ol {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.prose ul {
+  list-style-type: disc;
+}
+
+.prose ol {
+  list-style-type: decimal;
+}
+
+.prose li {
+  margin: 0.25rem 0;
+}
+
+.prose strong {
+  font-weight: 600;
+}
+
+.prose em {
+  font-style: italic;
+}
+
+.prose code {
+  background-color: hsl(var(--muted));
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas,
+    "Liberation Mono", Menlo, monospace;
+}
+
+.prose blockquote {
+  border-left: 3px solid hsl(var(--border));
+  padding-left: 1rem;
+  margin: 0;
+  font-style: italic;
 }

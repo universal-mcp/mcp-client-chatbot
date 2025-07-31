@@ -31,13 +31,15 @@ const Tiptap = ({
   onChange,
   placeholder,
   className,
-  returnPlainText = true,
+  returnPlainText = false, // Changed default to false to preserve HTML formatting
 }: TiptapProps) => {
   const editor = useEditor({
     extensions: [
       StarterKit,
       Placeholder.configure({
         placeholder: placeholder || "",
+        showOnlyWhenEditable: true,
+        showOnlyCurrent: true,
       }),
       Code,
     ],
@@ -45,9 +47,9 @@ const Tiptap = ({
     // Don't render immediately on the server to avoid SSR issues
     immediatelyRender: false,
     onUpdate: ({ editor }) => {
-      // Return plain text instead of HTML
-      const text = returnPlainText ? editor.getText() : editor.getHTML();
-      onChange?.(text);
+      // Return HTML by default to preserve all formatting
+      const content = returnPlainText ? editor.getText() : editor.getHTML();
+      onChange?.(content);
     },
   });
 
@@ -157,7 +159,7 @@ const Tiptap = ({
       <div className="flex-1 min-h-0 overflow-hidden">
         <EditorContent
           editor={editor}
-          className="h-full min-h-[200px] max-h-[400px] w-full px-3 py-2 text-sm focus-visible:outline-none overflow-y-auto"
+          className="h-full min-h-[200px] max-h-[300px] w-full px-3 py-2 text-sm focus-visible:outline-none overflow-y-auto overscroll-contain"
         />
       </div>
     </div>

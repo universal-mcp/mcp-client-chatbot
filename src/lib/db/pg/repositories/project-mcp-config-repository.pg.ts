@@ -8,7 +8,7 @@ import { eq } from "drizzle-orm";
 import { generateUUID } from "lib/utils";
 
 export type ProjectMcpToolConfig = {
-  mcpServerId: string;
+  mcpServerId: string | null; // null for default tools
   toolName: string;
   enabled: boolean;
   mode: "auto" | "manual";
