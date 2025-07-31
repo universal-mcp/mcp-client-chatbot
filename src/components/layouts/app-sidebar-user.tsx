@@ -149,10 +149,10 @@ function SelectLlmModel() {
   );
 
   const models = [
-    "moonshotai/kimi-k2",
-    "anthropic/claude-sonnet-4",
-    "google/gemini-2.5-flash-lite",
-    "google/gemini-2.5-pro",
+    "openai/gpt-4.1",
+    "openai/gpt-4.1-mini",
+    "anthropic/claude-3-7-sonnet-latest",
+    "anthropic/claude-4-sonnet-20250514",
   ];
 
   const handleModelChange = (model: string) => {
