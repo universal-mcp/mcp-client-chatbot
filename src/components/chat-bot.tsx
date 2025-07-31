@@ -38,7 +38,7 @@ import {
 } from "ui/dialog";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { Think } from "ui/think";
+import { ThinkChat } from "ui/think";
 import { useGenerateThreadTitle } from "@/hooks/queries/use-generate-thread-title";
 
 type Props = {
@@ -341,7 +341,7 @@ export default function ChatBot({
             {showThink && (
               <>
                 <div className="w-full mx-auto max-w-3xl px-6 relative">
-                  <Think />
+                  <ThinkChat />
                 </div>
                 <div className="min-h-[calc(55dvh-56px)]" />
               </>
