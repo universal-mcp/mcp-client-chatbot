@@ -219,6 +219,7 @@ export function CreateProjectWithThreadPopup({
           name: projectOption.name,
           instructions: {
             systemPrompt: projectOption.instructions,
+            expert: "",
           },
         }),
       )
