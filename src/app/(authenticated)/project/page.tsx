@@ -274,7 +274,6 @@ export default function ProjectsPage() {
     {
       onError: handleErrorWithToast,
       revalidateOnFocus: false,
-      revalidateOnMount: false,
     },
   );
 

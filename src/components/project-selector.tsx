@@ -34,6 +34,8 @@ export function ProjectSelector() {
     {
       onError: handleErrorWithToast,
       fallbackData: [],
+      onSuccess: (data) => appStoreMutate({ projectList: data }),
+      revalidateOnFocus: false,
     },
   );
 
