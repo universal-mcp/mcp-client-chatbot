@@ -7,7 +7,6 @@ import {
   formatDataStreamPart,
   appendClientMessage,
   Message,
-  Tool,
 } from "ai";
 
 import { customModelProvider } from "lib/ai/models";
@@ -38,10 +37,11 @@ import {
   filterToolsByAllowedMCPServers,
   filterToolsByProjectConfig,
   applyProjectToolModes,
+  createProjectMcpConfig,
+  loadAppDefaultTools,
 } from "./helper";
 import { getSessionContext } from "auth/session-context";
 import { getProjectMcpToolsAction } from "../mcp/project-config/actions";
-import { APP_DEFAULT_TOOL_KIT } from "lib/ai/tools/tool-kit";
 
 export async function POST(request: Request) {
   try {
@@ -107,49 +107,11 @@ export async function POST(request: Request) {
     const mcpServers = await manager.getClients();
 
     // Get project-specific tool configurations
-    const projectMcpConfig = projectId
-      ? await (async () => {
-          const toolConfigsData = await getProjectMcpToolsAction(projectId);
-
-          // Separate default tools and MCP tools
-          const defaultTools = toolConfigsData.filter(
-            (c) => c.mcpServerId === null,
-          );
-          const mcpTools = toolConfigsData.filter(
-            (c) => c.mcpServerId !== null,
-          );
-
-          // Get default tool names as strings
-          const enabledDefaultTools = defaultTools.map((c) => c.toolName);
-
-          const mcpToolMap = new Map(
-            mcpTools.map((c) => [
-              `${c.mcpServerId as string}:${c.toolName}`,
-              {
-                mcpServerId: c.mcpServerId as string,
-                toolName: c.toolName,
-                enabled: c.enabled,
-                mode: c.mode,
-              },
-            ]),
-          );
-
-          // Get enabled server IDs (only for MCP tools)
-          const enabledServerIds = new Set(
-            mcpTools.map((c) => c.mcpServerId as string),
-          );
-
-          return {
-            servers: mcpServers.map((server) => ({
-              id: server.id,
-              name: server.client.getInfo().name,
-              enabled: enabledServerIds.has(server.id),
-            })),
-            tools: mcpToolMap,
-            defaultTools: enabledDefaultTools,
-          };
-        })()
-      : undefined;
+    const projectMcpConfig = await createProjectMcpConfig(
+      projectId,
+      mcpServers,
+      getProjectMcpToolsAction,
+    );
 
     const inProgressToolStep = extractInProgressToolPart(messages.slice(-2));
 
@@ -181,30 +143,9 @@ export async function POST(request: Request) {
           })
           .orElse({});
 
-        const APP_DEFAULT_TOOLS = safe(APP_DEFAULT_TOOL_KIT)
-          .map(errorIf(() => !isToolCallAllowed && "Not allowed"))
-          .map((tools) => {
-            if (projectMcpConfig) {
-              // In project context: filter default tools based on project configuration
-              return projectMcpConfig.defaultTools?.reduce(
-                (acc, key) => {
-                  return { ...acc, ...tools[key] };
-                },
-                {} as Record<string, Tool>,
-              );
-            } else {
-              // Outside project context: use global allowedAppDefaultToolkit setting
-              return (
-                allowedAppDefaultToolkit?.reduce(
-                  (acc, key) => {
-                    return { ...acc, ...tools[key] };
-                  },
-                  {} as Record<string, Tool>,
-                ) || {}
-              );
-            }
-          })
-          .orElse({});
+        const APP_DEFAULT_TOOLS = !isToolCallAllowed
+          ? {}
+          : loadAppDefaultTools(projectMcpConfig, allowedAppDefaultToolkit);
 
         if (inProgressToolStep) {
           const toolResult = await manualToolExecuteByLastMessage(

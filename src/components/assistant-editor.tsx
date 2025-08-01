@@ -26,6 +26,8 @@ import {
   Wrench,
   HardDriveUploadIcon,
   Code,
+  WandSparklesIcon,
+  PlusIcon,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -34,14 +36,30 @@ import useSWR, { mutate } from "swr";
 import { Button } from "ui/button";
 import { Input } from "ui/input";
 import { Label } from "ui/label";
+import { Skeleton } from "ui/skeleton";
 import { handleErrorWithToast } from "ui/shared-toast";
 import { toast } from "sonner";
 import { Badge } from "ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "ui/popover";
 import Tiptap from "@/components/tiptap";
 import { ProjectConversationsModal } from "@/components/project-conversations-modal";
-import { AppDefaultToolkit } from "lib/ai/tools";
+import { AppDefaultToolkit, DefaultToolName } from "lib/ai/tools";
 import { GlobalIcon } from "ui/global-icon";
+import { experimental_useObject } from "@ai-sdk/react";
+import { AssistantGenerateSchema } from "app-types/chat";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "ui/dialog";
+import { Textarea } from "ui/textarea";
+import { TextShimmer } from "ui/text-shimmer";
+import { Tooltip, TooltipContent, TooltipTrigger } from "ui/tooltip";
+import { cn, objectFlow } from "lib/utils";
+import { appStore } from "@/app/store";
+import { useShallow } from "zustand/shallow";
 
 type MCPServerWithId = MCPServerInfo & { id: string };
 
@@ -53,14 +71,24 @@ type LocalToolConfig = {
   mode: "auto" | "manual";
 };
 
-const defaultConfig = () => ({
-  name: "",
-  description: "",
-  instructions: {
-    systemPrompt: "",
-    expert: "",
-  },
-});
+type LocalProjectState = PartialBy<
+  Omit<Project, "createdAt" | "updatedAt" | "userId">,
+  "id"
+> & {
+  threadId?: string;
+};
+
+const defaultConfig = (): LocalProjectState => {
+  return {
+    name: "",
+    description: "",
+    instructions: {
+      expert: "",
+      systemPrompt: "",
+    },
+    threadId: undefined,
+  };
+};
 
 interface AssistantEditorProps {
   projectId?: string; // undefined for new project, string for existing project
@@ -81,6 +109,9 @@ export function AssistantEditor({
   const [isConversationsModalOpen, setIsConversationsModalOpen] =
     useState(false);
 
+  // App store for setting current project values
+  const appStoreMutate = appStore(useShallow((state) => state.mutate));
+
   // MCP Configuration state
   const [mcpServers, setMcpServers] = useState<MCPServerWithId[]>([]);
   const [originalServerConfigs, setOriginalServerConfigs] = useState<
@@ -98,6 +129,28 @@ export function AssistantEditor({
   const [searchQuery, setSearchQuery] = useState("");
   const [isMcpDataLoaded, setIsMcpDataLoaded] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const tiptapRef = useRef<HTMLDivElement>(null);
+
+  // AI Generation state
+  const [openGenerateAssistantDialog, setOpenGenerateAssistantDialog] =
+    useState(false);
+  const [generateAssistantPrompt, setGenerateAssistantPrompt] = useState("");
+  const {
+    object,
+    submit,
+    isLoading: isGenerating,
+  } = experimental_useObject({
+    api: "/api/chat/ai",
+    schema: AssistantGenerateSchema,
+    onFinish(event) {
+      if (event.error) {
+        handleErrorWithToast(event.error);
+      }
+      if (event.object?.tools) {
+        assignToolsByNames(event.object.tools);
+      }
+    },
+  });
 
   // Create default tools server
   const createDefaultToolsServer = useCallback((): MCPServerWithId => {
@@ -111,13 +164,13 @@ export function AssistantEditor({
       toolInfo: [
         {
           name: AppDefaultToolkit.Visualization,
-          description: "Create a pie chart",
+          description: "Chart Tools",
         },
-        { name: AppDefaultToolkit.WebSearch, description: "Search the web" },
-        { name: AppDefaultToolkit.Http, description: "Send an http request" },
+        { name: AppDefaultToolkit.WebSearch, description: "Web Search" },
+        { name: AppDefaultToolkit.Http, description: "HTTP" },
         {
           name: AppDefaultToolkit.Code,
-          description: "Execute simple python code",
+          description: "Code",
         },
       ],
       oauthStatus: {
@@ -157,9 +210,6 @@ export function AssistantEditor({
     },
     {
       revalidateOnFocus: false,
-      revalidateOnReconnect: false,
-      revalidateIfStale: false,
-      revalidateIfHidden: false,
       onError: (error) => {
         handleErrorWithToast(error);
         router.push(`/`);
@@ -179,24 +229,12 @@ export function AssistantEditor({
     },
   );
 
-  // Ensure project state is synchronized with loaded data
-  useEffect(() => {
-    if (projectData && !isProjectLoading && !isNewProject) {
-      setProject({
-        name: projectData.name || "",
-        description: projectData.description || "",
-        instructions: projectData.instructions || {
-          systemPrompt: "",
-          expert: "",
-        },
-      });
-    }
-  }, [projectData, isProjectLoading, isNewProject]);
-
   // Handle template data from URL parameters for new projects
   useEffect(() => {
     if (isNewProject) {
       const templateParam = searchParams.get("template");
+      const threadIdParam = searchParams.get("threadId");
+
       if (templateParam) {
         try {
           const template = JSON.parse(decodeURIComponent(templateParam));
@@ -211,9 +249,70 @@ export function AssistantEditor({
         } catch (error) {
           console.error("Failed to parse template data:", error);
         }
+      } else if (threadIdParam) {
+        // For thread-based generation, show the AI generation dialog with threadId
+        setOpenGenerateAssistantDialog(true);
+        setGenerateAssistantPrompt("");
+        // Store threadId for use in generation
+        setProject((prev) => ({ ...prev, threadId: threadIdParam }));
+      } else {
+        // For new projects without templates, show the AI generation dialog by default
+        setOpenGenerateAssistantDialog(true);
       }
     }
   }, [isNewProject, searchParams]);
+
+  // Handle streaming object updates from AI generation
+  useEffect(() => {
+    if (!object) return;
+    objectFlow(object).forEach((data, key) => {
+      setProject((prev) => {
+        if (key == "name") {
+          return {
+            name: data as string,
+          };
+        }
+        if (key == "description") {
+          return {
+            description: data as string,
+          };
+        }
+        if (key == "role") {
+          return {
+            instructions: {
+              ...prev.instructions,
+              expert: data as string,
+            },
+          };
+        }
+
+        if (key == "instructions") {
+          // Auto-scroll to bottom when instructions are updated
+          requestAnimationFrame(() => {
+            if (tiptapRef.current) {
+              // Target the EditorContent div which is the scrollable container
+              const proseMirror =
+                tiptapRef.current.querySelector(".ProseMirror");
+              const scrollContainer = proseMirror?.parentElement;
+              if (scrollContainer) {
+                scrollContainer.scrollTo({
+                  top: scrollContainer.scrollHeight,
+                  behavior: "smooth",
+                });
+              }
+            }
+          });
+          return {
+            instructions: {
+              ...prev.instructions,
+              systemPrompt: data as string,
+            },
+          };
+        }
+        return prev;
+      });
+    });
+  }, [object]);
 
   // Load MCP data
   useEffect(() => {
@@ -281,6 +380,123 @@ export function AssistantEditor({
     loadMcpData();
   }, [projectId, createDefaultToolsServer]);
 
+  // AI Generation handlers
+  const handleOpenAiGenerate = useCallback(() => {
+    setOpenGenerateAssistantDialog(true);
+    setGenerateAssistantPrompt("");
+  }, []);
+
+  const submitGenerateAssistant = useCallback(() => {
+    const requestBody: any = {
+      message: generateAssistantPrompt,
+    };
+
+    // If we have a threadId, include it in the request
+    if (project.threadId) {
+      requestBody.threadId = project.threadId;
+    }
+
+    submit(requestBody);
+    setOpenGenerateAssistantDialog(false);
+    setGenerateAssistantPrompt("");
+  }, [generateAssistantPrompt, submit, project.threadId]);
+
+  // Handle starting a chat with the current project
+  const handleStartChat = useCallback(async () => {
+    if (!projectId) {
+      toast.error("Please save the project first");
+      return;
+    }
+    // Set the current project values in the store
+    appStoreMutate({
+      selectedProjectForPrompt: projectId,
+      selectedProjectName: project.name,
+    });
+
+    // Navigate to the chat page
+    router.push(`/`);
+  }, [projectId, appStoreMutate, router, project.name]);
+
+  // Assign tools by names from AI generation
+  const assignToolsByNames = useCallback(
+    (toolNames: string[]) => {
+      const newToolConfigs = new Map<string, LocalToolConfig>();
+      const newServerConfigs = new Set<string>();
+
+      // Handle default tools - map tool names to their corresponding toolkit
+      const defaultToolMapping: Record<string, string> = {
+        [DefaultToolName.CreatePieChart]: AppDefaultToolkit.Visualization,
+        [DefaultToolName.CreateBarChart]: AppDefaultToolkit.Visualization,
+        [DefaultToolName.CreateLineChart]: AppDefaultToolkit.Visualization,
+        [DefaultToolName.WebSearch]: AppDefaultToolkit.WebSearch,
+        [DefaultToolName.WebContent]: AppDefaultToolkit.WebSearch,
+        [DefaultToolName.Http]: AppDefaultToolkit.Http,
+        [DefaultToolName.PythonExecution]: AppDefaultToolkit.Code,
+      };
+
+      // Check for default tools
+      Object.entries(defaultToolMapping).forEach(([toolName, toolkit]) => {
+        if (toolNames.includes(toolName)) {
+          const key = `default_tools:${toolkit}`;
+          newToolConfigs.set(key, {
+            mcpServerId: null,
+            toolName: toolkit,
+            enabled: true,
+            mode: "auto",
+          });
+          newServerConfigs.add("default_tools");
+        }
+      });
+
+      // Handle MCP tools
+      mcpServers.forEach((server) => {
+        if (server.id === "default_tools") return; // Skip default tools server as we handled it above
+
+        server.toolInfo.forEach((tool) => {
+          if (toolNames.includes(tool.name)) {
+            const key = `${server.id}:${tool.name}`;
+            newToolConfigs.set(key, {
+              mcpServerId: server.id,
+              toolName: tool.name,
+              enabled: true,
+              mode: "auto",
+            });
+            newServerConfigs.add(server.id);
+          }
+        });
+      });
+
+      // Update tool configs
+      if (newToolConfigs.size > 0) {
+        setToolConfigs((prev) => new Map([...prev, ...newToolConfigs]));
+      }
+
+      // Update server configs
+      if (newServerConfigs.size > 0) {
+        setServerConfigs((prev) => {
+          const updated = [...prev];
+          newServerConfigs.forEach((serverId) => {
+            const existing = updated.find((s) => s.id === serverId);
+            if (!existing) {
+              const server = mcpServers.find((s) => s.id === serverId);
+              if (server) {
+                updated.push({
+                  id: serverId,
+                  name: server.name,
+                  enabled: true,
+                });
+              }
+            } else if (!existing.enabled) {
+              existing.enabled = true;
+            }
+          });
+          return updated;
+        });
+      }
+    },
+    [mcpServers],
+  );
+
   // Track MCP changes
   useEffect(() => {
     const serverChanges =
@@ -296,11 +512,12 @@ export function AssistantEditor({
     setIsSaving(true);
     try {
       if (isNewProject) {
-        // Create new project
+        // Create new project - exclude threadId from the project data
+        const { threadId, ...projectData } = project;
         const newProject = await insertProjectAction({
-          name: project.name,
-          description: project.description,
-          instructions: project.instructions,
+          name: projectData.name,
+          description: projectData.description,
+          instructions: projectData.instructions,
         });
 
         // Save MCP configuration for new project
@@ -383,7 +600,7 @@ export function AssistantEditor({
         toast.success("Assistant saved successfully");
 
         if (onSave && projectData) {
-          onSave(projectData);
+          onSave(projectData as Project);
         }
       }
     } catch (error) {
@@ -539,43 +756,75 @@ export function AssistantEditor({
   return (
     <div className="h-full w-full overflow-y-auto">
       <div className="flex flex-col gap-6 px-8 pb-4 max-w-3xl mx-auto min-h-full">
-        <div className="sticky top-0 bg-background z-10 flex flex-col gap-4 pb-6 pt-4">
-          {/* Back Button - Only for new projects */}
-          {isNewProject && (
-            <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => router.back()}
-                className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                <span className="text-sm font-medium">Back</span>
-              </Button>
-            </div>
-          )}
+        <div className="sticky top-0 bg-background z-10 flex flex-col gap-4 pb-6">
+          {/* Back Button - Show for all assistant pages */}
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.back()}
+              className="flex items-center gap-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="text-sm font-medium">Back</span>
+            </Button>
+          </div>
 
           {/* Title */}
           <div className="flex items-center justify-between">
-            <p className="text-2xl font-bold">
-              {isNewProject ? "Create Assistant" : t("Chat.Project.project")}
-            </p>
-            {!isNewProject && projectData && (
+            <div className="flex items-center gap-4">
+              {isGenerating ? (
+                <TextShimmer className="w-full text-2xl font-bold">
+                  Generating Assistant
+                </TextShimmer>
+              ) : (
+                <p className="text-2xl font-bold">
+                  {isNewProject
+                    ? "Create Assistant"
+                    : t("Chat.Project.project")}
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {!isNewProject && projectData && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsConversationsModalOpen(true)}
+                      className="flex items-center gap-2"
+                    >
+                      <MessagesSquare className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Past Conversations</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setIsConversationsModalOpen(true)}
+                disabled={isGenerating}
+                onClick={handleOpenAiGenerate}
                 className="flex items-center gap-2"
               >
-                <MessagesSquare className="h-4 w-4" />
-                Past conversations
-                {projectData?.threads && projectData.threads.length > 0 && (
-                  <Badge variant="secondary" className="ml-1">
-                    {projectData.threads.length}
-                  </Badge>
-                )}
+                <WandSparklesIcon className="h-4 w-4" />
+                Generate with AI
+                {isGenerating && <Loader className="h-4 w-4 animate-spin" />}
               </Button>
-            )}
+              <Button
+                variant="default"
+                size="sm"
+                disabled={isGenerating || !projectId}
+                onClick={handleStartChat}
+                className="flex items-center gap-1 bg-white text-black hover:bg-gray-100"
+              >
+                <PlusIcon className="h-4 w-4" />
+                Start Chat
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -584,14 +833,18 @@ export function AssistantEditor({
           <Label htmlFor="project-name" className="text-sm font-medium">
             Give your assistant a name
           </Label>
-          <Input
-            value={project.name || ""}
-            onChange={(e) => setProject({ name: e.target.value })}
-            disabled={isLoading}
-            className="hover:bg-input bg-secondary/40 transition-colors border-transparent border-none! focus-visible:bg-input! ring-0! placeholder:text-xs"
-            id="project-name"
-            placeholder="Deep Research"
-          />
+          {isProjectLoading ? (
+            <Skeleton className="w-full h-10" />
+          ) : (
+            <Input
+              value={project.name || ""}
+              onChange={(e) => setProject({ name: e.target.value })}
+              disabled={isLoading || isGenerating}
+              className="hover:bg-input bg-secondary/40 transition-colors border-transparent border-none! focus-visible:bg-input! ring-0! placeholder:text-xs"
+              id="project-name"
+              placeholder="Deep Research"
+            />
+          )}
         </div>
 
         {/* Project Description */}
@@ -599,14 +852,18 @@ export function AssistantEditor({
           <Label htmlFor="project-description" className="text-sm font-medium">
             Describe your assistant in a few words
           </Label>
-          <Input
-            value={project.description || ""}
-            onChange={(e) => setProject({ description: e.target.value })}
-            disabled={isLoading}
-            className="hover:bg-input bg-secondary/40 transition-colors border-transparent border-none! focus-visible:bg-input! ring-0! placeholder:text-xs"
-            id="project-description"
-            placeholder="Performs deep research on a given topic"
-          />
+          {isProjectLoading ? (
+            <Skeleton className="w-full h-10" />
+          ) : (
+            <Input
+              value={project.description || ""}
+              onChange={(e) => setProject({ description: e.target.value })}
+              disabled={isLoading || isGenerating}
+              className="hover:bg-input bg-secondary/40 transition-colors border-transparent border-none! focus-visible:bg-input! ring-0! placeholder:text-xs"
+              id="project-description"
+              placeholder="Performs deep research on a given topic"
+            />
+          )}
         </div>
 
         {/* Expert Instructions */}
@@ -615,21 +872,25 @@ export function AssistantEditor({
             <Label htmlFor="project-expert" className="text-sm font-medium">
               This assistant is an expert in
             </Label>
-            <Input
-              value={project.instructions?.expert || ""}
-              onChange={(e) =>
-                setProject({
-                  instructions: {
-                    ...project.instructions,
-                    expert: e.target.value || "",
-                  },
-                })
-              }
-              disabled={isLoading}
-              className="w-64 hover:bg-input bg-secondary/40 transition-colors border-transparent border-none! focus-visible:bg-input! ring-0! placeholder:text-xs"
-              id="project-expert"
-              placeholder="collating loads of data"
-            />
+            {isProjectLoading ? (
+              <Skeleton className="w-64 h-10" />
+            ) : (
+              <Input
+                value={project.instructions?.expert || ""}
+                onChange={(e) =>
+                  setProject({
+                    instructions: {
+                      ...project.instructions,
+                      expert: e.target.value || "",
+                    },
+                  })
+                }
+                disabled={isLoading || isGenerating}
+                className="w-64 hover:bg-input bg-secondary/40 transition-colors border-transparent border-none! focus-visible:bg-input! ring-0! placeholder:text-xs"
+                id="project-expert"
+                placeholder="collating loads of data"
+              />
+            )}
           </div>
         </div>
 
@@ -639,18 +900,26 @@ export function AssistantEditor({
             Feel free to write the agent's role, personality, knowledge and any
             other information.
           </Label>
-          <Tiptap
-            value={project.instructions?.systemPrompt || ""}
-            onChange={(value) =>
-              setProject({
-                instructions: {
-                  ...project.instructions,
-                  systemPrompt: value || "",
-                },
-              })
-            }
-            placeholder="You are a helpful assistant that can perform deep research and help with tasks..."
-          />
+          {isProjectLoading ? (
+            <Skeleton className="w-full h-48" />
+          ) : (
+            <div ref={tiptapRef} className={cn(isGenerating && "relative")}>
+              <Tiptap
+                value={project.instructions?.systemPrompt || ""}
+                onChange={(value) =>
+                  setProject({
+                    instructions: {
+                      ...project.instructions,
+                      systemPrompt: value || "",
+                    },
+                  })
+                }
+                placeholder="You are a helpful assistant that can perform deep research and help with tasks..."
+                className={isGenerating ? "pointer-events-none opacity-50" : ""}
+                isGenerating={isGenerating}
+              />
+            </div>
+          )}
         </div>
 
         {/* Tool Configuration */}
@@ -664,7 +933,7 @@ export function AssistantEditor({
                 ref={triggerRef}
                 variant="outline"
                 className="w-full justify-between hover:bg-input bg-secondary/40 transition-colors border-transparent border-none! focus-visible:bg-input! ring-0! min-h-12 p-3 h-auto"
-                disabled={isLoading}
+                disabled={isLoading || isGenerating}
               >
                 <div className="flex flex-col items-start gap-2 flex-1 min-w-0">
                   {selectedToolsCount > 0 && (
@@ -682,7 +951,7 @@ export function AssistantEditor({
                           // For default tools, don't show server name
                           const displayName =
                             serverId === "default_tools"
-                              ? `Default: ${toolName}`
+                              ? `Default: ${server?.toolInfo.find((t) => t.name === toolName)?.description || toolName}`
                               : `${serverName}: ${toolName}`;
 
                           return (
@@ -781,7 +1050,7 @@ export function AssistantEditor({
                                           tool.name as AppDefaultToolkit,
                                         )}
                                         <span className="text-sm font-medium">
-                                          {tool.name}
+                                          {tool.description}
                                         </span>
                                       </div>
                                     </div>
@@ -916,16 +1185,28 @@ export function AssistantEditor({
         </div>
 
         {/* Save Button */}
-        <div className="flex justify-end pt-2 pb-4">
-          <Button onClick={saveProject} disabled={isLoading}>
-            {isSaving
-              ? t("Common.saving")
-              : isNewProject
-                ? "Create Assistant"
-                : t("Common.save")}
-            {isSaving && <Loader className="size-4 animate-spin" />}
-          </Button>
-        </div>
+        {isNewProject ? (
+          // Only show Create Assistant button if name is set
+          project.name?.trim() && (
+            <div className="flex justify-end pt-2 pb-4">
+              <Button
+                onClick={saveProject}
+                disabled={isLoading || isGenerating}
+              >
+                {isSaving ? t("Common.saving") : "Create Assistant"}
+                {isSaving && <Loader className="size-4 animate-spin" />}
+              </Button>
+            </div>
+          )
+        ) : (
+          // Always show Save button for existing projects
+          <div className="flex justify-end pt-2 pb-4">
+            <Button onClick={saveProject} disabled={isLoading || isGenerating}>
+              {isSaving ? t("Common.saving") : t("Common.save")}
+              {isSaving && <Loader className="size-4 animate-spin" />}
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Past Conversations Modal - only for existing projects */}
@@ -936,6 +1217,90 @@ export function AssistantEditor({
           project={projectData}
         />
       )}
+
+      {/* AI Generation Dialog */}
+      <Dialog
+        open={openGenerateAssistantDialog}
+        onOpenChange={setOpenGenerateAssistantDialog}
+      >
+        <DialogContent className="max-w-2xl w-full">
+          <DialogHeader className="text-center">
+            <DialogTitle className="text-xl font-semibold">
+              Generate Assistant
+            </DialogTitle>
+            <DialogDescription className="font-medium mt-2">
+              {project.threadId
+                ? "I'll analyze your chat history and create an assistant that can continue this type of work."
+                : "Describe the assistant you want to create. Be specific about its purpose, capabilities, and how it should interact with users."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            {/* Textarea */}
+            <div className="space-y-3">
+              <Label htmlFor="generate-prompt" className="text-sm font-medium">
+                {project.threadId ? (
+                  <>
+                    Additional Requirements{" "}
+                    <span className="text-muted-foreground">(Optional)</span>
+                  </>
+                ) : (
+                  "Description"
+                )}
+              </Label>
+              <Textarea
+                id="generate-prompt"
+                value={generateAssistantPrompt}
+                autoFocus
+                placeholder={
+                  project.threadId
+                    ? "Add any additional requirements, preferences, or constraints for the assistant..."
+                    : "A research assistant that can analyze data, create charts, and provide insights on market trends..."
+                }
+                onChange={(e) => setGenerateAssistantPrompt(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && e.metaKey) {
+                    e.preventDefault();
+                    submitGenerateAssistant();
+                  }
+                }}
+                className="min-h-32 resize-none border-muted focus:border-primary transition-colors"
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-3 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => setOpenGenerateAssistantDialog(false)}
+                disabled={isGenerating}
+              >
+                {isNewProject ? "Create Manually" : "Cancel"}
+              </Button>
+              <Button
+                onClick={submitGenerateAssistant}
+                disabled={
+                  isGenerating ||
+                  (!generateAssistantPrompt.trim() && !project.threadId)
+                }
+                className="min-w-32"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader className="w-4 h-4 mr-2 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <WandSparklesIcon className="w-4 h-4" />
+                    {project.threadId ? "Generate from Chat" : "Generate"}
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

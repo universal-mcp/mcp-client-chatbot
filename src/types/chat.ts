@@ -273,3 +273,15 @@ export const ClientToolInvocationZodSchema = z.object({
 export type ClientToolInvocation = z.infer<
   typeof ClientToolInvocationZodSchema
 >;
+
+export const AssistantGenerateSchema = z.object({
+  name: z.string().describe("Assistant name"),
+  description: z.string().describe("Assistant description"),
+  role: z.string().describe("Assistant role"),
+  instructions: z.string().describe("Assistant instructions"),
+  tools: z
+    .array(z.string())
+    .describe("Assistant allowed tools name")
+    .optional()
+    .default([]),
+});

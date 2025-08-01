@@ -24,6 +24,7 @@ interface TiptapProps {
   placeholder?: string;
   className?: string;
   returnPlainText?: boolean;
+  isGenerating?: boolean;
 }
 
 const Tiptap = ({
@@ -32,6 +33,7 @@ const Tiptap = ({
   placeholder,
   className,
   returnPlainText = false, // Changed default to false to preserve HTML formatting
+  isGenerating = false,
 }: TiptapProps) => {
   const editor = useEditor({
     extensions: [
@@ -58,7 +60,24 @@ const Tiptap = ({
       editor &&
       value !== (returnPlainText ? editor.getText() : editor.getHTML())
     ) {
-      editor.commands.setContent(value || "");
+      // Use a more efficient update method for streaming content
+      const currentContent = returnPlainText
+        ? editor.getText()
+        : editor.getHTML();
+      if (
+        value &&
+        value.length > currentContent.length &&
+        value.startsWith(currentContent)
+      ) {
+        // For streaming updates, append only the new content
+        const newContent = value.slice(currentContent.length);
+        if (newContent) {
+          editor.commands.insertContent(newContent);
+        }
+      } else {
+        // For complete replacements, set the full content
+        editor.commands.setContent(value || "");
+      }
     }
   }, [value, editor, returnPlainText]);
 
@@ -72,86 +91,117 @@ const Tiptap = ({
     >
       <div className="flex items-center gap-1 p-2 border-b border-input flex-shrink-0">
         <Button
-          variant={editor.isActive("bold") ? "default" : "ghost"}
+          variant={
+            editor.isActive("bold") && !isGenerating ? "default" : "ghost"
+          }
           size="sm"
           onClick={() => editor.chain().focus().toggleBold().run()}
-          disabled={!editor.can().chain().focus().toggleBold().run()}
+          disabled={
+            !editor.can().chain().focus().toggleBold().run() || isGenerating
+          }
         >
           <Bold className="h-4 w-4" />
         </Button>
         <Button
-          variant={editor.isActive("italic") ? "default" : "ghost"}
+          variant={
+            editor.isActive("italic") && !isGenerating ? "default" : "ghost"
+          }
           size="sm"
           onClick={() => editor.chain().focus().toggleItalic().run()}
-          disabled={!editor.can().chain().focus().toggleItalic().run()}
+          disabled={
+            !editor.can().chain().focus().toggleItalic().run() || isGenerating
+          }
         >
           <Italic className="h-4 w-4" />
         </Button>
         <div className="w-px h-4 bg-border mx-1" />
         <Button
           variant={
-            editor.isActive("heading", { level: 1 }) ? "default" : "ghost"
+            editor.isActive("heading", { level: 1 }) && !isGenerating
+              ? "default"
+              : "ghost"
           }
           size="sm"
           onClick={() =>
             editor.chain().focus().toggleHeading({ level: 1 }).run()
           }
+          disabled={isGenerating}
         >
           <Heading1 className="h-4 w-4" />
         </Button>
         <Button
           variant={
-            editor.isActive("heading", { level: 2 }) ? "default" : "ghost"
+            editor.isActive("heading", { level: 2 }) && !isGenerating
+              ? "default"
+              : "ghost"
           }
           size="sm"
           onClick={() =>
             editor.chain().focus().toggleHeading({ level: 2 }).run()
           }
+          disabled={isGenerating}
         >
           <Heading2 className="h-4 w-4" />
         </Button>
         <Button
           variant={
-            editor.isActive("heading", { level: 3 }) ? "default" : "ghost"
+            editor.isActive("heading", { level: 3 }) && !isGenerating
+              ? "default"
+              : "ghost"
           }
           size="sm"
           onClick={() =>
             editor.chain().focus().toggleHeading({ level: 3 }).run()
           }
+          disabled={isGenerating}
         >
           <Heading3 className="h-4 w-4" />
         </Button>
         <Button
           variant={
-            editor.isActive("heading", { level: 4 }) ? "default" : "ghost"
+            editor.isActive("heading", { level: 4 }) && !isGenerating
+              ? "default"
+              : "ghost"
           }
           size="sm"
           onClick={() =>
             editor.chain().focus().toggleHeading({ level: 4 }).run()
           }
+          disabled={isGenerating}
         >
           <Heading4 className="h-4 w-4" />
         </Button>
         <div className="w-px h-4 bg-border mx-1" />
         <Button
-          variant={editor.isActive("bulletList") ? "default" : "ghost"}
+          variant={
+            editor.isActive("bulletList") && !isGenerating ? "default" : "ghost"
+          }
           size="sm"
           onClick={() => editor.chain().focus().toggleBulletList().run()}
+          disabled={isGenerating}
         >
           <List className="h-4 w-4" />
         </Button>
         <Button
-          variant={editor.isActive("orderedList") ? "default" : "ghost"}
+          variant={
+            editor.isActive("orderedList") && !isGenerating
+              ? "default"
+              : "ghost"
+          }
           size="sm"
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
+          disabled={isGenerating}
         >
           <ListOrdered className="h-4 w-4" />
         </Button>
         <div className="w-px h-4 bg-border mx-1" />
         <Button
-          variant={editor.isActive("codeBlock") ? "default" : "ghost"}
+          variant={
+            editor.isActive("codeBlock") && !isGenerating ? "default" : "ghost"
+          }
           size="sm"
           onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+          disabled={isGenerating}
         >
           <CodeIcon className="h-4 w-4" />
         </Button>
