@@ -48,6 +48,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ToolsModalContent } from "@/components/ToolsModalContent";
 
 interface DefaultServerConfig {
   id: string;
@@ -1138,50 +1139,11 @@ function ServerCard({
 
           {/* Tools Modal */}
           <Dialog open={toolsModalOpen} onOpenChange={setToolsModalOpen}>
-            <DialogContent className="max-w-2xl max-h-[80vh]">
-              <DialogHeader>
-                <DialogTitle>Available Tools</DialogTitle>
-              </DialogHeader>
-
-              <ScrollArea className="max-h-[60vh] pr-4">
-                {server.toolInfo.length > 0 ? (
-                  <div className="space-y-3">
-                    {server.toolInfo.map((tool) => (
-                      <div
-                        key={tool.name}
-                        className="border rounded-lg p-4 bg-muted/30"
-                      >
-                        <div className="flex items-start gap-4">
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-medium text-sm mb-2">
-                              <code className="bg-background px-2 py-1 rounded text-xs font-mono">
-                                {tool.name}
-                              </code>
-                            </h4>
-                            <TruncatedDescription
-                              description={tool.description}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Settings className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No tools available on this server</p>
-                  </div>
-                )}
-              </ScrollArea>
-
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setToolsModalOpen(false)}
-                >
-                  Close
-                </Button>
-              </DialogFooter>
+            <DialogContent className="sm:max-w-[800px] fixed p-10 overflow-hidden">
+              <ToolsModalContent
+                tools={server.toolInfo}
+                serverName={server.name}
+              />
             </DialogContent>
           </Dialog>
         </div>
@@ -1251,39 +1213,5 @@ function ServerCard({
         </Dialog>
       )}
     </Card>
-  );
-}
-
-function TruncatedDescription({
-  description,
-  maxLength = 150,
-}: {
-  description: string;
-  maxLength?: number;
-}) {
-  const [isExpanded, setIsExpanded] = useState(false);
-
-  if (description.length <= maxLength) {
-    return (
-      <p className="text-sm text-muted-foreground leading-relaxed break-words hyphens-auto">
-        {description}
-      </p>
-    );
-  }
-
-  return (
-    <div>
-      <p className="text-sm text-muted-foreground leading-relaxed break-words hyphens-auto">
-        {isExpanded ? description : `${description.substring(0, maxLength)}...`}
-      </p>
-      <Button
-        variant="link"
-        size="sm"
-        className="px-0 h-auto mt-1 text-xs"
-        onClick={() => setIsExpanded(!isExpanded)}
-      >
-        {isExpanded ? "Show less" : "Show more"}
-      </Button>
-    </div>
   );
 }
