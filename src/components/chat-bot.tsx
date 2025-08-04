@@ -37,7 +37,7 @@ import {
   DialogTitle,
 } from "ui/dialog";
 import { useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ThinkChat } from "ui/think";
 import { useGenerateThreadTitle } from "@/hooks/queries/use-generate-thread-title";
 
@@ -59,6 +59,7 @@ export default function ChatBot({
   isReadOnly,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const searchParams = useSearchParams();
   const [
     appStoreMutate,
     toolChoice,
@@ -66,7 +67,7 @@ export default function ChatBot({
     allowedMcpServers,
     threadList,
     llmModel,
-    selectedProjectForPrompt,
+    projectList,
   ] = appStore(
     useShallow((state) => [
       state.mutate,
@@ -75,13 +76,59 @@ export default function ChatBot({
       state.allowedMcpServers,
       state.threadList,
       state.llmModel,
-      state.selectedProjectForPrompt,
+      state.projectList,
     ]),
   );
+
+  // Local state for project selection
+  const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  const [selectedProjectName, setSelectedProjectName] = useState<string | null>(
+    null,
+  );
+
+  const currentThread = useMemo(() => {
+    return threadList.find((thread) => thread.id === threadId);
+  }, [threadList, threadId]);
+
+  // Initialize project selection based on current thread or URL params
+  useEffect(() => {
+    // First check if there's a projectId in URL params
+    const urlProjectId = searchParams.get("projectId");
+
+    if (urlProjectId) {
+      // URL param takes precedence
+      const project = projectList.find((p) => p.id === urlProjectId);
+      if (project) {
+        setSelectedProject(urlProjectId);
+        setSelectedProjectName(project.name);
+        return;
+      } else if (projectList.length > 0) {
+        // Project not found in list, but project list is loaded
+        console.warn(
+          `Project with ID ${urlProjectId} not found in project list`,
+        );
+        // Optionally show a toast or handle this case
+      }
+      // If projectList is empty, we might still be loading, so don't clear yet
+    }
+
+    // Fall back to thread's project if no URL param or URL project not found
+    if (currentThread?.projectId) {
+      const project = projectList.find((p) => p.id === currentThread.projectId);
+      setSelectedProject(currentThread.projectId);
+      setSelectedProjectName(project?.name || null);
+    } else if (!urlProjectId) {
+      // Only clear if there's no URL param to avoid clearing while loading
+      setSelectedProject(null);
+      setSelectedProjectName(null);
+    }
+  }, [currentThread?.projectId, projectList, searchParams]);
+
   const generateTitle = useGenerateThreadTitle({
     threadId,
-    projectId: selectedProjectForPrompt ?? undefined,
+    projectId: selectedProject ?? undefined,
   });
+
   const {
     messages,
     input,
@@ -98,7 +145,11 @@ export default function ChatBot({
     api: "/api/chat",
     initialMessages,
     experimental_prepareRequestBody: ({ messages }) => {
-      window.history.replaceState({}, "", `/chat/${threadId}`);
+      // Build URL with project ID if selected
+      const url = selectedProject
+        ? `/chat/${threadId}?projectId=${selectedProject}`
+        : `/chat/${threadId}`;
+      window.history.replaceState({}, "", url);
       const lastMessage = messages.at(-1)!;
       vercelAISdkV4ToolInvocationIssueCatcher(lastMessage);
       const request: ChatApiSchemaRequestBody = {
@@ -107,7 +158,7 @@ export default function ChatBot({
         allowedMcpServers: latestRef.current.allowedMcpServers,
         allowedAppDefaultToolkit: latestRef.current.allowedAppDefaultToolkit,
         message: lastMessage,
-        projectId: latestRef.current.selectedProjectForPrompt ?? null,
+        projectId: latestRef.current.selectedProject ?? null,
         llmModel: latestRef.current.llmModel,
       };
       return request;
@@ -162,7 +213,7 @@ export default function ChatBot({
     threadList,
     threadId,
     llmModel,
-    selectedProjectForPrompt,
+    selectedProject,
   });
 
   const isLoading = useMemo(
@@ -275,6 +326,23 @@ export default function ChatBot({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  // Project selection handlers
+  const handleProjectSelect = useCallback(
+    (projectId: string | null, projectName?: string) => {
+      setSelectedProject(projectId);
+      setSelectedProjectName(projectName || null);
+    },
+    [],
+  );
+
+  const handleProjectClear = useCallback(() => {
+    setSelectedProject(null);
+    setSelectedProjectName(null);
+  }, []);
+
+  // Check if project selection should be disabled (when thread has a project)
+  const isProjectSelectionDisabled = currentThread?.projectId != null;
+
   return (
     <div
       className={cn(
@@ -343,6 +411,12 @@ export default function ChatBot({
             setInput={setInput}
             isLoading={isLoading || isPendingToolCall}
             onStop={stop}
+            selectedProject={selectedProject}
+            selectedProjectName={selectedProjectName}
+            onProjectClear={handleProjectClear}
+            isProjectSelectionDisabled={isProjectSelectionDisabled}
+            projectList={projectList}
+            onProjectSelect={handleProjectSelect}
           />
           {slots?.inputBottomSlot}
         </div>

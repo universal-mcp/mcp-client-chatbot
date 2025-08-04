@@ -11,8 +11,6 @@ export interface AppState {
   projectList: Omit<Project, "instructions">[];
   currentThreadId: ChatThread["id"] | null;
   currentProjectId: Project["id"] | null;
-  selectedProjectForPrompt: Project["id"] | null;
-  selectedProjectName: string | null;
   toolChoice: "auto" | "none" | "manual";
   allowedMcpServers?: Record<string, AllowedMCPServer>;
   openShortcutsPopup: boolean;
@@ -47,8 +45,6 @@ const initialState: AppState = {
   mcpList: [],
   currentThreadId: null,
   currentProjectId: null,
-  selectedProjectForPrompt: null,
-  selectedProjectName: null,
   toolChoice: "auto",
   allowedMcpServers: undefined,
   openShortcutsPopup: false,

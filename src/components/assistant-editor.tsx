@@ -58,8 +58,6 @@ import { Textarea } from "ui/textarea";
 import { TextShimmer } from "ui/text-shimmer";
 import { Tooltip, TooltipContent, TooltipTrigger } from "ui/tooltip";
 import { cn, objectFlow } from "lib/utils";
-import { appStore } from "@/app/store";
-import { useShallow } from "zustand/shallow";
 
 type MCPServerWithId = MCPServerInfo & { id: string };
 
@@ -108,9 +106,6 @@ export function AssistantEditor({
   const [project, setProject] = useObjectState(defaultConfig());
   const [isConversationsModalOpen, setIsConversationsModalOpen] =
     useState(false);
-
-  // App store for setting current project values
-  const appStoreMutate = appStore(useShallow((state) => state.mutate));
 
   // MCP Configuration state
   const [mcpServers, setMcpServers] = useState<MCPServerWithId[]>([]);
@@ -407,15 +402,9 @@ export function AssistantEditor({
       toast.error("Please save the project first");
       return;
     }
-    // Set the current project values in the store
-    appStoreMutate({
-      selectedProjectForPrompt: projectId,
-      selectedProjectName: project.name,
-    });
-
-    // Navigate to the chat page
-    router.push(`/`);
-  }, [projectId, appStoreMutate, router, project.name]);
+    // Navigate to the chat page with project ID
+    router.push(`/?projectId=${projectId}`);
+  }, [projectId, router]);
 
   // Assign tools by names from AI generation
   const assignToolsByNames = useCallback(
@@ -549,7 +538,7 @@ export function AssistantEditor({
           );
         }
 
-        mutate("projects");
+        mutate("/api/project/list");
         toast.success("Assistant created successfully");
 
         if (onSave) {

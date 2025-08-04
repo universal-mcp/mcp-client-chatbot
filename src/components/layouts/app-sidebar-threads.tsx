@@ -89,6 +89,13 @@ export function AppSidebarThreads() {
     },
   });
 
+  useSWR("/api/project/list", fetcher, {
+    onError: handleErrorWithToast,
+    fallbackData: [],
+    onSuccess: (data) => storeMutate({ projectList: data }),
+    revalidateOnFocus: false,
+  });
+
   // Check if we have 40 or more threads to display "View All" button
   const hasExcessThreads = threadList && threadList.length >= MAX_THREADS_COUNT;
 

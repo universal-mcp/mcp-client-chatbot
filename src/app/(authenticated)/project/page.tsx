@@ -1,11 +1,10 @@
 "use client";
 
-import { selectProjectListByUserIdAction } from "@/app/api/chat/actions";
+import { appStore } from "@/app/store";
 import { ProjectDropdown } from "@/components/project-dropdown";
 import {
   Bot,
   Plus,
-  Loader,
   MessageSquare,
   Sparkles,
   Code,
@@ -18,11 +17,10 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import useSWR from "swr";
 import { Button } from "ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "ui/card";
-import { handleErrorWithToast } from "ui/shared-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "ui/tabs";
+import { useShallow } from "zustand/shallow";
 
 interface AssistantCardProps {
   id: string;
@@ -268,31 +266,14 @@ export default function ProjectsPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("assistants");
 
-  const { data: projects = [], isLoading } = useSWR(
-    "projects",
-    selectProjectListByUserIdAction,
-    {
-      onError: handleErrorWithToast,
-      revalidateOnFocus: false,
-    },
-  );
+  const [projectList] = appStore(useShallow((state) => [state.projectList]));
 
   const handleAssistantClick = (projectId: string) => {
     router.push(`/project/${projectId}`);
   };
 
   const renderAssistantsContent = () => {
-    if (isLoading) {
-      return (
-        <div className="flex items-center justify-center h-[60vh]">
-          <div className="flex flex-col items-center gap-3">
-            <Loader className="size-5 animate-spin" />
-          </div>
-        </div>
-      );
-    }
-
-    if (projects.length === 0) {
+    if (projectList.length === 0) {
       return (
         <div className="flex flex-col items-center justify-center py-24 px-4">
           <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-6">
@@ -317,7 +298,7 @@ export default function ProjectsPage() {
           className="flex flex-wrap gap-6 justify-start"
           style={{ maxWidth: "1008px" }}
         >
-          {projects.map((project) => (
+          {projectList.map((project) => (
             <div key={project.id} className="w-80">
               <AssistantCard
                 id={project.id}
