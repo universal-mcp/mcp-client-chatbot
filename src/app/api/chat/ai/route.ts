@@ -113,7 +113,7 @@ export async function POST(request: Request) {
       prompt = message;
     }
     const result = streamObject({
-      model: customModelProvider.getModel("anthropic/claude-3-haiku-20240307"),
+      model: customModelProvider.getModel("openai/gpt-4.1"),
       system,
       prompt,
       schema: dynamicAssistantSchema,

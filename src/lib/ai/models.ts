@@ -16,6 +16,6 @@ export const customModelProvider = {
     return anthropic("claude-4-sonnet-20250514");
   },
   getTitleModel: (): LanguageModel => {
-    return openai("gpt-4.1");
+    return anthropic("claude-3-5-haiku-latest");
   },
 };
