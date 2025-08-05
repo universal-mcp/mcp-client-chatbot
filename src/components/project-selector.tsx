@@ -46,7 +46,7 @@ export function ProjectSelector({
     setOpen(false);
   };
 
-  const buttonText = selectedProjectName ?? "Default";
+  const buttonText = selectedProjectName ?? "None";
 
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -61,7 +61,7 @@ export function ProjectSelector({
           variant="outline"
           disabled={disabled}
           className={cn(
-            "rounded-full font-semibold bg-secondary max-w-[150px] hover:bg-secondary",
+            "rounded-full font-semibold bg-secondary max-w-[150px]",
             selectedProject && "bg-primary/10 text-primary border-primary/50",
             disabled && "opacity-50 cursor-not-allowed",
           )}
@@ -70,9 +70,9 @@ export function ProjectSelector({
           <span className="truncate">{buttonText}</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-[200px] p-0" align="start">
+      <DropdownMenuContent className="md:w-80 p-0" align="start" side="top">
         <div className="p-2 border-b">
-          <div className="flex items-center gap-2 px-2">
+          <div className="flex items-center gap-2">
             <Search className="size-4 opacity-50" />
             <Input
               placeholder="Search assistant..."
@@ -85,7 +85,7 @@ export function ProjectSelector({
         <DropdownMenuGroup>
           <DropdownMenuItem
             onClick={handleAddNew}
-            className="flex items-center gap-2 cursor-pointer"
+            className="flex items-center gap-2 cursor-pointer py-2"
           >
             <PlusCircle className="h-4 w-4" />
             <span>Add new assistant</span>
@@ -95,9 +95,9 @@ export function ProjectSelector({
             onClick={() => handleProjectSelect(null, undefined)}
             className="flex items-center gap-2"
           >
-            <div className="flex items-center gap-2 w-full">
-              <div className="w-4 h-4" />
-              <span className="text-muted-foreground">Default</span>
+            <div className="flex items-center gap-2 w-full py-1">
+              <Bot className="w-4 h-4 text-blue-400" />
+              <span className="text-muted-foreground">None</span>
               {!selectedProject && <Check className="ml-auto h-4 w-4" />}
             </div>
           </DropdownMenuItem>
@@ -110,10 +110,10 @@ export function ProjectSelector({
             <DropdownMenuItem
               key={project.id}
               onClick={() => handleProjectSelect(project.id, project.name)}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 py-1"
             >
-              <div className="flex items-center gap-2 w-full">
-                <Bot className="h-4 w-4" />
+              <div className="flex items-center gap-2 w-full py-1">
+                <Bot className="h-4 w-4 text-blue-400" />
                 <span className="truncate">{project.name}</span>
                 {selectedProject === project.id && (
                   <Check className="ml-auto h-4 w-4" />

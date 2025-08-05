@@ -165,13 +165,15 @@ export default function PromptInput({
           >
             <div className="flex flex-col gap-3.5 px-1">
               {selectedProjectName && (
-                <div className="flex items-center gap-2 px-2 py-1 text-xs bg-primary/10 text-primary rounded-md font-medium">
-                  <Bot className="size-3.5" />
-                  <span className="truncate">{selectedProjectName}</span>
+                <div className="flex items-center gap-2 px-3 py-1.5 text-xs bg-gradient-to-r from-primary/20 via-primary/15 to-primary/10 text-primary rounded-full font-medium border border-primary/30 shadow-md backdrop-blur-sm ring-1 ring-primary/10 fade-in slide-in-from-top-1 duration-300">
+                  <Bot className="size-3.5 drop-shadow-md text-primary/90" />
+                  <span className="truncate font-bold tracking-wide">
+                    {selectedProjectName}
+                  </span>
                   {!isProjectSelectionDisabled && (
                     <button
                       onClick={onProjectClear}
-                      className="ml-auto p-1 hover:bg-primary/20 rounded-full"
+                      className="ml-auto p-0.5 hover:bg-primary/30 hover:scale-105 rounded-full transition-all duration-200"
                     >
                       <X className="size-3.5" />
                     </button>

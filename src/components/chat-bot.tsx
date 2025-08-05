@@ -341,7 +341,7 @@ export default function ChatBot({
   }, []);
 
   // Check if project selection should be disabled (when thread has a project)
-  const isProjectSelectionDisabled = currentThread?.projectId != null;
+  const isProjectSelectionDisabled = currentThread != null;
 
   return (
     <div
