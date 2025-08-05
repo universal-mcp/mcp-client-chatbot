@@ -586,6 +586,7 @@ export function AssistantEditor({
         }
 
         mutate(`/projects/${projectId}`);
+        mutate("/api/project/list");
         toast.success("Assistant saved successfully");
 
         if (onSave && projectData) {
@@ -751,7 +752,7 @@ export function AssistantEditor({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => router.back()}
+              onClick={() => router.push(`/project`)}
               className="flex items-center gap-2"
             >
               <ArrowLeft className="w-4 h-4" />
