@@ -126,6 +126,18 @@ export function AssistantEditor({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const tiptapRef = useRef<HTMLDivElement>(null);
 
+  const handleInstructionsChange = useCallback(
+    (value: string) => {
+      setProject({
+        instructions: {
+          ...project.instructions,
+          systemPrompt: value || "",
+        },
+      });
+    },
+    [setProject, project.instructions],
+  );
+
   // AI Generation state
   const [openGenerateAssistantDialog, setOpenGenerateAssistantDialog] =
     useState(false);
@@ -282,21 +294,6 @@ export function AssistantEditor({
         }
 
         if (key == "instructions") {
-          // Auto-scroll to bottom when instructions are updated
-          requestAnimationFrame(() => {
-            if (tiptapRef.current) {
-              // Target the EditorContent div which is the scrollable container
-              const proseMirror =
-                tiptapRef.current.querySelector(".ProseMirror");
-              const scrollContainer = proseMirror?.parentElement;
-              if (scrollContainer) {
-                scrollContainer.scrollTo({
-                  top: scrollContainer.scrollHeight,
-                  behavior: "smooth",
-                });
-              }
-            }
-          });
           return {
             instructions: {
               ...prev.instructions,
@@ -896,14 +893,7 @@ export function AssistantEditor({
             <div ref={tiptapRef} className={cn(isGenerating && "relative")}>
               <Tiptap
                 value={project.instructions?.systemPrompt || ""}
-                onChange={(value) =>
-                  setProject({
-                    instructions: {
-                      ...project.instructions,
-                      systemPrompt: value || "",
-                    },
-                  })
-                }
+                onChange={handleInstructionsChange}
                 placeholder="You are a helpful assistant that can perform deep research and help with tasks..."
                 className={isGenerating ? "pointer-events-none opacity-50" : ""}
                 isGenerating={isGenerating}
