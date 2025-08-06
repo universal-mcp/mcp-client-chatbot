@@ -62,7 +62,6 @@ export function ProjectSelector({
           disabled={disabled}
           className={cn(
             "rounded-full font-semibold bg-secondary max-w-[150px]",
-            selectedProject && "bg-primary/10 text-primary border-primary/50",
             disabled && "opacity-50 cursor-not-allowed",
           )}
         >

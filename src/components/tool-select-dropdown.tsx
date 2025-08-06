@@ -99,14 +99,46 @@ export function ToolSelectDropdown({
   const [localProjectToolConfigs, setLocalProjectToolConfigs] = useState<
     ProjectMcpToolConfig[]
   >([]);
+  const [initialProjectToolConfigs, setInitialProjectToolConfigs] = useState<
+    ProjectMcpToolConfig[]
+  >([]);
   const [isSaving, setIsSaving] = useState(false);
 
   // Initialize local configs when project configs are loaded
   useEffect(() => {
     if (projectToolConfigs && projectId) {
       setLocalProjectToolConfigs(projectToolConfigs);
+      setInitialProjectToolConfigs(projectToolConfigs);
     }
   }, [projectToolConfigs, projectId]);
+
+  // Check if current config differs from initial config using hash comparison
+  const hasChanges = useMemo(() => {
+    if (!projectId) return false;
+
+    const createConfigHash = (configs: ProjectMcpToolConfig[]) => {
+      // Sort configs to ensure consistent hash
+      const sortedConfigs = [...configs].sort((a, b) => {
+        const aKey = `${a.mcpServerId || "default"}:${a.toolName}`;
+        const bKey = `${b.mcpServerId || "default"}:${b.toolName}`;
+        return aKey.localeCompare(bKey);
+      });
+
+      return JSON.stringify(
+        sortedConfigs.map((config) => ({
+          mcpServerId: config.mcpServerId,
+          toolName: config.toolName,
+          enabled: config.enabled,
+          mode: config.mode,
+        })),
+      );
+    };
+
+    const currentHash = createConfigHash(localProjectToolConfigs);
+    const initialHash = createConfigHash(initialProjectToolConfigs);
+
+    return currentHash !== initialHash;
+  }, [projectId, localProjectToolConfigs, initialProjectToolConfigs]);
 
   // Handle local project tool updates (no DB call)
   const updateLocalProjectToolConfig = useCallback(
@@ -275,8 +307,8 @@ export function ToolSelectDropdown({
                     onClick={saveProjectToolConfigs}
                     className="w-full"
                     size="sm"
-                    disabled={isSaving}
-                    variant={"default"}
+                    disabled={isSaving || !hasChanges}
+                    variant={hasChanges ? "default" : "secondary"}
                   >
                     {isSaving ? (
                       <>

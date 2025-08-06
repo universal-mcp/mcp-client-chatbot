@@ -14,6 +14,7 @@ import {
   FileText,
   Palette,
   MoreHorizontal,
+  Loader,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -245,7 +246,7 @@ function TemplatesContent() {
     <>
       <div className="flex justify-center">
         <div
-          className="flex flex-wrap gap-6 justify-start"
+          className="flex flex-wrap gap-6 justify-center"
           style={{ maxWidth: "1008px" }}
         >
           {ASSISTANT_TEMPLATES.map((template) => (
@@ -266,13 +267,26 @@ export default function ProjectsPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("assistants");
 
-  const [projectList] = appStore(useShallow((state) => [state.projectList]));
+  const [projectList, isProjectListLoading] = appStore(
+    useShallow((state) => [state.projectList, state.isProjectListLoading]),
+  );
 
   const handleAssistantClick = (projectId: string) => {
     router.push(`/project/${projectId}`);
   };
 
   const renderAssistantsContent = () => {
+    // Add loader component
+    if (isProjectListLoading) {
+      return (
+        <div className="flex items-center justify-center h-[60vh]">
+          <div className="flex flex-col items-center gap-3">
+            <Loader className="size-5 animate-spin" />
+          </div>
+        </div>
+      );
+    }
+
     if (projectList.length === 0) {
       return (
         <div className="flex flex-col items-center justify-center py-24 px-4">
@@ -295,7 +309,7 @@ export default function ProjectsPage() {
     return (
       <div className="flex justify-center">
         <div
-          className="flex flex-wrap gap-6 justify-start"
+          className="flex flex-wrap gap-6 justify-center"
           style={{ maxWidth: "1008px" }}
         >
           {projectList.map((project) => (

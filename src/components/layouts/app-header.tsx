@@ -192,10 +192,18 @@ function ThreadDropdownComponent() {
       </div>
       {currentProject && (
         <>
+          <Link href={`/project`}>
+            <Button variant="ghost" className="flex items-center gap-1">
+              <p className="text-muted-foreground max-w-32 truncate">
+                Assistants
+              </p>
+            </Button>
+          </Link>
+          <ChevronRight size={14} className="text-muted-foreground" />
           <Link href={`/project/${currentProject.id}`}>
             <Button variant="ghost" className="flex items-center gap-1">
-              <p className="text-muted-foreground max-w-40 truncate">
-                Assistant: {currentProject.name}
+              <p className="text-muted-foreground max-w-32 truncate">
+                {currentProject.name}
               </p>
             </Button>
           </Link>

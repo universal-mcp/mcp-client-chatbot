@@ -28,7 +28,7 @@ import { useShallow } from "zustand/shallow";
 import { useRouter } from "next/navigation";
 import useSWR, { mutate } from "swr";
 import { handleErrorWithToast } from "ui/shared-toast";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useTranslations } from "next-intl";
 import { TextShimmer } from "ui/text-shimmer";
@@ -89,12 +89,20 @@ export function AppSidebarThreads() {
     },
   });
 
-  useSWR("/api/project/list", fetcher, {
-    onError: handleErrorWithToast,
-    fallbackData: [],
-    onSuccess: (data) => storeMutate({ projectList: data }),
-    revalidateOnFocus: false,
-  });
+  const { isLoading: isProjectListLoading } = useSWR(
+    "/api/project/list",
+    fetcher,
+    {
+      onError: handleErrorWithToast,
+      fallbackData: [],
+      onSuccess: (data) => storeMutate({ projectList: data }),
+      revalidateOnFocus: false,
+    },
+  );
+
+  useEffect(() => {
+    storeMutate({ isProjectListLoading: isProjectListLoading });
+  }, [isProjectListLoading]);
 
   // Check if we have 40 or more threads to display "View All" button
   const hasExcessThreads = threadList && threadList.length >= MAX_THREADS_COUNT;

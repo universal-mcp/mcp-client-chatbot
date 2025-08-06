@@ -382,7 +382,7 @@ const MarkdownEditor = ({
           <div ref={richTextRef} className="h-full">
             <EditorContent
               editor={editor}
-              className="h-full min-h-[200px] max-h-[300px] w-full px-3 py-2 text-sm focus-visible:outline-none overflow-y-auto overscroll-contain"
+              className="h-full min-h-[250px] max-h-[250px] w-full px-3 py-2 text-sm focus-visible:outline-none overflow-y-auto overscroll-contain"
             />
           </div>
         ) : (
@@ -392,7 +392,7 @@ const MarkdownEditor = ({
             onChange={handleMarkdownChange}
             placeholder={placeholder}
             disabled={isGenerating}
-            className="h-full min-h-[300px] max-h-[300px] w-full px-3 py-2 text-sm focus-visible:outline-none overflow-y-auto overscroll-contain resize-none bg-transparent border-none"
+            className="h-full min-h-[244px] w-full px-3 py-4 text-sm focus-visible:outline-none overflow-y-auto overscroll-contain resize-none bg-transparent border-none"
           />
         )}
       </div>
