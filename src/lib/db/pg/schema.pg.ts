@@ -19,6 +19,7 @@ import {
   organization as OrganizationSchema,
   member as MemberSchema,
   invitation as InvitationSchema,
+  subscription as SubscriptionSchema,
 } from "./auth.pg";
 
 export const ChatThreadSchema = pgTable("chat_thread", {
@@ -216,6 +217,7 @@ export {
   OrganizationSchema,
   MemberSchema,
   InvitationSchema,
+  SubscriptionSchema,
 };
 
 export type McpServerEntity = typeof McpServerSchema.$inferSelect;

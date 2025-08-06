@@ -27,6 +27,7 @@ import {
   ChevronRight,
   User as UserIcon,
   Cpu,
+  CreditCard,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { appStore } from "@/app/store";
@@ -111,6 +112,13 @@ export function AppSidebarUser({
             >
               <Settings2 className="size-4 text-foreground" />
               <span>{t("chatPreferences")}</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={() => router.push("/billing")}
+            >
+              <CreditCard className="size-4 text-foreground" />
+              <span>Billing</span>
             </DropdownMenuItem>
             <SelectTheme />
             <SelectLanguage />

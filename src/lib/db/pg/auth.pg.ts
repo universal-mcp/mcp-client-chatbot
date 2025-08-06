@@ -5,6 +5,7 @@ import {
   boolean,
   uuid,
   json,
+  integer,
 } from "drizzle-orm/pg-core";
 import { UserPreferences } from "app-types/user";
 
@@ -25,6 +26,20 @@ export const user = pgTable("user", {
     .notNull(),
   twoFactorEnabled: boolean("two_factor_enabled"),
   normalizedEmail: text("normalized_email").unique(),
+  stripeCustomerId: text("stripe_customer_id"),
+});
+
+export const subscription = pgTable("subscription", {
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  plan: text("plan").notNull(),
+  referenceId: text("reference_id").notNull(),
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  status: text("status").default("incomplete"),
+  periodStart: timestamp("period_start"),
+  periodEnd: timestamp("period_end"),
+  cancelAtPeriodEnd: boolean("cancel_at_period_end"),
+  seats: integer("seats"),
 });
 
 export const session = pgTable("session", {

@@ -12,10 +12,16 @@ import * as schema from "@/lib/db/pg/auth.pg";
 import { headers } from "next/headers";
 import logger from "@/lib/logger";
 import { reactVerifyEmail } from "@/lib/email/verify-email";
+import { stripe } from "@better-auth/stripe";
+import Stripe from "stripe";
 
 const from = process.env.BETTER_AUTH_EMAIL || "manoj@agentr.dev";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
+const stripeClient = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: "2025-07-30.basil",
+});
 
 export const auth = betterAuth({
   appName: "agentr",
@@ -114,6 +120,53 @@ export const auth = betterAuth({
     }),
     nextCookies(),
     emailHarmony(),
+    stripe({
+      stripeClient,
+      stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET!,
+      createCustomerOnSignUp: true,
+      subscription: {
+        enabled: true,
+        requireEmailVerification: false,
+        plans: [
+          {
+            name: "pro",
+            priceId: "price_1RpqflHVSpWJf2VWygjqJFT1",
+          },
+        ],
+        onSubscriptionComplete: async ({ subscription, plan }) => {
+          logger.info(
+            `Subscription ${subscription.id} completed for plan ${plan.name}`,
+          );
+        },
+        onSubscriptionUpdate: async ({ subscription }) => {
+          logger.info(`Subscription ${subscription.id} updated`);
+        },
+        onSubscriptionCancel: async ({ subscription }) => {
+          logger.info(`Subscription ${subscription.id} canceled`);
+        },
+      },
+      onEvent: async (event) => {
+        logger.info(`Stripe webhook event: ${event.type}`);
+
+        switch (event.type) {
+          case "customer.subscription.created":
+            logger.info("New subscription created", event.data.object);
+            break;
+          case "customer.subscription.updated":
+            logger.info("Subscription updated", event.data.object);
+            break;
+          case "customer.subscription.deleted":
+            logger.info("Subscription deleted", event.data.object);
+            break;
+          case "invoice.paid":
+            logger.info("Invoice paid", event.data.object);
+            break;
+          case "invoice.payment_failed":
+            logger.error("Invoice payment failed", event.data.object);
+            break;
+        }
+      },
+    }),
   ],
   trustedOrigins: ["exp://"],
   advanced: {
