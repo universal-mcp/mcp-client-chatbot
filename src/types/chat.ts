@@ -20,7 +20,7 @@ export type ChatThread = {
 export type Project = {
   id: string;
   name: string;
-  description?: string;
+  description: string | null;
   userId: string;
   instructions: {
     systemPrompt: string;
