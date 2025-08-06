@@ -61,7 +61,7 @@ export function AppHeader() {
     }
   }, [currentPaths, threadList, currentThreadId]);
 
-  const handleExportAsAssistant = () => {
+  const handleExportAsAgent = () => {
     if (currentThreadId) {
       router.push(`/project/new?threadId=${currentThreadId}`);
     }
@@ -101,11 +101,11 @@ export function AppHeader() {
           <Button
             variant={"secondary"}
             size="sm"
-            onClick={handleExportAsAssistant}
+            onClick={handleExportAsAgent}
             className="flex items-center gap-2 bg-secondary/40"
           >
             <Bot className="size-4" />
-            Export as Assistant
+            Export as Agent
           </Button>
         )}
         {currentThread && (
@@ -194,9 +194,7 @@ function ThreadDropdownComponent() {
         <>
           <Link href={`/project`}>
             <Button variant="ghost" className="flex items-center gap-1">
-              <p className="text-muted-foreground max-w-32 truncate">
-                Assistants
-              </p>
+              <p className="text-muted-foreground max-w-32 truncate">Agents</p>
             </Button>
           </Link>
           <ChevronRight size={14} className="text-muted-foreground" />

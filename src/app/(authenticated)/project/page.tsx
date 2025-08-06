@@ -24,7 +24,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "ui/tabs";
 import { Badge } from "ui/badge";
 import { useShallow } from "zustand/shallow";
 
-interface AssistantCardProps {
+interface AgentCardProps {
   id: string;
   name: string;
   description: string | null;
@@ -33,7 +33,7 @@ interface AssistantCardProps {
   project?: any; // Full project object for dropdown
 }
 
-interface AssistantTemplate {
+interface AgentTemplate {
   id: string;
   name: string;
   description: string;
@@ -43,10 +43,10 @@ interface AssistantTemplate {
   icon: React.ComponentType<{ className?: string }>;
 }
 
-const ASSISTANT_TEMPLATES: AssistantTemplate[] = [
+const AGENT_TEMPLATES: AgentTemplate[] = [
   {
-    id: "coding-assistant",
-    name: "Coding Assistant",
+    id: "coding-agent",
+    name: "Coding Agent",
     description:
       "A programming companion that helps with code review, debugging, and best practices",
     instructions:
@@ -91,7 +91,7 @@ const ASSISTANT_TEMPLATES: AssistantTemplate[] = [
     id: "content-writer",
     name: "Content Writer",
     description:
-      "Creative writing assistant for blogs, marketing, and storytelling",
+      "Creative writing agent for blogs, marketing, and storytelling",
     instructions:
       "You are a skilled content writer and creative strategist. Help users create compelling content:\n\n• Blog posts and articles with engaging narratives\n• Marketing copy that converts and resonates\n• Social media content with strong hooks\n• Email campaigns and newsletters\n• Creative storytelling and narrative structure\n• SEO optimization and audience targeting\n\nFocus on clarity, engagement, and purpose. Understand the target audience and desired outcomes. Provide multiple variations when helpful.",
     expert: "content writing and creative storytelling",
@@ -112,7 +112,7 @@ const ASSISTANT_TEMPLATES: AssistantTemplate[] = [
 ];
 
 interface TemplateCardProps {
-  template: AssistantTemplate;
+  template: AgentTemplate;
   onClick: () => void;
 }
 
@@ -158,14 +158,14 @@ function TemplateCard({ template, onClick }: TemplateCardProps) {
   );
 }
 
-function AssistantCard({
+function AgentCard({
   id,
   name,
   description,
   lastActiveAt,
   onClick,
   project,
-}: AssistantCardProps) {
+}: AgentCardProps) {
   const formatLastActive = (dateString?: string) => {
     if (!dateString || dateString === "1970-01-01 00:00:00")
       return "Never used";
@@ -242,8 +242,8 @@ function AssistantCard({
 function TemplatesContent() {
   const router = useRouter();
 
-  const handleTemplateClick = (template: AssistantTemplate) => {
-    // Navigate directly to the new assistant page with template data
+  const handleTemplateClick = (template: AgentTemplate) => {
+    // Navigate directly to the new agent page with template data
     router.push(
       `/project/new?template=${encodeURIComponent(
         JSON.stringify({
@@ -263,7 +263,7 @@ function TemplatesContent() {
           className="flex flex-wrap gap-6 justify-center"
           style={{ maxWidth: "1008px" }}
         >
-          {ASSISTANT_TEMPLATES.map((template) => (
+          {AGENT_TEMPLATES.map((template) => (
             <div key={template.id} className="w-80">
               <TemplateCard
                 template={template}
@@ -279,17 +279,17 @@ function TemplatesContent() {
 
 export default function ProjectsPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState("assistants");
+  const [activeTab, setActiveTab] = useState("agents");
 
   const [projectList, isProjectListLoading] = appStore(
     useShallow((state) => [state.projectList, state.isProjectListLoading]),
   );
 
-  const handleAssistantClick = (projectId: string) => {
+  const handleAgentClick = (projectId: string) => {
     router.push(`/project/${projectId}`);
   };
 
-  const renderAssistantsContent = () => {
+  const renderAgentsContent = () => {
     // Add loader component
     if (isProjectListLoading) {
       return (
@@ -307,14 +307,14 @@ export default function ProjectsPage() {
           <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-6">
             <Bot className="size-8 text-muted-foreground" />
           </div>
-          <h3 className="text-xl font-semibold mb-2">No assistants yet</h3>
+          <h3 className="text-xl font-semibold mb-2">No agents yet</h3>
           <p className="text-muted-foreground text-center max-w-sm mb-6">
-            Create your first assistant to get started with organized
-            conversations and custom instructions.
+            Create your first agent to get started with organized conversations
+            and custom instructions.
           </p>
           <Button className="gap-2" onClick={() => router.push("/project/new")}>
             <Plus className="size-4" />
-            Create Your First Assistant
+            Create Your First Agent
           </Button>
         </div>
       );
@@ -328,12 +328,12 @@ export default function ProjectsPage() {
         >
           {projectList.map((project) => (
             <div key={project.id} className="w-80">
-              <AssistantCard
+              <AgentCard
                 id={project.id}
                 name={project.name}
                 description={project.description}
                 lastActiveAt={(project as any).lastThreadAt}
-                onClick={() => handleAssistantClick(project.id)}
+                onClick={() => handleAgentClick(project.id)}
                 project={project}
               />
             </div>
@@ -353,11 +353,9 @@ export default function ProjectsPage() {
             style={{ maxWidth: "1008px" }}
           >
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight">
-                Assistants
-              </h1>
+              <h1 className="text-2xl font-semibold tracking-tight">Agents</h1>
               <p className="text-muted-foreground mt-1">
-                Manage your AI assistants and their configurations
+                Manage your AI agents and their configurations
               </p>
             </div>
 
@@ -366,7 +364,7 @@ export default function ProjectsPage() {
               onClick={() => router.push("/project/new")}
             >
               <Plus className="size-4" />
-              Add Assistant
+              Add Agent
             </Button>
           </div>
         </div>
@@ -382,9 +380,9 @@ export default function ProjectsPage() {
           >
             <div className="flex justify-center mb-6">
               <TabsList>
-                <TabsTrigger value="assistants" className="gap-2">
+                <TabsTrigger value="agents" className="gap-2">
                   <Bot className="size-4" />
-                  My Assistants
+                  My Agents
                 </TabsTrigger>
                 <TabsTrigger value="templates" className="gap-2">
                   <Sparkles className="size-4" />
@@ -393,8 +391,8 @@ export default function ProjectsPage() {
               </TabsList>
             </div>
 
-            <TabsContent value="assistants" className="mt-0">
-              {renderAssistantsContent()}
+            <TabsContent value="agents" className="mt-0">
+              {renderAgentsContent()}
             </TabsContent>
 
             <TabsContent value="templates" className="mt-0">

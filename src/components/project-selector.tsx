@@ -18,7 +18,7 @@ import { Input } from "ui/input";
 interface ProjectSelectorProps {
   selectedProject?: string | null;
   selectedProjectName?: string | null;
-  projectList?: Array<{ id: string; name: string; description?: string }>;
+  projectList?: Array<{ id: string; name: string; description: string | null }>;
   onProjectSelect?: (projectId: string | null, projectName?: string) => void;
   disabled?: boolean;
 }
@@ -74,7 +74,7 @@ export function ProjectSelector({
           <div className="flex items-center gap-2">
             <Search className="size-4 opacity-50" />
             <Input
-              placeholder="Search assistant..."
+              placeholder="Search agent..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="border-none bg-transparent p-0 h-8 text-sm focus-visible:ring-0"
@@ -87,7 +87,7 @@ export function ProjectSelector({
             className="flex items-center gap-2 cursor-pointer py-2"
           >
             <PlusCircle className="h-4 w-4" />
-            <span>Add new assistant</span>
+            <span>Add new agent</span>
           </DropdownMenuItem>
           <DropdownMenuSeparator className="my-0" />
           <DropdownMenuItem
@@ -102,7 +102,7 @@ export function ProjectSelector({
           </DropdownMenuItem>
           {filteredProjects.length === 0 && searchTerm && (
             <DropdownMenuItem disabled className="text-muted-foreground">
-              No assistants found
+              No agents found
             </DropdownMenuItem>
           )}
           {filteredProjects.map((project) => (

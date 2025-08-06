@@ -1018,7 +1018,7 @@ function ServerCard({
                                   <p className="font-bold">Warning</p>
                                   <p>
                                     This server is used by the following
-                                    assistant(s).
+                                    agent(s).
                                   </p>
                                   <ul className="list-disc pl-5 mt-2">
                                     {projectsInUse.slice(0, 3).map((p) => (
@@ -1041,8 +1041,8 @@ function ServerCard({
                                   )}
                                   <Separator className="my-2 bg-destructive/20" />
                                   <p>
-                                    Please disable it from the assistant
-                                    settings before deleting.
+                                    Please disable it from the agent settings
+                                    before deleting.
                                   </p>
                                 </div>
                               ) : (
@@ -1081,9 +1081,7 @@ function ServerCard({
                     >
                       <DialogContent>
                         <DialogHeader>
-                          <DialogTitle>
-                            Assistants using this server
-                          </DialogTitle>
+                          <DialogTitle>Agents using this server</DialogTitle>
                         </DialogHeader>
                         <ScrollArea className="h-60">
                           <ul className="list-disc pl-5 mt-2">

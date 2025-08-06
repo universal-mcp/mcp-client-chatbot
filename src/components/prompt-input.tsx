@@ -36,7 +36,7 @@ interface PromptInputProps {
   selectedProjectName?: string | null;
   onProjectClear?: () => void;
   isProjectSelectionDisabled?: boolean;
-  projectList?: Array<{ id: string; name: string; description?: string }>;
+  projectList?: Array<{ id: string; name: string; description: string | null }>;
   onProjectSelect?: (projectId: string | null, projectName?: string) => void;
 }
 

@@ -274,7 +274,7 @@ export type ClientToolInvocation = z.infer<
   typeof ClientToolInvocationZodSchema
 >;
 
-export const AssistantGenerateSchema = z.object({
+export const AgentGenerateSchema = z.object({
   name: z.string().describe("Assistant name"),
   description: z.string().describe("Assistant description"),
   role: z.string().describe("Assistant role"),

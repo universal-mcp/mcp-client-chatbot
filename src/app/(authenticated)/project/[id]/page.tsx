@@ -1,10 +1,10 @@
 "use client";
 
-import { AssistantEditor } from "@/components/assistant-editor";
+import { AgentEditor } from "@/components/agent-editor";
 import { useParams } from "next/navigation";
 
 export default function ProjectPage() {
   const { id } = useParams();
 
-  return <AssistantEditor projectId={id as string} />;
+  return <AgentEditor projectId={id as string} />;
 }

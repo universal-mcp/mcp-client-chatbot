@@ -119,7 +119,7 @@ export function ThreadDropdown({
                   onClick={handleExportAsAgent}
                 >
                   <Bot className="text-foreground" />
-                  <span className="mr-4">Export as Assistant</span>
+                  <span className="mr-4">Export as Agent</span>
                 </div>
               </CommandItem>
               <CommandItem className="cursor-pointer p-0">

@@ -228,7 +228,7 @@ Use the context server to provide accurate, truthful, and helpful answers.
 `.trim();
 };
 
-export const buildAssistantGenerationPrompt = (toolNames: string[]) => {
+export const buildAgentGenerationPrompt = (toolNames: string[]) => {
   const toolsList = toolNames.map((name) => `- ${name}`).join("\n");
 
   return `
@@ -295,9 +295,7 @@ Ensure all generated content is precisely matched to user's requested language. 
 Create an agent that feels thoughtfully designed, intelligent, and professionally reliable, perfectly matched to the user's original intent.`.trim();
 };
 
-export const buildAssistantGenerationFromThreadPrompt = (
-  toolNames: string[],
-) => {
+export const buildAgentGenerationFromThreadPrompt = (toolNames: string[]) => {
   const toolsList = toolNames.map((name) => `- ${name}`).join("\n");
 
   return `
