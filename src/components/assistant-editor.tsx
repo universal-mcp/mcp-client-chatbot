@@ -90,13 +90,11 @@ const defaultConfig = (): LocalProjectState => {
 
 interface AssistantEditorProps {
   projectId?: string; // undefined for new project, string for existing project
-  onSave?: (project: Project) => void;
   isNewProject?: boolean;
 }
 
 export function AssistantEditor({
   projectId,
-  onSave,
   isNewProject = false,
 }: AssistantEditorProps) {
   const t = useTranslations();
@@ -109,9 +107,6 @@ export function AssistantEditor({
 
   // MCP Configuration state
   const [mcpServers, setMcpServers] = useState<MCPServerWithId[]>([]);
-  const [originalServerConfigs, setOriginalServerConfigs] = useState<
-    LocalServerConfig[]
-  >([]);
   const [originalToolConfigs, setOriginalToolConfigs] = useState<
     Map<string, LocalToolConfig>
   >(new Map());
@@ -125,6 +120,35 @@ export function AssistantEditor({
   const [isMcpDataLoaded, setIsMcpDataLoaded] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const tiptapRef = useRef<HTMLDivElement>(null);
+
+  // Track original project state for change detection
+  const [originalProject, setOriginalProject] = useState<LocalProjectState>(
+    defaultConfig(),
+  );
+
+  // Check if current project differs from original project using hash comparison
+  const hasProjectChanges = useMemo(() => {
+    const createProjectHash = (proj: LocalProjectState) => {
+      return JSON.stringify({
+        name: proj.name || "",
+        description: proj.description || "",
+        instructions: {
+          expert: proj.instructions?.expert || "",
+          systemPrompt: proj.instructions?.systemPrompt || "",
+        },
+      });
+    };
+
+    const currentHash = createProjectHash(project);
+    const originalHash = createProjectHash(originalProject);
+
+    return currentHash !== originalHash;
+  }, [project, originalProject]);
+
+  // Combined changes detection (project fields + MCP configuration)
+  const hasAnyChanges = useMemo(() => {
+    return hasProjectChanges || hasMcpChanges;
+  }, [hasProjectChanges, hasMcpChanges]);
 
   const handleInstructionsChange = useCallback(
     (value: string) => {
@@ -223,11 +247,13 @@ export function AssistantEditor({
       },
       onSuccess: (data) => {
         if (data) {
-          setProject({
+          const projectData = {
             name: data.name || "",
             description: data.description || "",
             instructions: data.instructions || { systemPrompt: "", expert: "" },
-          });
+          };
+          setProject(projectData);
+          setOriginalProject(projectData);
         } else if (projectId) {
           toast.error(`Project not found`);
           router.push(`/`);
@@ -345,13 +371,11 @@ export function AssistantEditor({
             enabled: enabledServerIds.has(server.id || "unknown"),
           }));
 
-          setOriginalServerConfigs(initialServerConfigs);
           setServerConfigs(initialServerConfigs);
           setOriginalToolConfigs(toolConfigMap);
           setToolConfigs(toolConfigMap);
         } else {
           // For new projects, initialize with empty configs
-          setOriginalServerConfigs([]);
           setServerConfigs([]);
           setOriginalToolConfigs(new Map());
           setToolConfigs(new Map());
@@ -483,16 +507,35 @@ export function AssistantEditor({
     [mcpServers],
   );
 
-  // Track MCP changes
+  // Track MCP changes using sorted hash approach like tool-select component
   useEffect(() => {
-    const serverChanges =
-      JSON.stringify(serverConfigs) !== JSON.stringify(originalServerConfigs);
-    const toolChanges =
-      JSON.stringify(Array.from(toolConfigs.entries())) !==
-      JSON.stringify(Array.from(originalToolConfigs.entries()));
-    const newHasChanges = serverChanges || toolChanges;
+    const createToolConfigHash = (
+      toolConfigMap: Map<string, LocalToolConfig>,
+    ) => {
+      // Convert Map to array and sort to ensure consistent hash
+      const sortedConfigs = Array.from(toolConfigMap.entries()).sort((a, b) => {
+        const [aKey] = a;
+        const [bKey] = b;
+        return aKey.localeCompare(bKey);
+      });
+
+      return JSON.stringify(
+        sortedConfigs.map(([key, config]) => ({
+          key,
+          mcpServerId: config.mcpServerId,
+          toolName: config.toolName,
+          enabled: config.enabled,
+          mode: config.mode,
+        })),
+      );
+    };
+
+    const currentToolHash = createToolConfigHash(toolConfigs);
+    const originalToolHash = createToolConfigHash(originalToolConfigs);
+
+    const newHasChanges = currentToolHash !== originalToolHash;
     setHasMcpChanges(newHasChanges);
-  }, [serverConfigs, toolConfigs, originalServerConfigs, originalToolConfigs]);
+  }, [toolConfigs, originalToolConfigs]);
 
   const saveProject = useCallback(async () => {
     setIsSaving(true);
@@ -536,13 +579,10 @@ export function AssistantEditor({
         }
 
         mutate("/api/project/list");
-        toast.success("Assistant created successfully");
 
-        if (onSave) {
-          onSave(newProject);
-        } else {
-          router.push(`/project/${newProject.id}`);
-        }
+        toast.success("Assistant created successfully");
+        // Navigate to the chat page with project ID
+        router.push(`/?projectId=${newProject.id}`);
       } else if (projectId) {
         // Update existing project
         await updateProjectAction(projectId, {
@@ -577,18 +617,15 @@ export function AssistantEditor({
           await bulkUpdateProjectMcpToolsAction(projectId, toolConfigsToSave);
 
           setToolConfigs(currentToolConfigs);
-          setOriginalServerConfigs([...serverConfigs]);
           setOriginalToolConfigs(new Map(currentToolConfigs));
           setHasMcpChanges(false);
         }
 
         mutate(`/projects/${projectId}`);
         mutate("/api/project/list");
+        // Reset original project state to current state after successful save
+        setOriginalProject({ ...project });
         toast.success("Assistant saved successfully");
-
-        if (onSave && projectData) {
-          onSave(projectData as Project);
-        }
       }
     } catch (error) {
       if (error instanceof Error) {
@@ -606,7 +643,6 @@ export function AssistantEditor({
     toolConfigs,
     hasMcpChanges,
     isNewProject,
-    onSave,
     router,
     projectData,
   ]);
@@ -627,15 +663,25 @@ export function AssistantEditor({
       const server = mcpServers.find((s) => s.id === serverId);
       if (!server) return;
 
-      const newToolUpdates = new Map<string, LocalToolConfig>();
-      for (const tool of server.toolInfo) {
-        const key = `${serverId}:${tool.name}`;
-        const existing =
-          toolConfigs.get(key) || getToolConfig(serverId, tool.name);
-        newToolUpdates.set(key, { ...existing, enabled });
-      }
+      setToolConfigs((prev) => {
+        const newConfigs = new Map(prev);
 
-      setToolConfigs((prev) => new Map([...prev, ...newToolUpdates]));
+        for (const tool of server.toolInfo) {
+          const key = `${serverId}:${tool.name}`;
+
+          if (enabled) {
+            // Add or update tool config when server is enabled
+            const existing =
+              newConfigs.get(key) || getToolConfig(serverId, tool.name);
+            newConfigs.set(key, { ...existing, enabled: true });
+          } else {
+            // Remove tool config when server is disabled
+            newConfigs.delete(key);
+          }
+        }
+
+        return newConfigs;
+      });
     },
     [mcpServers, toolConfigs],
   );
@@ -649,9 +695,17 @@ export function AssistantEditor({
       const key = `${serverId}:${toolName}`;
       setToolConfigs((prev) => {
         const newConfigs = new Map(prev);
-        const existing =
-          newConfigs.get(key) || getToolConfig(serverId, toolName);
-        newConfigs.set(key, { ...existing, ...update });
+
+        if (update.enabled === false) {
+          // Remove the tool config entirely when disabled
+          newConfigs.delete(key);
+        } else {
+          // Add or update the tool config when enabled or mode changed
+          const existing =
+            newConfigs.get(key) || getToolConfig(serverId, toolName);
+          newConfigs.set(key, { ...existing, ...update });
+        }
+
         return newConfigs;
       });
 
@@ -1181,7 +1235,11 @@ export function AssistantEditor({
         ) : (
           // Always show Save button for existing projects
           <div className="flex justify-end pt-2 pb-4">
-            <Button onClick={saveProject} disabled={isLoading || isGenerating}>
+            <Button
+              onClick={saveProject}
+              disabled={isLoading || isGenerating || !hasAnyChanges}
+              variant={hasAnyChanges ? "default" : "secondary"}
+            >
               {isSaving ? t("Common.saving") : t("Common.save")}
               {isSaving && <Loader className="size-4 animate-spin" />}
             </Button>
