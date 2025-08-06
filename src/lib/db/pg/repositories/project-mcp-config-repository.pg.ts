@@ -4,12 +4,11 @@ import {
   ProjectSchema,
   UserSchema,
 } from "../schema.pg";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { generateUUID } from "lib/utils";
-import { sql } from "drizzle-orm";
 
 export type ProjectMcpToolConfig = {
-  mcpServerId: string;
+  mcpServerId: string | null; // null for default tools
   toolName: string;
   enabled: boolean;
   mode: "auto" | "manual";
@@ -34,15 +33,17 @@ export const pgProjectMcpConfigRepository = {
     projectId: string,
     configs: ProjectMcpToolConfig[],
   ): Promise<void> {
+    // First, delete all existing configs for this project
+    await db
+      .delete(ProjectMcpToolConfigSchema)
+      .where(eq(ProjectMcpToolConfigSchema.projectId, projectId));
+
+    // If no configs are provided, we're done (all tools disabled)
     if (configs.length === 0) {
-      // If no configs are provided, it means all tools for this project should be disabled.
-      // So, we delete all existing configs for the project.
-      await db
-        .delete(ProjectMcpToolConfigSchema)
-        .where(eq(ProjectMcpToolConfigSchema.projectId, projectId));
       return;
     }
 
+    // Insert the new configs
     const values = configs.map((config) => ({
       id: generateUUID(),
       projectId,
@@ -54,37 +55,7 @@ export const pgProjectMcpConfigRepository = {
       updatedAt: new Date(),
     }));
 
-    // Perform the bulk insert/update
-    await db
-      .insert(ProjectMcpToolConfigSchema)
-      .values(values)
-      .onConflictDoUpdate({
-        target: [
-          ProjectMcpToolConfigSchema.projectId,
-          ProjectMcpToolConfigSchema.mcpServerId,
-          ProjectMcpToolConfigSchema.toolName,
-        ],
-        set: {
-          enabled: sql`excluded.enabled`,
-          mode: sql`excluded.mode`,
-          updatedAt: new Date(),
-        },
-      });
-
-    // Delete any tools that are not in the provided configs list for the affected servers
-    const serverIds = [...new Set(configs.map((c) => c.mcpServerId))];
-    if (serverIds.length > 0) {
-      const toolNames = configs.map((c) => c.toolName);
-      await db
-        .delete(ProjectMcpToolConfigSchema)
-        .where(
-          and(
-            eq(ProjectMcpToolConfigSchema.projectId, projectId),
-            sql`${ProjectMcpToolConfigSchema.mcpServerId} in ${serverIds}`,
-            sql`${ProjectMcpToolConfigSchema.toolName} not in ${toolNames}`,
-          ),
-        );
-    }
+    await db.insert(ProjectMcpToolConfigSchema).values(values);
   },
 
   async initializeProjectDefaults(): Promise<void> {

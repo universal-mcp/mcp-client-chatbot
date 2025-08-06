@@ -32,6 +32,7 @@ import {
   X,
   SmartphoneIcon,
   LaptopIcon,
+  Upload,
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -80,16 +81,32 @@ export default function UserCard(props: {
                     {session?.user.name}
                   </p>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  {session?.user.email}
-                </p>
+                <div className="flex items-center gap-1">
+                  <p className="text-sm text-muted-foreground">
+                    {session?.user.email}
+                  </p>
+                  {session?.user.emailVerified && (
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="0.875em"
+                      height="0.875em"
+                      viewBox="0 0 24 24"
+                      className="text-green-500 mt-0.5"
+                    >
+                      <path
+                        fill="currentColor"
+                        d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+                      />
+                    </svg>
+                  )}
+                </div>
               </div>
             </div>
             <EditUserDialog />
           </div>
         </div>
 
-        {session?.user.emailVerified ? null : (
+        {!session?.user.emailVerified && (
           <Alert className="mt-4" variant="destructive">
             <AlertTitle>
               <span className="flex items-center gap-2">
@@ -124,6 +141,7 @@ export default function UserCard(props: {
                   await authClient.sendVerificationEmail(
                     {
                       email: session.user.email,
+                      callbackURL: "/account",
                     },
                     {
                       onRequest() {
@@ -242,12 +260,62 @@ export default function UserCard(props: {
   );
 }
 
-async function convertImageToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+async function handleUpdate(image: File, name: string | undefined) {
+  const imageName = `${crypto.randomUUID()}-${image.name}`;
+  let presignedUrl = "";
+  try {
+    const res = await fetch("/api/r2/upload", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        filename: imageName,
+        contentType: image.type,
+      }),
+    });
+
+    if (!res.ok) {
+      throw new Error("Failed to get presigned URL");
+    }
+
+    console.log(res);
+
+    const data = await res.json();
+    presignedUrl = data.signedUrl;
+  } catch (_e) {
+    toast.error("Failed to get presigned URL");
+    return;
+  }
+
+  try {
+    const res = await fetch(presignedUrl, {
+      method: "PUT",
+      body: image,
+      headers: {
+        "Content-Type": image.type,
+      },
+    });
+
+    if (!res.ok) {
+      throw new Error("Failed to upload image");
+    }
+  } catch (_e) {
+    toast.error("Failed to upload image");
+    return;
+  }
+
+  await authClient.updateUser({
+    image: `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${imageName}`,
+    name,
+    fetchOptions: {
+      onSuccess: () => {
+        toast.success("User updated successfully");
+      },
+      onError: (error) => {
+        toast.error(error.error.message);
+      },
+    },
   });
 }
 
@@ -261,7 +329,7 @@ function ChangePassword() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2 z-10" variant="outline" size="sm">
+        <Button className="gap-2 z-10" variant="secondary" size="sm">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width="1em"
@@ -273,7 +341,7 @@ function ChangePassword() {
               d="M2.5 18.5v-1h19v1zm.535-5.973l-.762-.442l.965-1.693h-1.93v-.884h1.93l-.965-1.642l.762-.443L4 9.066l.966-1.643l.761.443l-.965 1.642h1.93v.884h-1.93l.965 1.693l-.762.442L4 10.835zm8 0l-.762-.442l.966-1.693H9.308v-.884h1.93l-.965-1.642l.762-.443L12 9.066l.966-1.643l.761.443l-.965 1.642h1.93v.884h-1.93l.965 1.693l-.762.442L12 10.835zm8 0l-.762-.442l.966-1.693h-1.931v-.884h1.93l-.965-1.642l.762-.443L20 9.066l.966-1.643l.761.443l-.965 1.642h1.93v.884h-1.93l.965 1.693l-.762.442L20 10.835z"
             ></path>
           </svg>
-          <span className="text-sm text-muted-foreground">Change Password</span>
+          <span className="text-sm">Change Password</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px] w-11/12">
@@ -370,15 +438,29 @@ function EditUserDialog() {
   const router = useRouter();
   const [image, setImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFileName, setImageFileName] = useState<string | null>(null);
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setImage(file);
+      setImageFileName(file.name);
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result as string);
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setImage(null);
+    setImagePreview(null);
+    setImageFileName(null);
+    const fileInput = document.getElementById(
+      "image-upload",
+    ) as HTMLInputElement;
+    if (fileInput) {
+      fileInput.value = "";
     }
   };
   const [open, setOpen] = useState<boolean>(false);
@@ -407,38 +489,55 @@ function EditUserDialog() {
               setName(e.target.value);
             }}
           />
-          <div className="grid gap-2">
-            <Label htmlFor="image">Profile Image</Label>
-            <div className="flex items-end gap-4">
-              {imagePreview && (
-                <div className="relative w-16 h-16 rounded-sm overflow-hidden">
-                  <Image
-                    src={imagePreview}
-                    alt="Profile preview"
-                    layout="fill"
-                    objectFit="cover"
-                  />
-                </div>
+          <div className="flex flex-col gap-2">
+            <Label>Profile Image (Optional)</Label>
+            <div className="relative">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageChange}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                id="image-upload"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full justify-start"
+                asChild
+              >
+                <label htmlFor="image-upload" className="cursor-pointer">
+                  <Upload className="mr-2 h-4 w-4" />
+                  {image ? "Change Image" : "Upload Image"}
+                </label>
+              </Button>
+              {image && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0"
+                  onClick={handleRemoveImage}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               )}
-              <div className="flex items-center gap-2 w-full">
-                <Input
-                  id="image"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageChange}
-                  className="w-full text-muted-foreground"
-                />
-                {imagePreview && (
-                  <X
-                    className="cursor-pointer"
-                    onClick={() => {
-                      setImage(null);
-                      setImagePreview(null);
-                    }}
-                  />
-                )}
-              </div>
             </div>
+            {imageFileName && (
+              <p className="text-sm text-muted-foreground truncate">
+                Selected: {imageFileName}
+              </p>
+            )}
+            {imagePreview && (
+              <div className="mt-2">
+                <Image
+                  src={imagePreview}
+                  alt="Profile preview"
+                  className="w-16 h-16 object-cover rounded-md"
+                  width={64}
+                  height={64}
+                />
+              </div>
+            )}
           </div>
         </div>
         <DialogFooter>
@@ -446,22 +545,26 @@ function EditUserDialog() {
             disabled={isLoading}
             onClick={async () => {
               setIsLoading(true);
-              await authClient.updateUser({
-                image: image ? await convertImageToBase64(image) : undefined,
-                name: name ? name : undefined,
-                fetchOptions: {
-                  onSuccess: () => {
-                    toast.success(t("userUpdated"));
+              if (image) {
+                await handleUpdate(image, name);
+              } else {
+                await authClient.updateUser({
+                  name: name ? name : undefined,
+                  fetchOptions: {
+                    onSuccess: () => {
+                      toast.success(t("userUpdated"));
+                    },
+                    onError: (error) => {
+                      toast.error(error.error.message);
+                    },
                   },
-                  onError: (error) => {
-                    toast.error(error.error.message);
-                  },
-                },
-              });
+                });
+              }
               setName("");
               router.refresh();
               setImage(null);
               setImagePreview(null);
+              setImageFileName(null);
               setIsLoading(false);
               setOpen(false);
             }}

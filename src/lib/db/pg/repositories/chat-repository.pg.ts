@@ -590,7 +590,7 @@ export const pgChatRepository: ChatRepository = {
 
   updateProject: async (
     id: string,
-    project: Partial<Pick<Project, "name" | "instructions">>,
+    project: Partial<Pick<Project, "name" | "description" | "instructions">>,
     userId: string,
     organizationId: string | null,
   ): Promise<Project> => {

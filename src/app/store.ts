@@ -32,6 +32,8 @@ export interface AppState {
     };
   };
   isMcpClientListLoading: boolean;
+  isProjectListLoading: boolean;
+  llmModel: string;
 }
 
 export interface AppDispatch {
@@ -64,7 +66,9 @@ const initialState: AppState = {
     },
   },
   isMcpClientListLoading: true,
+  isProjectListLoading: true,
   generatingTitleThreadIds: [],
+  llmModel: "anthropic/claude-sonnet-4",
 };
 
 export const appStore = create<AppState & AppDispatch>()(
@@ -94,6 +98,7 @@ export const appStore = create<AppState & AppDispatch>()(
           projectId: undefined,
           isOpen: false,
         },
+        llmModel: state.llmModel || initialState.llmModel,
       }),
     },
   ),

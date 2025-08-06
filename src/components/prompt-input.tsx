@@ -2,8 +2,10 @@
 
 import {
   AudioWaveformIcon,
+  Bot,
   CornerRightUp,
   Paperclip,
+  PlusIcon,
   Square,
   X,
 } from "lucide-react";
@@ -12,8 +14,8 @@ import { UseChatHelpers } from "@ai-sdk/react";
 import { appStore } from "@/app/store";
 import { useShallow } from "zustand/shallow";
 import { ChatMessageAnnotation } from "app-types/chat";
-import { ToolModeDropdown } from "./tool-mode-dropdown";
 import { ToolSelectDropdown } from "./tool-select-dropdown";
+import { ProjectSelector } from "./project-selector";
 import { Tooltip, TooltipContent, TooltipTrigger } from "ui/tooltip";
 import { useTranslations } from "next-intl";
 import { cn } from "lib/utils";
@@ -29,8 +31,13 @@ interface PromptInputProps {
   toolDisabled?: boolean;
   isLoading?: boolean;
   voiceDisabled?: boolean;
-  isInProjectContext?: boolean;
   disabled?: boolean;
+  selectedProject?: string | null;
+  selectedProjectName?: string | null;
+  onProjectClear?: () => void;
+  isProjectSelectionDisabled?: boolean;
+  projectList?: Array<{ id: string; name: string; description?: string }>;
+  onProjectSelect?: (projectId: string | null, projectName?: string) => void;
 }
 
 export default function PromptInput({
@@ -42,8 +49,13 @@ export default function PromptInput({
   isLoading,
   toolDisabled,
   voiceDisabled,
-  isInProjectContext,
   disabled,
+  selectedProject,
+  selectedProjectName,
+  onProjectClear,
+  isProjectSelectionDisabled = false,
+  projectList = [],
+  onProjectSelect,
 }: PromptInputProps) {
   const t = useTranslations("Chat");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -51,15 +63,9 @@ export default function PromptInput({
     { name: string; content: string }[]
   >([]);
 
-  const [
-    currentThreadId,
-    currentProjectId,
-    appStoreMutate,
-    isMcpClientListLoading,
-  ] = appStore(
+  const [currentThreadId, appStoreMutate, isMcpClientListLoading] = appStore(
     useShallow((state) => [
       state.currentThreadId,
-      state.currentProjectId,
       state.mutate,
       state.isMcpClientListLoading,
     ]),
@@ -158,6 +164,22 @@ export default function PromptInput({
             )}
           >
             <div className="flex flex-col gap-3.5 px-1">
+              {selectedProjectName && (
+                <div className="flex items-center gap-2 px-3 py-1.5 text-xs bg-gradient-to-r from-primary/20 via-primary/15 to-primary/10 text-primary rounded-full font-medium border border-primary/30 shadow-md backdrop-blur-sm ring-1 ring-primary/10 fade-in slide-in-from-top-1 duration-300">
+                  <Bot className="size-3.5 drop-shadow-md text-primary/90" />
+                  <span className="truncate font-bold tracking-wide">
+                    {selectedProjectName}
+                  </span>
+                  {!isProjectSelectionDisabled && (
+                    <button
+                      onClick={onProjectClear}
+                      className="ml-auto p-0.5 hover:bg-primary/30 hover:scale-105 rounded-full transition-all duration-200"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  )}
+                </div>
+              )}
               {attachedFiles.length > 0 && (
                 <div className="flex flex-col gap-2">
                   {attachedFiles.map((file, index) => (
@@ -194,40 +216,36 @@ export default function PromptInput({
                 />
               </div>
 
-              <div className="flex w-full items-center z-30 gap-1.5">
+              <div className="flex w-full items-center z-30">
                 <Button
                   variant={"ghost"}
                   size={"sm"}
-                  className="rounded-full hover:bg-input! p-2!"
+                  className="rounded-full hover:bg-input! p-2! mr-1"
                   onClick={notImplementedToast}
                 >
-                  <Paperclip />
+                  <PlusIcon />
                 </Button>
 
                 {!toolDisabled && (
-                  <>
-                    <div
-                      className={cn(
-                        "interactive-element",
-                        isInProjectContext && "cursor-not-allowed opacity-50",
-                      )}
-                    >
-                      <ToolModeDropdown disabled={isInProjectContext} />
-                    </div>
-                    <div
-                      className={cn(
-                        "interactive-element",
-                        isInProjectContext && "cursor-not-allowed opacity-50",
-                      )}
-                    >
-                      <ToolSelectDropdown
-                        align="start"
-                        side="top"
-                        disabled={isInProjectContext}
-                      />
-                    </div>
-                  </>
+                  <div className="interactive-element">
+                    <ToolSelectDropdown
+                      align="start"
+                      side="top"
+                      disabled={false}
+                      projectId={selectedProject || undefined}
+                    />
+                  </div>
                 )}
+
+                <div className="ml-1">
+                  <ProjectSelector
+                    selectedProject={selectedProject}
+                    selectedProjectName={selectedProjectName}
+                    projectList={projectList}
+                    onProjectSelect={onProjectSelect}
+                    disabled={isProjectSelectionDisabled}
+                  />
+                </div>
                 <div className="flex-1" />
 
                 {!isLoading && !input.length && !voiceDisabled && !disabled ? (
@@ -240,7 +258,7 @@ export default function PromptInput({
                               ...state.voiceChat,
                               isOpen: true,
                               threadId: currentThreadId ?? undefined,
-                              projectId: currentProjectId ?? undefined,
+                              projectId: selectedProject ?? undefined,
                             },
                           }));
                         }}

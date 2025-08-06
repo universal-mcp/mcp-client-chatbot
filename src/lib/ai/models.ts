@@ -10,10 +10,6 @@ const bedrock = createAmazonBedrock({
   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
 });
 
-// const openrouter = createOpenRouter({
-//   apiKey: process.env.OPENROUTER_API_KEY,
-// });
-
 export const customModelProvider = {
   getModel: (): LanguageModel => {
     return bedrock("apac.anthropic.claude-sonnet-4-20250514-v1:0");

@@ -11,6 +11,7 @@ import { emailHarmony } from "better-auth-harmony";
 import * as schema from "@/lib/db/pg/auth.pg";
 import { headers } from "next/headers";
 import logger from "@/lib/logger";
+import { reactVerifyEmail } from "@/lib/email/verify-email";
 
 const from = process.env.BETTER_AUTH_EMAIL || "manoj@agentr.dev";
 
@@ -34,14 +35,17 @@ export const auth = betterAuth({
   },
   emailVerification: {
     async sendVerificationEmail({ user, url }) {
-      const res = await resend.emails.send({
+      await resend.emails.send({
         from,
         to: user.email,
         subject: "Verify your email address",
-        html: `<a href="${url}">Verify your email address</a>`,
+        react: reactVerifyEmail({
+          username: user.name,
+          verifyLink: url,
+        }),
       });
-      console.log(res, user.email);
     },
+    autoSignInAfterVerification: true,
   },
   account: {
     accountLinking: {

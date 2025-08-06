@@ -14,6 +14,7 @@ import {
   MessageCircleDashed,
   PanelLeft,
   Share,
+  Bot,
 } from "lucide-react";
 import { Button } from "ui/button";
 import { Separator } from "ui/separator";
@@ -21,7 +22,7 @@ import { Separator } from "ui/separator";
 import { useEffect, useMemo } from "react";
 import { ThreadDropdown } from "../thread-dropdown";
 import { appStore } from "@/app/store";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useShallow } from "zustand/shallow";
 import { getShortcutKeyList, Shortcuts } from "lib/keyboard-shortcuts";
@@ -31,11 +32,13 @@ import { TextShimmer } from "ui/text-shimmer";
 
 export function AppHeader() {
   const t = useTranslations();
-  const [appStoreMutate, currentThreadId, threadList] = appStore(
+  const router = useRouter();
+  const [appStoreMutate, currentThreadId, threadList, projectList] = appStore(
     useShallow((state) => [
       state.mutate,
       state.currentThreadId,
       state.threadList,
+      state.projectList,
     ]),
   );
   const { toggleSidebar } = useSidebar();
@@ -46,11 +49,23 @@ export function AppHeader() {
     return threadList.find((thread) => thread.id === currentThreadId);
   }, [threadList, currentThreadId, currentPaths]);
 
+  const currentProject = useMemo(() => {
+    return projectList.find(
+      (project) => project.id === currentThread?.projectId,
+    );
+  }, [currentThread, projectList]);
+
   const componentByPage = useMemo(() => {
     if (currentPaths.startsWith("/chat/")) {
       return <ThreadDropdownComponent />;
     }
   }, [currentPaths, threadList, currentThreadId]);
+
+  const handleExportAsAssistant = () => {
+    if (currentThreadId) {
+      router.push(`/project/new?threadId=${currentThreadId}`);
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50 flex items-center px-3 py-2">
@@ -82,9 +97,20 @@ export function AppHeader() {
       <div className="flex-1" />
 
       <div className="flex items-center gap-2">
+        {currentThread && !currentProject && (
+          <Button
+            variant={"secondary"}
+            size="sm"
+            onClick={handleExportAsAssistant}
+            className="flex items-center gap-2 bg-secondary/40"
+          >
+            <Bot className="size-4" />
+            Export as Assistant
+          </Button>
+        )}
         {currentThread && (
           <ThreadVisibilityDropdown thread={currentThread}>
-            <Button variant={"outline"}>
+            <Button variant={"secondary"} className="bg-secondary/40">
               <Share className="size-4" />
               {t("Chat.Thread.shareThreadTitle")}
             </Button>
@@ -166,6 +192,14 @@ function ThreadDropdownComponent() {
       </div>
       {currentProject && (
         <>
+          <Link href={`/project`}>
+            <Button variant="ghost" className="flex items-center gap-1">
+              <p className="text-muted-foreground max-w-32 truncate">
+                Assistants
+              </p>
+            </Button>
+          </Link>
+          <ChevronRight size={14} className="text-muted-foreground" />
           <Link href={`/project/${currentProject.id}`}>
             <Button variant="ghost" className="flex items-center gap-1">
               <p className="text-muted-foreground max-w-32 truncate">

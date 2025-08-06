@@ -13,16 +13,16 @@ import {
   Section,
 } from "@react-email/components";
 
-interface BetterAuthResetPasswordEmailProps {
+interface BetterAuthVerifyEmailProps {
   username?: string;
-  resetLink?: string;
+  verifyLink?: string;
 }
 
-export const ResetPasswordEmail = ({
+export const VerifyEmail = ({
   username,
-  resetLink,
-}: BetterAuthResetPasswordEmailProps) => {
-  const previewText = `Reset your Wingmen password`;
+  verifyLink,
+}: BetterAuthVerifyEmailProps) => {
+  const previewText = `Verify your Wingmen email address`;
   return (
     <Html>
       <Head />
@@ -31,33 +31,33 @@ export const ResetPasswordEmail = ({
         <Body className="bg-white my-auto mx-auto font-sans px-2">
           <Container className="border border-solid border-[#eaeaea] rounded my-[40px] mx-auto p-[20px] max-w-[465px]">
             <Heading className="text-black text-[24px] font-normal text-center p-0 my-[30px] mx-0">
-              Reset your <strong>Wingmen</strong> password
+              Verify your <strong>Wingmen</strong> email address
             </Heading>
             <Text className="text-black text-[14px] leading-[24px]">
               Hello {username},
             </Text>
             <Text className="text-black text-[14px] leading-[24px]">
-              We received a request to reset your password for your Wingmen
-              account. If you didn&apos;t make this request, you can safely
-              ignore this email.
+              Thank you for signing up for Wingmen! Please verify your email
+              address by clicking the button below to complete your
+              registration.
             </Text>
             <Section className="text-center mt-[32px] mb-[32px]">
               <Button
                 className="bg-[#000000] rounded text-white text-[12px] font-semibold no-underline text-center px-5 py-3"
-                href={resetLink}
+                href={verifyLink}
               >
-                Reset Password
+                Verify Email Address
               </Button>
             </Section>
             <Text className="text-black text-[14px] leading-[24px]">
               Or copy and paste this URL into your browser:{" "}
-              <Link href={resetLink} className="text-blue-600 no-underline">
-                {resetLink}
+              <Link href={verifyLink} className="text-blue-600 no-underline">
+                {verifyLink}
               </Link>
             </Text>
             <Hr className="border border-solid border-[#eaeaea] my-[26px] mx-0 w-full" />
             <Text className="text-[#666666] text-[12px] leading-[24px]">
-              If you didn&apos;t request a password reset, please ignore this
+              If you didn&apos;t create a Wingmen account, please ignore this
               email or contact support if you have concerns.
             </Text>
           </Container>
@@ -67,8 +67,6 @@ export const ResetPasswordEmail = ({
   );
 };
 
-export function reactResetPasswordEmail(
-  props: BetterAuthResetPasswordEmailProps,
-) {
-  return <ResetPasswordEmail {...props} />;
+export function reactVerifyEmail(props: BetterAuthVerifyEmailProps) {
+  return <VerifyEmail {...props} />;
 }

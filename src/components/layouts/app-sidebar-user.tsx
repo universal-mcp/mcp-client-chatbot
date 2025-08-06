@@ -13,7 +13,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuCheckboxItem,
 } from "ui/dropdown-menu";
-import { AvatarFallback, Avatar } from "ui/avatar";
+import { AvatarFallback, Avatar, AvatarImage } from "ui/avatar";
 import { SidebarMenuButton, SidebarMenuItem, SidebarMenu } from "ui/sidebar";
 import {
   ChevronsUpDown,
@@ -26,6 +26,7 @@ import {
   MoonStar,
   ChevronRight,
   User as UserIcon,
+  Cpu,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { appStore } from "@/app/store";
@@ -39,6 +40,7 @@ import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { DiscordIcon } from "ui/discord-icon";
 import { Session, User } from "better-auth";
+import { useShallow } from "zustand/shallow";
 
 export function AppSidebarUser({
   session,
@@ -67,6 +69,7 @@ export function AppSidebarUser({
               size={"lg"}
             >
               <Avatar className="rounded-full size-8 border">
+                <AvatarImage src={user?.image || ""} />
                 <AvatarFallback>{user?.name?.slice(0, 1) || ""}</AvatarFallback>
               </Avatar>
               <span className="truncate">{user?.email}</span>
@@ -81,6 +84,7 @@ export function AppSidebarUser({
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-full">
+                  <AvatarImage src={user?.image || ""} />
                   <AvatarFallback className="rounded-lg">
                     {user?.name?.slice(0, 1) || ""}
                   </AvatarFallback>
@@ -110,6 +114,7 @@ export function AppSidebarUser({
             </DropdownMenuItem>
             <SelectTheme />
             <SelectLanguage />
+            <SelectLlmModel />
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="cursor-pointer"
@@ -135,6 +140,50 @@ export function AppSidebarUser({
         </DropdownMenu>
       </SidebarMenuItem>
     </SidebarMenu>
+  );
+}
+
+function SelectLlmModel() {
+  const [llmModel, mutate] = appStore(
+    useShallow((state) => [state.llmModel, state.mutate]),
+  );
+
+  const models = [
+    "openai/gpt-4.1",
+    "openai/gpt-4.1-mini",
+    "anthropic/claude-3-7-sonnet-latest",
+    "anthropic/claude-4-sonnet-20250514",
+  ];
+
+  const handleModelChange = (model: string) => {
+    mutate({ llmModel: model });
+  };
+
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger>
+        <Cpu className="mr-2 size-4" />
+        <span>LLM Model</span>
+      </DropdownMenuSubTrigger>
+      <DropdownMenuPortal>
+        <DropdownMenuSubContent className="w-48 max-h-96 overflow-y-auto">
+          <DropdownMenuLabel className="text-muted-foreground">
+            LLM Model
+          </DropdownMenuLabel>
+          {models.map((model) => (
+            <DropdownMenuCheckboxItem
+              key={model}
+              checked={model === llmModel}
+              onCheckedChange={() =>
+                model !== llmModel && handleModelChange(model)
+              }
+            >
+              {model}
+            </DropdownMenuCheckboxItem>
+          ))}
+        </DropdownMenuSubContent>
+      </DropdownMenuPortal>
+    </DropdownMenuSub>
   );
 }
 

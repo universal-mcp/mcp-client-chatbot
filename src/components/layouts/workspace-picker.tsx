@@ -5,10 +5,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Building2,
   Settings,
-  ChevronsUpDown,
   CheckCircle,
   PlusCircle,
   Loader2,
+  ChevronDown,
 } from "lucide-react";
 import {
   useActiveOrganization,
@@ -31,9 +31,11 @@ import {
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
+import { Skeleton } from "../ui/skeleton";
 
 export const WorkspacePicker = () => {
-  const { data: activeOrganization } = useActiveOrganization();
+  const { data: activeOrganization, isPending: isLoading } =
+    useActiveOrganization();
   const { data: organizations } = useListOrganizations();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [switchingTo, setSwitchingTo] = useState<string | "personal" | null>(
@@ -86,21 +88,29 @@ export const WorkspacePicker = () => {
                 size="lg"
                 className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
               >
-                <Avatar className="h-8 w-8 rounded-md">
-                  <AvatarImage
-                    src={activeOrganization?.logo || undefined}
-                    className="object-cover"
-                  />
-                  <AvatarFallback className="rounded-md text-sm bg-primary/10 text-primary">
-                    {activeOrganization?.name?.charAt(0) || (
-                      <Building2 className="h-4 w-4" />
-                    )}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="text-sm font-medium truncate flex-1 text-left">
-                  {activeOrganization?.name || t("personalWorkspace")}
-                </span>
-                <ChevronsUpDown className="ml-auto h-4 w-4 text-muted-foreground" />
+                {isLoading ? (
+                  <>
+                    <Skeleton className="h-8 w-8 rounded-md" />
+                  </>
+                ) : (
+                  <>
+                    <Avatar className="h-8 w-8 rounded-md">
+                      <AvatarImage
+                        src={activeOrganization?.logo || undefined}
+                        className="object-cover"
+                      />
+                      <AvatarFallback className="rounded-md text-sm bg-primary/10 text-primary">
+                        {activeOrganization?.name?.charAt(0) || (
+                          <Building2 className="h-4 w-4" />
+                        )}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm font-medium truncate flex-1 text-left">
+                      {activeOrganization?.name || t("personalWorkspace")}
+                    </span>
+                  </>
+                )}
+                <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground" />
               </SidebarMenuButton>
             </DropdownMenuTrigger>
           </SidebarMenuItem>
@@ -198,7 +208,7 @@ export const WorkspacePicker = () => {
       <CreateOrganizationModal
         open={isCreateModalOpen}
         onOpenChange={setIsCreateModalOpen}
-        switchToNewWorkspace={false}
+        switchToNewWorkspace={true}
       />
     </>
   );

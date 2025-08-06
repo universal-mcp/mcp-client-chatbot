@@ -52,6 +52,7 @@ export const ChatMessageSchema = pgTable("chat_message", {
 export const ProjectSchema = pgTable("project", {
   id: uuid("id").primaryKey().notNull().defaultRandom(),
   name: text("name").notNull(),
+  description: text("description"),
   userId: uuid("user_id")
     .notNull()
     .references(() => UserSchema.id),
@@ -185,9 +186,9 @@ export const ProjectMcpToolConfigSchema = pgTable(
     projectId: uuid("project_id")
       .notNull()
       .references(() => ProjectSchema.id, { onDelete: "cascade" }),
-    mcpServerId: uuid("mcp_server_id")
-      .notNull()
-      .references(() => McpServerSchema.id, { onDelete: "cascade" }),
+    mcpServerId: uuid("mcp_server_id").references(() => McpServerSchema.id, {
+      onDelete: "cascade",
+    }),
     toolName: text("tool_name").notNull(),
     enabled: boolean("enabled").notNull().default(true),
     mode: text("mode").notNull().default("auto").$type<"auto" | "manual">(),

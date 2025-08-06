@@ -21,6 +21,8 @@ import {
   VercelAIMcpTool,
 } from "app-types/mcp";
 import { MANUAL_REJECT_RESPONSE_PROMPT } from "lib/ai/prompts";
+import { APP_DEFAULT_TOOL_KIT } from "lib/ai/tools/tool-kit";
+import { AppDefaultToolkit } from "lib/ai/tools";
 
 export function filterToolsByAllowedMCPServers(
   tools: Record<string, VercelAIMcpTool>,
@@ -358,4 +360,90 @@ export function filterMcpServerCustomizations(
     },
     {} as Record<string, McpServerCustomizationsPrompt>,
   );
+}
+
+export async function createProjectMcpConfig(
+  projectId: string | null | undefined,
+  mcpServers: any[],
+  getProjectMcpToolsAction: (projectId: string) => Promise<any[]>,
+) {
+  if (!projectId) {
+    return undefined;
+  }
+
+  const toolConfigsData = await getProjectMcpToolsAction(projectId);
+
+  // Separate default tools and MCP tools
+  const defaultTools = toolConfigsData.filter((c) => c.mcpServerId === null);
+  const mcpTools = toolConfigsData.filter((c) => c.mcpServerId !== null);
+
+  // Get default tool names as strings
+  const enabledDefaultTools = defaultTools.map((c) => c.toolName);
+
+  const mcpToolMap = new Map(
+    mcpTools.map((c) => [
+      `${c.mcpServerId as string}:${c.toolName}`,
+      {
+        mcpServerId: c.mcpServerId as string,
+        toolName: c.toolName,
+        enabled: c.enabled,
+        mode: c.mode,
+      },
+    ]),
+  );
+
+  // Get enabled server IDs (only for MCP tools)
+  const enabledServerIds = new Set(
+    mcpTools.map((c) => c.mcpServerId as string),
+  );
+
+  return {
+    servers: mcpServers.map((server) => ({
+      id: server.id,
+      name: server.client.getInfo().name,
+      enabled: enabledServerIds.has(server.id),
+    })),
+    tools: mcpToolMap,
+    defaultTools: enabledDefaultTools,
+  };
+}
+
+export function loadAppDefaultTools(
+  projectConfig?: {
+    defaultTools?: string[];
+  },
+  allowedAppDefaultToolkit?: string[],
+): Record<string, Tool> {
+  return safe(APP_DEFAULT_TOOL_KIT)
+    .map((tools) => {
+      if (projectConfig) {
+        // In project context: filter default tools based on project configuration
+        return (
+          projectConfig.defaultTools?.reduce(
+            (acc, key) => {
+              return { ...acc, ...tools[key] };
+            },
+            {} as Record<string, Tool>,
+          ) || {}
+        );
+      } else {
+        // Outside project context: use global allowedAppDefaultToolkit setting
+        if (!allowedAppDefaultToolkit) {
+          allowedAppDefaultToolkit = Object.values(AppDefaultToolkit);
+        }
+        return (
+          allowedAppDefaultToolkit?.reduce(
+            (acc, key) => {
+              return { ...acc, ...tools[key] };
+            },
+            {} as Record<string, Tool>,
+          ) || {}
+        );
+      }
+    })
+    .ifFail((e) => {
+      console.error(e);
+      throw e;
+    })
+    .orElse({});
 }
