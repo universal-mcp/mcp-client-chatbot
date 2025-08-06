@@ -68,6 +68,7 @@
     "@react-email/components": "^0.1.1",
     "@tiptap/extension-code": "^3.0.7",
     "@tiptap/extension-code-block": "^3.0.9",
+    "@tiptap/extension-heading": "^3.0.9",
     "@tiptap/extension-placeholder": "^3.0.7",
     "@tiptap/pm": "^3.0.7",
     "@tiptap/react": "^3.0.7",

@@ -17,11 +17,16 @@ import {
   Heading3,
   Heading4,
   Code as CodeIcon,
-  Type,
-  FileText,
+  Ellipsis,
 } from "lucide-react";
 import TurndownService from "turndown";
 import { marked } from "marked";
+import Heading from "@tiptap/extension-heading";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "ui/dropdown-menu";
 
 interface MarkdownEditorProps {
   value?: string;
@@ -32,13 +37,11 @@ interface MarkdownEditorProps {
   returnPlainText?: boolean;
 }
 
-// Configure marked for consistent HTML output
 marked.setOptions({
   gfm: true,
   breaks: true,
 });
 
-// Configure Turndown for consistent markdown output
 const turndownService = new TurndownService({
   headingStyle: "atx",
   codeBlockStyle: "fenced",
@@ -54,18 +57,20 @@ const MarkdownEditor = ({
   returnPlainText = false,
 }: MarkdownEditorProps) => {
   const [isRichTextMode, setIsRichTextMode] = useState(true);
+  const [visibleButtons, setVisibleButtons] = useState(0);
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const [_, setForceRender] = useState({});
 
-  // Auto-switch to rich text mode when text is streaming
   useEffect(() => {
     if (isGenerating && !isRichTextMode) {
       setIsRichTextMode(true);
     }
   }, [isGenerating, isRichTextMode]);
+
   const [markdownContent, setMarkdownContent] = useState(value);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const richTextRef = useRef<HTMLDivElement>(null);
 
-  // Convert markdown to HTML
   const markdownToHtml = useCallback(
     async (markdown: string): Promise<string> => {
       try {
@@ -78,7 +83,6 @@ const MarkdownEditor = ({
     [],
   );
 
-  // Convert HTML to markdown
   const htmlToMarkdown = useCallback((html: string): string => {
     try {
       return turndownService.turndown(html);
@@ -88,11 +92,11 @@ const MarkdownEditor = ({
     }
   }, []);
 
-  // Memoize editor extensions to prevent recreation
   const extensions = useMemo(
     () => [
       StarterKit.configure({
-        codeBlock: false, // Disable default code block to use custom one
+        codeBlock: false,
+        heading: false,
       }),
       Placeholder.configure({
         placeholder: placeholder || "",
@@ -104,39 +108,51 @@ const MarkdownEditor = ({
         exitOnTripleEnter: true,
         exitOnArrowDown: true,
       }),
+      Heading.configure({
+        levels: [1, 2, 3, 4],
+      }).extend({
+        levels: [1, 2, 3, 4],
+        renderHTML({ node, HTMLAttributes }) {
+          const level = this.options.levels.includes(node.attrs.level)
+            ? node.attrs.level
+            : this.options.levels[0];
+          const classes = {
+            1: "text-3xl font-bold",
+            2: "text-2xl font-bold",
+            3: "text-xl font-bold",
+            4: "text-lg font-bold",
+          };
+          return [
+            `h${level}`,
+            { ...HTMLAttributes, class: `${classes[level]}` },
+            0,
+          ];
+        },
+      }),
     ],
     [placeholder],
   );
 
-  // Memoize editor configuration
-  const editorConfig = useMemo(
-    () => ({
-      extensions,
-      content: "",
-      immediatelyRender: false,
-      onUpdate: ({ editor }) => {
-        if (isRichTextMode) {
-          onChange?.(returnPlainText ? editor.getText() : editor.getHTML());
-        }
-      },
-    }),
-    [extensions, isRichTextMode, onChange, returnPlainText],
-  );
+  const editor = useEditor({
+    extensions,
+    content: "",
+    immediatelyRender: false,
+    onUpdate: ({ editor }) => {
+      if (isRichTextMode) {
+        onChange?.(returnPlainText ? editor.getText() : editor.getHTML());
+      }
+      setForceRender({});
+    },
+  });
 
-  // Initialize Tiptap editor
-  const editor = useEditor(editorConfig);
-
-  // Sync markdown content with prop value only when value actually changes
   useEffect(() => {
     setMarkdownContent(value);
   }, [value]);
 
-  // Handle mode switching and content synchronization
   useEffect(() => {
     const syncContent = async () => {
       if (editor && markdownContent !== undefined) {
         if (isRichTextMode) {
-          // Switching to rich text mode - convert markdown to HTML
           const htmlContent = await markdownToHtml(markdownContent);
           const currentHtml = editor.getHTML();
           if (htmlContent !== currentHtml) {
@@ -149,7 +165,6 @@ const MarkdownEditor = ({
     syncContent();
   }, [editor, isRichTextMode, markdownContent, markdownToHtml]);
 
-  // Auto-scroll functionality for streaming text - debounced for performance
   useEffect(() => {
     if (!isGenerating) return;
 
@@ -160,7 +175,6 @@ const MarkdownEditor = ({
       if (scrollContainer) {
         requestAnimationFrame(() => {
           if (isRichTextMode) {
-            // For rich text mode, find the EditorContent scrollable container
             const editorContent = scrollContainer.querySelector(".ProseMirror");
             const scrollableContainer = editorContent?.parentElement;
             if (scrollableContainer) {
@@ -170,7 +184,6 @@ const MarkdownEditor = ({
               });
             }
           } else {
-            // For markdown mode, scroll the textarea
             scrollContainer.scrollTo({
               top: scrollContainer.scrollHeight,
               behavior: "smooth",
@@ -178,7 +191,7 @@ const MarkdownEditor = ({
           }
         });
       }
-    }, 50); // Debounce scroll updates during streaming
+    }, 50);
 
     return () => clearTimeout(timeoutId);
   }, [markdownContent, isGenerating, isRichTextMode]);
@@ -192,191 +205,225 @@ const MarkdownEditor = ({
     [onChange],
   );
 
-  const handleSwitchToRichText = useCallback(async () => {
-    if (!isRichTextMode) {
-      // Switching from markdown to rich text - content will be converted in useEffect
-      setIsRichTextMode(true);
-    }
-  }, [isRichTextMode]);
-
-  const handleSwitchToMarkdown = useCallback(async () => {
+  const handleModeToggle = useCallback(async () => {
     if (isRichTextMode) {
-      // Switching from rich text to markdown - convert HTML to markdown
+      // Switch to Markdown
       const htmlContent = editor?.getHTML() || "";
       const convertedMarkdown = htmlToMarkdown(htmlContent);
       setMarkdownContent(convertedMarkdown);
       onChange?.(convertedMarkdown);
-      setIsRichTextMode(false);
     }
+    // Switch to Rich Text will be handled by useEffect
+    setIsRichTextMode((prev) => !prev);
   }, [isRichTextMode, editor, htmlToMarkdown, onChange]);
+
+  const allToolbarButtons = useMemo(
+    () => {
+      if (!editor) return [];
+      return [
+        <Button
+          key="bold"
+          variant={editor.isActive("bold") ? "default" : "ghost"}
+          size="sm"
+          onClick={() => editor.chain().focus().toggleBold().run()}
+          disabled={
+            !editor.can().chain().focus().toggleBold().run() || isGenerating
+          }
+        >
+          <Bold className="h-4 w-4" />
+        </Button>,
+        <Button
+          key="italic"
+          variant={editor.isActive("italic") ? "default" : "ghost"}
+          size="sm"
+          onClick={() => editor.chain().focus().toggleItalic().run()}
+          disabled={
+            !editor.can().chain().focus().toggleItalic().run() || isGenerating
+          }
+        >
+          <Italic className="h-4 w-4" />
+        </Button>,
+        <div key="divider1" className="w-px h-4 bg-border mx-1" />,
+        <Button
+          key="h1"
+          variant={
+            editor.isActive("heading", { level: 1 }) ? "default" : "ghost"
+          }
+          size="sm"
+          onClick={() =>
+            editor.chain().focus().toggleHeading({ level: 1 }).run()
+          }
+          disabled={isGenerating}
+        >
+          <Heading1 className="h-4 w-4" />
+        </Button>,
+        <Button
+          key="h2"
+          variant={
+            editor.isActive("heading", { level: 2 }) ? "default" : "ghost"
+          }
+          size="sm"
+          onClick={() =>
+            editor.chain().focus().toggleHeading({ level: 2 }).run()
+          }
+          disabled={isGenerating}
+        >
+          <Heading2 className="h-4 w-4" />
+        </Button>,
+        <Button
+          key="h3"
+          variant={
+            editor.isActive("heading", { level: 3 }) ? "default" : "ghost"
+          }
+          size="sm"
+          onClick={() =>
+            editor.chain().focus().toggleHeading({ level: 3 }).run()
+          }
+          disabled={isGenerating}
+        >
+          <Heading3 className="h-4 w-4" />
+        </Button>,
+        <Button
+          key="h4"
+          variant={
+            editor.isActive("heading", { level: 4 }) ? "default" : "ghost"
+          }
+          size="sm"
+          onClick={() =>
+            editor.chain().focus().toggleHeading({ level: 4 }).run()
+          }
+          disabled={isGenerating}
+        >
+          <Heading4 className="h-4 w-4" />
+        </Button>,
+        <div key="divider2" className="w-px h-4 bg-border mx-1" />,
+        <Button
+          key="bulletList"
+          variant={editor.isActive("bulletList") ? "default" : "ghost"}
+          size="sm"
+          onClick={() => editor.chain().focus().toggleBulletList().run()}
+          disabled={isGenerating}
+        >
+          <List className="h-4 w-4" />
+        </Button>,
+        <Button
+          key="orderedList"
+          variant={editor.isActive("orderedList") ? "default" : "ghost"}
+          size="sm"
+          onClick={() => editor.chain().focus().toggleOrderedList().run()}
+          disabled={isGenerating}
+        >
+          <ListOrdered className="h-4 w-4" />
+        </Button>,
+        <div key="divider3" className="w-px h-4 bg-border mx-1" />,
+        <Button
+          key="codeBlock"
+          variant={editor.isActive("codeBlock") ? "default" : "ghost"}
+          size="sm"
+          onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+          disabled={isGenerating}
+        >
+          <CodeIcon className="h-4 w-4" />
+        </Button>,
+      ];
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [editor, isGenerating, editor?.state.selection],
+  );
+
+  useEffect(() => {
+    const handleResize = () => {
+      setVisibleButtons(0); // Reset to trigger recalculation
+    };
+
+    if (visibleButtons === 0) {
+      const timer = setTimeout(() => {
+        if (toolbarRef.current) {
+          const toolbarWidth = toolbarRef.current.offsetWidth;
+          const buttons = Array.from(
+            toolbarRef.current.querySelectorAll("button, div.w-px"),
+          );
+          let totalWidth = 0;
+          let count = 0;
+          for (const button of buttons) {
+            totalWidth += (button as HTMLElement).offsetWidth + 4; // 4px gap
+            if (totalWidth > toolbarWidth - 40) {
+              // 40px for ellipsis
+              break;
+            }
+            count++;
+          }
+          setVisibleButtons(count);
+        }
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [visibleButtons, allToolbarButtons]);
+
+  useEffect(() => {
+    setVisibleButtons(0);
+  }, []);
 
   if (!editor) {
     return null;
   }
 
+  const renderAll = visibleButtons === 0;
+  const visibleToolbarButtons = renderAll
+    ? allToolbarButtons
+    : allToolbarButtons.slice(0, visibleButtons);
+  const hiddenToolbarButtons = renderAll
+    ? []
+    : allToolbarButtons.slice(visibleButtons);
+
   return (
     <div
-      className={`border border-input bg-background rounded-md flex flex-col ${className || ""}`}
+      className={`border border-input bg-background rounded-md flex flex-col ${
+        className || ""
+      }`}
     >
-      {/* Header with toolbar and mode toggle */}
       <div className="flex items-center justify-between p-2 border-b border-input flex-shrink-0">
-        {/* Rich text toolbar - only show in rich text mode */}
-        <div className="flex items-center gap-1">
+        <div
+          ref={toolbarRef}
+          className="flex items-center gap-1 flex-grow overflow-hidden"
+        >
           {isRichTextMode && (
             <>
-              <Button
-                variant={
-                  editor.isActive("bold") && !isGenerating ? "default" : "ghost"
-                }
-                size="sm"
-                onClick={() => editor.chain().focus().toggleBold().run()}
-                disabled={
-                  !editor.can().chain().focus().toggleBold().run() ||
-                  isGenerating
-                }
-              >
-                <Bold className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={
-                  editor.isActive("italic") && !isGenerating
-                    ? "default"
-                    : "ghost"
-                }
-                size="sm"
-                onClick={() => editor.chain().focus().toggleItalic().run()}
-                disabled={
-                  !editor.can().chain().focus().toggleItalic().run() ||
-                  isGenerating
-                }
-              >
-                <Italic className="h-4 w-4" />
-              </Button>
-              <div className="w-px h-4 bg-border mx-1" />
-              <Button
-                variant={
-                  editor.isActive("heading", { level: 1 }) && !isGenerating
-                    ? "default"
-                    : "ghost"
-                }
-                size="sm"
-                onClick={() =>
-                  editor.chain().focus().toggleHeading({ level: 1 }).run()
-                }
-                disabled={isGenerating}
-              >
-                <Heading1 className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={
-                  editor.isActive("heading", { level: 2 }) && !isGenerating
-                    ? "default"
-                    : "ghost"
-                }
-                size="sm"
-                onClick={() =>
-                  editor.chain().focus().toggleHeading({ level: 2 }).run()
-                }
-                disabled={isGenerating}
-              >
-                <Heading2 className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={
-                  editor.isActive("heading", { level: 3 }) && !isGenerating
-                    ? "default"
-                    : "ghost"
-                }
-                size="sm"
-                onClick={() =>
-                  editor.chain().focus().toggleHeading({ level: 3 }).run()
-                }
-                disabled={isGenerating}
-              >
-                <Heading3 className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={
-                  editor.isActive("heading", { level: 4 }) && !isGenerating
-                    ? "default"
-                    : "ghost"
-                }
-                size="sm"
-                onClick={() =>
-                  editor.chain().focus().toggleHeading({ level: 4 }).run()
-                }
-                disabled={isGenerating}
-              >
-                <Heading4 className="h-4 w-4" />
-              </Button>
-              <div className="w-px h-4 bg-border mx-1" />
-              <Button
-                variant={
-                  editor.isActive("bulletList") && !isGenerating
-                    ? "default"
-                    : "ghost"
-                }
-                size="sm"
-                onClick={() => editor.chain().focus().toggleBulletList().run()}
-                disabled={isGenerating}
-              >
-                <List className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={
-                  editor.isActive("orderedList") && !isGenerating
-                    ? "default"
-                    : "ghost"
-                }
-                size="sm"
-                onClick={() => editor.chain().focus().toggleOrderedList().run()}
-                disabled={isGenerating}
-              >
-                <ListOrdered className="h-4 w-4" />
-              </Button>
-              <div className="w-px h-4 bg-border mx-1" />
-              <Button
-                variant={
-                  editor.isActive("codeBlock") && !isGenerating
-                    ? "default"
-                    : "ghost"
-                }
-                size="sm"
-                onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-                disabled={isGenerating}
-              >
-                <CodeIcon className="h-4 w-4" />
-              </Button>
+              {visibleToolbarButtons}
+              {hiddenToolbarButtons.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm">
+                      <Ellipsis className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <div className="flex flex-wrap p-2 gap-1">
+                      {hiddenToolbarButtons}
+                    </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </>
           )}
         </div>
 
-        {/* Mode toggle - moved to the right */}
-        <div className="flex items-center gap-1">
-          <Button
-            variant={isRichTextMode ? "default" : "ghost"}
-            size="sm"
-            onClick={handleSwitchToRichText}
-            disabled={isGenerating}
-            className="flex items-center gap-1"
-          >
-            <Type className="h-4 w-4" />
-            Rich Text
-          </Button>
-          <Button
-            variant={!isRichTextMode ? "default" : "ghost"}
-            size="sm"
-            onClick={handleSwitchToMarkdown}
-            disabled={isGenerating}
-            className="flex items-center gap-1"
-          >
-            <FileText className="h-4 w-4" />
-            Markdown
-          </Button>
-        </div>
+        <Button
+          variant={"ghost"}
+          size="sm"
+          onClick={handleModeToggle}
+          disabled={isGenerating}
+          className="flex items-center gap-1 flex-shrink-0 ml-2"
+        >
+          {isRichTextMode ? "Switch to Markdown" : "Switch to Rich Text"}
+        </Button>
       </div>
 
-      {/* Content area */}
       <div className="flex-1 min-h-0 overflow-hidden">
         {isRichTextMode ? (
           <div ref={richTextRef} className="h-full">

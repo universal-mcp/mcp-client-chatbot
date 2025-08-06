@@ -1534,16 +1534,6 @@
   margin: 0.5em 0;
 }
 
-.ProseMirror h1,
-.ProseMirror h2,
-.ProseMirror h3,
-.ProseMirror h4,
-.ProseMirror h5,
-.ProseMirror h6 {
-  margin: 1em 0 0.5em 0;
-  font-weight: 600;
-}
-
 .ProseMirror ul,
 .ProseMirror ol {
   margin: 0.5em 0;
