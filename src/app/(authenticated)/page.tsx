@@ -1,9 +1,9 @@
-import ChatBot from "@/components/chat-bot";
+import ChatPageWrapper from "@/components/chat-page-wrapper";
 import { generateUUID } from "lib/utils";
 
 export const dynamic = "force-dynamic";
 
 export default function HomePage() {
   const id = generateUUID();
-  return <ChatBot initialMessages={[]} threadId={id} key={id} />;
+  return <ChatPageWrapper threadId={id} key={id} />;
 }
