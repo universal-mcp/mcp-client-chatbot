@@ -216,7 +216,7 @@ export const CodeExecutor = memo(function CodeExecutor({
           ) : (
             <div className="w-1 h-1 mr-1 ring ring-border rounded-full" />
           )}
-          better-chatbot
+          Wingmen
           <Percent className="size-2" />
         </div>
         {logs}

@@ -16,16 +16,19 @@ import {
 import { Input } from "ui/input";
 
 interface ProjectSelectorProps {
-  selectedProject?: string | null;
-  selectedProjectName?: string | null;
+  selectedProjectId?: string | null;
+  selectedProject?: { name: string; description?: string | null } | null;
   projectList?: Array<{ id: string; name: string; description: string | null }>;
-  onProjectSelect?: (projectId: string | null, projectName?: string) => void;
+  onProjectSelect?: (
+    projectId: string | null,
+    project?: { name: string; description?: string | null },
+  ) => void;
   disabled?: boolean;
 }
 
 export function ProjectSelector({
+  selectedProjectId,
   selectedProject,
-  selectedProjectName,
   projectList = [],
   onProjectSelect,
   disabled = false,
@@ -35,9 +38,9 @@ export function ProjectSelector({
 
   const handleProjectSelect = (
     projectId: string | null,
-    projectName?: string,
+    project?: { name: string; description?: string | null },
   ) => {
-    onProjectSelect?.(projectId, projectName);
+    onProjectSelect?.(projectId, project);
     setOpen(false);
   };
 
@@ -46,7 +49,7 @@ export function ProjectSelector({
     setOpen(false);
   };
 
-  const buttonText = selectedProjectName ?? "None";
+  const buttonText = selectedProject?.name ?? "None";
 
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -97,7 +100,7 @@ export function ProjectSelector({
             <div className="flex items-center gap-2 w-full py-1">
               <Bot className="w-4 h-4 text-blue-400" />
               <span className="text-muted-foreground">None</span>
-              {!selectedProject && <Check className="ml-auto h-4 w-4" />}
+              {!selectedProjectId && <Check className="ml-auto h-4 w-4" />}
             </div>
           </DropdownMenuItem>
           {filteredProjects.length === 0 && searchTerm && (
@@ -108,13 +111,18 @@ export function ProjectSelector({
           {filteredProjects.map((project) => (
             <DropdownMenuItem
               key={project.id}
-              onClick={() => handleProjectSelect(project.id, project.name)}
+              onClick={() =>
+                handleProjectSelect(project.id, {
+                  name: project.name,
+                  description: project.description,
+                })
+              }
               className="flex items-center gap-2 py-1"
             >
               <div className="flex items-center gap-2 w-full py-1">
                 <Bot className="h-4 w-4 text-blue-400" />
                 <span className="truncate">{project.name}</span>
-                {selectedProject === project.id && (
+                {selectedProjectId === project.id && (
                   <Check className="ml-auto h-4 w-4" />
                 )}
               </div>

@@ -164,7 +164,7 @@ export const EditOrganizationModal = ({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="sm:max-w-[425px] w-11/12"
+        className="sm:max-w-[425px] w-11/12 overflow-hidden"
         onKeyDown={handleKeyDown}
       >
         <DialogHeader>
@@ -173,7 +173,7 @@ export const EditOrganizationModal = ({
             Update your workspace details below.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex flex-col gap-4 py-4">
+        <div className="flex flex-col gap-4 py-4 min-w-0">
           <div className="flex flex-col gap-2">
             <Label>Workspace Name</Label>
             <Input
@@ -182,9 +182,9 @@ export const EditOrganizationModal = ({
               onChange={(e) => setName(e.target.value)}
             />
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 min-w-0">
             <Label>Logo (Optional)</Label>
-            <div className="relative">
+            <div className="relative min-w-0">
               <input
                 type="file"
                 accept="image/*"
@@ -216,9 +216,15 @@ export const EditOrganizationModal = ({
               )}
             </div>
             {logoFileName && (
-              <p className="text-sm text-muted-foreground truncate">
-                Selected: {logoFileName}
-              </p>
+              <div className="text-sm text-muted-foreground flex items-start gap-1 w-full min-w-0">
+                <span className="shrink-0">Selected:</span>
+                <span
+                  className="min-w-0 flex-1 break-words whitespace-normal"
+                  title={logoFileName}
+                >
+                  {logoFileName}
+                </span>
+              </div>
             )}
             {logo && (
               <div className="mt-2">

@@ -81,10 +81,13 @@ export default function ChatBot({
   );
 
   // Local state for project selection
-  const [selectedProject, setSelectedProject] = useState<string | null>(null);
-  const [selectedProjectName, setSelectedProjectName] = useState<string | null>(
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
     null,
   );
+  const [selectedProject, setSelectedProject] = useState<{
+    name: string;
+    description?: string | null;
+  } | null>(null);
 
   const currentThread = useMemo(() => {
     return threadList.find((thread) => thread.id === threadId);
@@ -99,8 +102,11 @@ export default function ChatBot({
       // URL param takes precedence
       const project = projectList.find((p) => p.id === urlProjectId);
       if (project) {
-        setSelectedProject(urlProjectId);
-        setSelectedProjectName(project.name);
+        setSelectedProjectId(urlProjectId);
+        setSelectedProject({
+          name: project.name,
+          description: project.description,
+        });
         return;
       } else if (projectList.length > 0) {
         // Project not found in list, but project list is loaded
@@ -115,18 +121,22 @@ export default function ChatBot({
     // Fall back to thread's project if no URL param or URL project not found
     if (currentThread?.projectId) {
       const project = projectList.find((p) => p.id === currentThread.projectId);
-      setSelectedProject(currentThread.projectId);
-      setSelectedProjectName(project?.name || null);
+      setSelectedProjectId(currentThread.projectId);
+      setSelectedProject(
+        project
+          ? { name: project.name, description: project.description }
+          : null,
+      );
     } else if (!urlProjectId) {
       // Only clear if there's no URL param to avoid clearing while loading
+      setSelectedProjectId(null);
       setSelectedProject(null);
-      setSelectedProjectName(null);
     }
   }, [currentThread?.projectId, projectList, searchParams]);
 
   const generateTitle = useGenerateThreadTitle({
     threadId,
-    projectId: selectedProject ?? undefined,
+    projectId: selectedProjectId ?? undefined,
   });
 
   const {
@@ -146,8 +156,8 @@ export default function ChatBot({
     initialMessages,
     experimental_prepareRequestBody: ({ messages }) => {
       // Build URL with project ID if selected
-      const url = selectedProject
-        ? `/chat/${threadId}?projectId=${selectedProject}`
+      const url = selectedProjectId
+        ? `/chat/${threadId}?projectId=${selectedProjectId}`
         : `/chat/${threadId}`;
       window.history.replaceState({}, "", url);
       const lastMessage = messages.at(-1)!;
@@ -158,7 +168,7 @@ export default function ChatBot({
         allowedMcpServers: latestRef.current.allowedMcpServers,
         allowedAppDefaultToolkit: latestRef.current.allowedAppDefaultToolkit,
         message: lastMessage,
-        projectId: latestRef.current.selectedProject ?? null,
+        projectId: latestRef.current.selectedProjectId ?? null,
         llmModel: latestRef.current.llmModel,
       };
       return request;
@@ -213,7 +223,7 @@ export default function ChatBot({
     threadList,
     threadId,
     llmModel,
-    selectedProject,
+    selectedProjectId,
   });
 
   const isLoading = useMemo(
@@ -328,16 +338,23 @@ export default function ChatBot({
 
   // Project selection handlers
   const handleProjectSelect = useCallback(
-    (projectId: string | null, projectName?: string) => {
-      setSelectedProject(projectId);
-      setSelectedProjectName(projectName || null);
+    (
+      projectId: string | null,
+      project?: { name: string; description?: string | null },
+    ) => {
+      setSelectedProjectId(projectId);
+      setSelectedProject(
+        project
+          ? { name: project.name, description: project.description }
+          : null,
+      );
     },
     [],
   );
 
   const handleProjectClear = useCallback(() => {
+    setSelectedProjectId(null);
     setSelectedProject(null);
-    setSelectedProjectName(null);
   }, []);
 
   // Check if project selection should be disabled (when thread has a project)
@@ -411,8 +428,8 @@ export default function ChatBot({
             setInput={setInput}
             isLoading={isLoading || isPendingToolCall}
             onStop={stop}
+            selectedProjectId={selectedProjectId}
             selectedProject={selectedProject}
-            selectedProjectName={selectedProjectName}
             onProjectClear={handleProjectClear}
             isProjectSelectionDisabled={isProjectSelectionDisabled}
             projectList={projectList}
