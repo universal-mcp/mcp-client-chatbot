@@ -1,6 +1,5 @@
 // models.ts
 import { LanguageModel } from "ai";
-import { openai } from "@ai-sdk/openai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { createAzure } from "@ai-sdk/azure";
 
@@ -12,10 +11,9 @@ const azure = createAzure({
 
 export const customModelProvider = {
   getModel: (model?: string): LanguageModel => {
-    // return azure("gpt-4.1");
     if (model) {
       if (model.startsWith("openai/")) {
-        return openai(model.replace("openai/", ""));
+        return azure(model.replace("openai/", ""));
       }
       if (model.startsWith("anthropic/")) {
         return anthropic(model.replace("anthropic/", ""));

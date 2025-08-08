@@ -113,7 +113,7 @@ export async function POST(request: Request) {
       prompt = message;
     }
     const result = streamObject({
-      model: customModelProvider.getModel("openai/gpt-4.1"),
+      model: customModelProvider.getTitleModel(),
       system,
       prompt,
       schema: dynamicAgentSchema,

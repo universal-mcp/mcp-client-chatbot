@@ -151,6 +151,8 @@ function SelectLlmModel() {
   const models = [
     "openai/gpt-4.1",
     "openai/gpt-4.1-mini",
+    "openai/gpt-5-mini",
+    "openai/gpt-5-nano",
     "anthropic/claude-3-7-sonnet-latest",
     "anthropic/claude-4-sonnet-20250514",
   ];
