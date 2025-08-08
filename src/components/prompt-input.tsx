@@ -165,7 +165,7 @@ export default function PromptInput({
             )}
           >
             {selectedProject && (
-              <div className="bg-input rounded-b-sm rounded-t-3xl p-3 flex flex-col gap-4">
+              <div className="bg-input rounded-b-sm rounded-t-3xl p-3 flex flex-col gap-4 mx-2 mt-2">
                 <div className="flex items-center gap-2">
                   <Button className="size-6 flex items-center justify-center ring ring-border rounded-full flex-shrink-0 p-0.5">
                     <Bot className="size-3.5" />
