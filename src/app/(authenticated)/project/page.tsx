@@ -21,35 +21,38 @@ import { useState } from "react";
 import { Button } from "ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "ui/tabs";
+import { Badge } from "ui/badge";
 import { useShallow } from "zustand/shallow";
 
-interface AssistantCardProps {
+interface AgentCardProps {
   id: string;
   name: string;
-  description?: string;
+  description: string | null;
   lastActiveAt?: string;
   onClick: () => void;
   project?: any; // Full project object for dropdown
 }
 
-interface AssistantTemplate {
+interface AgentTemplate {
   id: string;
   name: string;
   description: string;
   instructions: string;
   expert: string;
+  category: string;
   icon: React.ComponentType<{ className?: string }>;
 }
 
-const ASSISTANT_TEMPLATES: AssistantTemplate[] = [
+const AGENT_TEMPLATES: AgentTemplate[] = [
   {
-    id: "coding-assistant",
-    name: "Coding Assistant",
+    id: "coding-agent",
+    name: "Coding Agent",
     description:
       "A programming companion that helps with code review, debugging, and best practices",
     instructions:
       "You are an expert software developer and programming mentor. Help users with:\n\n• Code review and optimization\n• Debugging complex issues\n• Explaining programming concepts clearly\n• Suggesting best practices and design patterns\n• Writing clean, maintainable code\n\nAlways provide clear explanations, include examples, and consider edge cases. Focus on teaching principles that help users become better developers.",
     expert: "software development and programming",
+    category: "Development",
     icon: Code,
   },
   {
@@ -60,6 +63,7 @@ const ASSISTANT_TEMPLATES: AssistantTemplate[] = [
     instructions:
       "You are a seasoned business analyst and strategic advisor. Assist users with:\n\n• Market analysis and competitive research\n• Business plan development and validation\n• Financial modeling and projections\n• Process optimization and workflow analysis\n• Risk assessment and mitigation strategies\n• Data-driven decision making\n\nProvide actionable insights backed by business principles. Ask clarifying questions to understand the specific business context and goals.",
     expert: "business analysis and strategic planning",
+    category: "Business",
     icon: Briefcase,
   },
   {
@@ -69,6 +73,7 @@ const ASSISTANT_TEMPLATES: AssistantTemplate[] = [
     instructions:
       "You are a patient, knowledgeable tutor dedicated to helping students learn effectively. Your approach:\n\n• Adapt explanations to the user's learning level\n• Break down complex topics into manageable steps\n• Use analogies and real-world examples\n• Encourage questions and critical thinking\n• Provide practice exercises and check understanding\n• Celebrate progress and maintain motivation\n\nAlways gauge the user's current understanding before diving deeper. Make learning engaging and accessible.",
     expert: "education and tutoring",
+    category: "Education",
     icon: GraduationCap,
   },
   {
@@ -79,16 +84,18 @@ const ASSISTANT_TEMPLATES: AssistantTemplate[] = [
     instructions:
       "You are a compassionate wellness coach focused on holistic health and well-being. Support users with:\n\n• Stress management and mindfulness techniques\n• Healthy lifestyle habits and routines\n• Goal setting and motivation\n• Work-life balance strategies\n• Self-care practices and mental health awareness\n• Fitness and nutrition guidance (general advice only)\n\nProvide encouraging, non-judgmental support. Always recommend professional help for serious health concerns. Focus on sustainable, positive changes.",
     expert: "wellness and personal health",
+    category: "Wellness",
     icon: Heart,
   },
   {
     id: "content-writer",
     name: "Content Writer",
     description:
-      "Creative writing assistant for blogs, marketing, and storytelling",
+      "Creative writing agent for blogs, marketing, and storytelling",
     instructions:
       "You are a skilled content writer and creative strategist. Help users create compelling content:\n\n• Blog posts and articles with engaging narratives\n• Marketing copy that converts and resonates\n• Social media content with strong hooks\n• Email campaigns and newsletters\n• Creative storytelling and narrative structure\n• SEO optimization and audience targeting\n\nFocus on clarity, engagement, and purpose. Understand the target audience and desired outcomes. Provide multiple variations when helpful.",
     expert: "content writing and creative storytelling",
+    category: "Creative",
     icon: FileText,
   },
   {
@@ -99,12 +106,13 @@ const ASSISTANT_TEMPLATES: AssistantTemplate[] = [
     instructions:
       "You are an experienced design consultant with expertise in visual communication and user experience. Guide users through:\n\n• UI/UX design principles and best practices\n• Brand identity development and visual systems\n• Color theory, typography, and layout design\n• User research and design thinking methodologies\n• Design critique and improvement suggestions\n• Accessibility and inclusive design practices\n\nProvide thoughtful design rationale and consider both aesthetics and functionality. Help users understand design principles that create effective, user-centered solutions.",
     expert: "UI/UX design and visual communication",
+    category: "Creative",
     icon: Palette,
   },
 ];
 
 interface TemplateCardProps {
-  template: AssistantTemplate;
+  template: AgentTemplate;
   onClick: () => void;
 }
 
@@ -113,7 +121,7 @@ function TemplateCard({ template, onClick }: TemplateCardProps) {
 
   return (
     <Card
-      className="h-full cursor-pointer transition-all duration-200 hover:shadow-md hover:border-accent-foreground/20 group"
+      className="h-full cursor-pointer transition-all duration-200 hover:shadow-md hover:border-accent-foreground/20 group gap-3"
       onClick={onClick}
     >
       <CardHeader className="pb-0">
@@ -137,21 +145,27 @@ function TemplateCard({ template, onClick }: TemplateCardProps) {
             {template.description}
           </p>
 
-          {/* Removed category display */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <Badge variant="secondary" className="text-xs font-medium">
+                {template.category}
+              </Badge>
+            </div>
+          </div>
         </div>
       </CardContent>
     </Card>
   );
 }
 
-function AssistantCard({
+function AgentCard({
   id,
   name,
   description,
   lastActiveAt,
   onClick,
   project,
-}: AssistantCardProps) {
+}: AgentCardProps) {
   const formatLastActive = (dateString?: string) => {
     if (!dateString || dateString === "1970-01-01 00:00:00")
       return "Never used";
@@ -171,7 +185,7 @@ function AssistantCard({
   return (
     <Card
       key={id}
-      className="h-full cursor-pointer transition-all duration-200 hover:shadow-md hover:border-accent-foreground/20 group overflow-hidden"
+      className="h-full cursor-pointer transition-all duration-200 hover:shadow-md hover:border-accent-foreground/20 group overflow-hidden gap-3"
       onClick={handleCardClick}
     >
       <CardHeader className="pb-0">
@@ -228,8 +242,8 @@ function AssistantCard({
 function TemplatesContent() {
   const router = useRouter();
 
-  const handleTemplateClick = (template: AssistantTemplate) => {
-    // Navigate directly to the new assistant page with template data
+  const handleTemplateClick = (template: AgentTemplate) => {
+    // Navigate directly to the new agent page with template data
     router.push(
       `/project/new?template=${encodeURIComponent(
         JSON.stringify({
@@ -249,7 +263,7 @@ function TemplatesContent() {
           className="flex flex-wrap gap-6 justify-center"
           style={{ maxWidth: "1008px" }}
         >
-          {ASSISTANT_TEMPLATES.map((template) => (
+          {AGENT_TEMPLATES.map((template) => (
             <div key={template.id} className="w-80">
               <TemplateCard
                 template={template}
@@ -265,17 +279,17 @@ function TemplatesContent() {
 
 export default function ProjectsPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState("assistants");
+  const [activeTab, setActiveTab] = useState("agents");
 
   const [projectList, isProjectListLoading] = appStore(
     useShallow((state) => [state.projectList, state.isProjectListLoading]),
   );
 
-  const handleAssistantClick = (projectId: string) => {
+  const handleAgentClick = (projectId: string) => {
     router.push(`/project/${projectId}`);
   };
 
-  const renderAssistantsContent = () => {
+  const renderAgentsContent = () => {
     // Add loader component
     if (isProjectListLoading) {
       return (
@@ -293,14 +307,14 @@ export default function ProjectsPage() {
           <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-6">
             <Bot className="size-8 text-muted-foreground" />
           </div>
-          <h3 className="text-xl font-semibold mb-2">No assistants yet</h3>
+          <h3 className="text-xl font-semibold mb-2">No agents yet</h3>
           <p className="text-muted-foreground text-center max-w-sm mb-6">
-            Create your first assistant to get started with organized
-            conversations and custom instructions.
+            Create your first agent to get started with organized conversations
+            and custom instructions.
           </p>
           <Button className="gap-2" onClick={() => router.push("/project/new")}>
             <Plus className="size-4" />
-            Create Your First Assistant
+            Create Your First Agent
           </Button>
         </div>
       );
@@ -314,12 +328,12 @@ export default function ProjectsPage() {
         >
           {projectList.map((project) => (
             <div key={project.id} className="w-80">
-              <AssistantCard
+              <AgentCard
                 id={project.id}
                 name={project.name}
                 description={project.description}
                 lastActiveAt={(project as any).lastThreadAt}
-                onClick={() => handleAssistantClick(project.id)}
+                onClick={() => handleAgentClick(project.id)}
                 project={project}
               />
             </div>
@@ -339,11 +353,9 @@ export default function ProjectsPage() {
             style={{ maxWidth: "1008px" }}
           >
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight">
-                Assistants
-              </h1>
+              <h1 className="text-2xl font-semibold tracking-tight">Agents</h1>
               <p className="text-muted-foreground mt-1">
-                Manage your AI assistants and their configurations
+                Manage your AI agents and their configurations
               </p>
             </div>
 
@@ -352,7 +364,7 @@ export default function ProjectsPage() {
               onClick={() => router.push("/project/new")}
             >
               <Plus className="size-4" />
-              Add Assistant
+              Add Agent
             </Button>
           </div>
         </div>
@@ -368,9 +380,9 @@ export default function ProjectsPage() {
           >
             <div className="flex justify-center mb-6">
               <TabsList>
-                <TabsTrigger value="assistants" className="gap-2">
+                <TabsTrigger value="agents" className="gap-2">
                   <Bot className="size-4" />
-                  My Assistants
+                  My Agents
                 </TabsTrigger>
                 <TabsTrigger value="templates" className="gap-2">
                   <Sparkles className="size-4" />
@@ -379,8 +391,8 @@ export default function ProjectsPage() {
               </TabsList>
             </div>
 
-            <TabsContent value="assistants" className="mt-0">
-              {renderAssistantsContent()}
+            <TabsContent value="agents" className="mt-0">
+              {renderAgentsContent()}
             </TabsContent>
 
             <TabsContent value="templates" className="mt-0">

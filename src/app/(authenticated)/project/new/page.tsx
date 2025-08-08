@@ -1,7 +1,7 @@
 "use client";
 
-import { AssistantEditor } from "@/components/assistant-editor";
+import { AgentEditor } from "@/components/agent-editor";
 
-export default function NewAssistantPage() {
-  return <AssistantEditor isNewProject={true} />;
+export default function NewAgentPage() {
+  return <AgentEditor isNewProject={true} />;
 }

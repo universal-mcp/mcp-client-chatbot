@@ -46,7 +46,7 @@ import { ProjectConversationsModal } from "@/components/project-conversations-mo
 import { AppDefaultToolkit, DefaultToolName } from "lib/ai/tools";
 import { GlobalIcon } from "ui/global-icon";
 import { experimental_useObject } from "@ai-sdk/react";
-import { AssistantGenerateSchema } from "app-types/chat";
+import { AgentGenerateSchema } from "app-types/chat";
 import {
   Dialog,
   DialogContent,
@@ -88,17 +88,15 @@ const defaultConfig = (): LocalProjectState => {
   };
 };
 
-interface AssistantEditorProps {
+interface AgentEditorProps {
   projectId?: string; // undefined for new project, string for existing project
-  onSave?: (project: Project) => void;
   isNewProject?: boolean;
 }
 
-export function AssistantEditor({
+export function AgentEditor({
   projectId,
-  onSave,
   isNewProject = false,
-}: AssistantEditorProps) {
+}: AgentEditorProps) {
   const t = useTranslations();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -109,9 +107,6 @@ export function AssistantEditor({
 
   // MCP Configuration state
   const [mcpServers, setMcpServers] = useState<MCPServerWithId[]>([]);
-  const [originalServerConfigs, setOriginalServerConfigs] = useState<
-    LocalServerConfig[]
-  >([]);
   const [originalToolConfigs, setOriginalToolConfigs] = useState<
     Map<string, LocalToolConfig>
   >(new Map());
@@ -126,6 +121,35 @@ export function AssistantEditor({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const tiptapRef = useRef<HTMLDivElement>(null);
 
+  // Track original project state for change detection
+  const [originalProject, setOriginalProject] = useState<LocalProjectState>(
+    defaultConfig(),
+  );
+
+  // Check if current project differs from original project using hash comparison
+  const hasProjectChanges = useMemo(() => {
+    const createProjectHash = (proj: LocalProjectState) => {
+      return JSON.stringify({
+        name: proj.name || "",
+        description: proj.description || "",
+        instructions: {
+          expert: proj.instructions?.expert || "",
+          systemPrompt: proj.instructions?.systemPrompt || "",
+        },
+      });
+    };
+
+    const currentHash = createProjectHash(project);
+    const originalHash = createProjectHash(originalProject);
+
+    return currentHash !== originalHash;
+  }, [project, originalProject]);
+
+  // Combined changes detection (project fields + MCP configuration)
+  const hasAnyChanges = useMemo(() => {
+    return hasProjectChanges || hasMcpChanges;
+  }, [hasProjectChanges, hasMcpChanges]);
+
   const handleInstructionsChange = useCallback(
     (value: string) => {
       setProject({
@@ -139,16 +163,15 @@ export function AssistantEditor({
   );
 
   // AI Generation state
-  const [openGenerateAssistantDialog, setOpenGenerateAssistantDialog] =
-    useState(false);
-  const [generateAssistantPrompt, setGenerateAssistantPrompt] = useState("");
+  const [openGenerateAgentDialog, setOpenGenerateAgentDialog] = useState(false);
+  const [generateAgentPrompt, setGenerateAgentPrompt] = useState("");
   const {
     object,
     submit,
     isLoading: isGenerating,
   } = experimental_useObject({
     api: "/api/chat/ai",
-    schema: AssistantGenerateSchema,
+    schema: AgentGenerateSchema,
     onFinish(event) {
       if (event.error) {
         handleErrorWithToast(event.error);
@@ -223,11 +246,13 @@ export function AssistantEditor({
       },
       onSuccess: (data) => {
         if (data) {
-          setProject({
+          const projectData = {
             name: data.name || "",
             description: data.description || "",
             instructions: data.instructions || { systemPrompt: "", expert: "" },
-          });
+          };
+          setProject(projectData);
+          setOriginalProject(projectData);
         } else if (projectId) {
           toast.error(`Project not found`);
           router.push(`/`);
@@ -258,13 +283,13 @@ export function AssistantEditor({
         }
       } else if (threadIdParam) {
         // For thread-based generation, show the AI generation dialog with threadId
-        setOpenGenerateAssistantDialog(true);
-        setGenerateAssistantPrompt("");
+        setOpenGenerateAgentDialog(true);
+        setGenerateAgentPrompt("");
         // Store threadId for use in generation
         setProject((prev) => ({ ...prev, threadId: threadIdParam }));
       } else {
         // For new projects without templates, show the AI generation dialog by default
-        setOpenGenerateAssistantDialog(true);
+        setOpenGenerateAgentDialog(true);
       }
     }
   }, [isNewProject, searchParams]);
@@ -345,13 +370,11 @@ export function AssistantEditor({
             enabled: enabledServerIds.has(server.id || "unknown"),
           }));
 
-          setOriginalServerConfigs(initialServerConfigs);
           setServerConfigs(initialServerConfigs);
           setOriginalToolConfigs(toolConfigMap);
           setToolConfigs(toolConfigMap);
         } else {
           // For new projects, initialize with empty configs
-          setOriginalServerConfigs([]);
           setServerConfigs([]);
           setOriginalToolConfigs(new Map());
           setToolConfigs(new Map());
@@ -374,13 +397,13 @@ export function AssistantEditor({
 
   // AI Generation handlers
   const handleOpenAiGenerate = useCallback(() => {
-    setOpenGenerateAssistantDialog(true);
-    setGenerateAssistantPrompt("");
+    setOpenGenerateAgentDialog(true);
+    setGenerateAgentPrompt("");
   }, []);
 
-  const submitGenerateAssistant = useCallback(() => {
+  const submitGenerateAgent = useCallback(() => {
     const requestBody: any = {
-      message: generateAssistantPrompt,
+      message: generateAgentPrompt,
     };
 
     // If we have a threadId, include it in the request
@@ -389,9 +412,9 @@ export function AssistantEditor({
     }
 
     submit(requestBody);
-    setOpenGenerateAssistantDialog(false);
-    setGenerateAssistantPrompt("");
-  }, [generateAssistantPrompt, submit, project.threadId]);
+    setOpenGenerateAgentDialog(false);
+    setGenerateAgentPrompt("");
+  }, [generateAgentPrompt, submit, project.threadId]);
 
   // Handle starting a chat with the current project
   const handleStartChat = useCallback(async () => {
@@ -483,16 +506,35 @@ export function AssistantEditor({
     [mcpServers],
   );
 
-  // Track MCP changes
+  // Track MCP changes using sorted hash approach like tool-select component
   useEffect(() => {
-    const serverChanges =
-      JSON.stringify(serverConfigs) !== JSON.stringify(originalServerConfigs);
-    const toolChanges =
-      JSON.stringify(Array.from(toolConfigs.entries())) !==
-      JSON.stringify(Array.from(originalToolConfigs.entries()));
-    const newHasChanges = serverChanges || toolChanges;
+    const createToolConfigHash = (
+      toolConfigMap: Map<string, LocalToolConfig>,
+    ) => {
+      // Convert Map to array and sort to ensure consistent hash
+      const sortedConfigs = Array.from(toolConfigMap.entries()).sort((a, b) => {
+        const [aKey] = a;
+        const [bKey] = b;
+        return aKey.localeCompare(bKey);
+      });
+
+      return JSON.stringify(
+        sortedConfigs.map(([key, config]) => ({
+          key,
+          mcpServerId: config.mcpServerId,
+          toolName: config.toolName,
+          enabled: config.enabled,
+          mode: config.mode,
+        })),
+      );
+    };
+
+    const currentToolHash = createToolConfigHash(toolConfigs);
+    const originalToolHash = createToolConfigHash(originalToolConfigs);
+
+    const newHasChanges = currentToolHash !== originalToolHash;
     setHasMcpChanges(newHasChanges);
-  }, [serverConfigs, toolConfigs, originalServerConfigs, originalToolConfigs]);
+  }, [toolConfigs, originalToolConfigs]);
 
   const saveProject = useCallback(async () => {
     setIsSaving(true);
@@ -536,13 +578,10 @@ export function AssistantEditor({
         }
 
         mutate("/api/project/list");
-        toast.success("Assistant created successfully");
 
-        if (onSave) {
-          onSave(newProject);
-        } else {
-          router.push(`/project/${newProject.id}`);
-        }
+        toast.success("Agent created successfully");
+        // Navigate to the chat page with project ID
+        router.push(`/?projectId=${newProject.id}`);
       } else if (projectId) {
         // Update existing project
         await updateProjectAction(projectId, {
@@ -577,24 +616,21 @@ export function AssistantEditor({
           await bulkUpdateProjectMcpToolsAction(projectId, toolConfigsToSave);
 
           setToolConfigs(currentToolConfigs);
-          setOriginalServerConfigs([...serverConfigs]);
           setOriginalToolConfigs(new Map(currentToolConfigs));
           setHasMcpChanges(false);
         }
 
         mutate(`/projects/${projectId}`);
         mutate("/api/project/list");
-        toast.success("Assistant saved successfully");
-
-        if (onSave && projectData) {
-          onSave(projectData as Project);
-        }
+        // Reset original project state to current state after successful save
+        setOriginalProject({ ...project });
+        toast.success("Agent saved successfully");
       }
     } catch (error) {
       if (error instanceof Error) {
         handleErrorWithToast(error);
       } else {
-        handleErrorWithToast(new Error("Failed to save assistant"));
+        handleErrorWithToast(new Error("Failed to save agent"));
       }
     } finally {
       setIsSaving(false);
@@ -606,7 +642,6 @@ export function AssistantEditor({
     toolConfigs,
     hasMcpChanges,
     isNewProject,
-    onSave,
     router,
     projectData,
   ]);
@@ -627,15 +662,25 @@ export function AssistantEditor({
       const server = mcpServers.find((s) => s.id === serverId);
       if (!server) return;
 
-      const newToolUpdates = new Map<string, LocalToolConfig>();
-      for (const tool of server.toolInfo) {
-        const key = `${serverId}:${tool.name}`;
-        const existing =
-          toolConfigs.get(key) || getToolConfig(serverId, tool.name);
-        newToolUpdates.set(key, { ...existing, enabled });
-      }
+      setToolConfigs((prev) => {
+        const newConfigs = new Map(prev);
 
-      setToolConfigs((prev) => new Map([...prev, ...newToolUpdates]));
+        for (const tool of server.toolInfo) {
+          const key = `${serverId}:${tool.name}`;
+
+          if (enabled) {
+            // Add or update tool config when server is enabled
+            const existing =
+              newConfigs.get(key) || getToolConfig(serverId, tool.name);
+            newConfigs.set(key, { ...existing, enabled: true });
+          } else {
+            // Remove tool config when server is disabled
+            newConfigs.delete(key);
+          }
+        }
+
+        return newConfigs;
+      });
     },
     [mcpServers, toolConfigs],
   );
@@ -649,9 +694,17 @@ export function AssistantEditor({
       const key = `${serverId}:${toolName}`;
       setToolConfigs((prev) => {
         const newConfigs = new Map(prev);
-        const existing =
-          newConfigs.get(key) || getToolConfig(serverId, toolName);
-        newConfigs.set(key, { ...existing, ...update });
+
+        if (update.enabled === false) {
+          // Remove the tool config entirely when disabled
+          newConfigs.delete(key);
+        } else {
+          // Add or update the tool config when enabled or mode changed
+          const existing =
+            newConfigs.get(key) || getToolConfig(serverId, toolName);
+          newConfigs.set(key, { ...existing, ...update });
+        }
+
         return newConfigs;
       });
 
@@ -744,7 +797,7 @@ export function AssistantEditor({
     <div className="h-full w-full overflow-y-auto">
       <div className="flex flex-col gap-6 px-8 pb-4 max-w-3xl mx-auto min-h-full">
         <div className="sticky top-0 bg-background z-10 flex flex-col gap-4 pb-6">
-          {/* Back Button - Show for all assistant pages */}
+          {/* Back Button - Show for all agent pages */}
           <div className="flex items-center gap-3">
             <Button
               variant="outline"
@@ -762,13 +815,11 @@ export function AssistantEditor({
             <div className="flex items-center gap-4">
               {isGenerating ? (
                 <TextShimmer className="w-full text-2xl font-bold">
-                  Generating Assistant
+                  Generating Agent
                 </TextShimmer>
               ) : (
                 <p className="text-2xl font-bold">
-                  {isNewProject
-                    ? "Create Assistant"
-                    : t("Chat.Project.project")}
+                  {isNewProject ? "Create Agent" : t("Chat.Project.project")}
                 </p>
               )}
             </div>
@@ -818,7 +869,7 @@ export function AssistantEditor({
         {/* Project Name */}
         <div className="flex flex-col gap-3">
           <Label htmlFor="project-name" className="text-sm font-medium">
-            Give your assistant a name
+            Give your agent a name
           </Label>
           {isProjectLoading ? (
             <Skeleton className="w-full h-10" />
@@ -837,7 +888,7 @@ export function AssistantEditor({
         {/* Project Description */}
         <div className="flex flex-col gap-3">
           <Label htmlFor="project-description" className="text-sm font-medium">
-            Describe your assistant in a few words
+            Describe your agent in a few words
           </Label>
           {isProjectLoading ? (
             <Skeleton className="w-full h-10" />
@@ -857,7 +908,7 @@ export function AssistantEditor({
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <Label htmlFor="project-expert" className="text-sm font-medium">
-              This assistant is an expert in
+              This agent is an expert in
             </Label>
             {isProjectLoading ? (
               <Skeleton className="w-64 h-10" />
@@ -894,7 +945,7 @@ export function AssistantEditor({
               <Tiptap
                 value={project.instructions?.systemPrompt || ""}
                 onChange={handleInstructionsChange}
-                placeholder="You are a helpful assistant that can perform deep research and help with tasks..."
+                placeholder="You are a helpful agent that can perform deep research and help with tasks..."
                 className={isGenerating ? "pointer-events-none opacity-50" : ""}
                 isGenerating={isGenerating}
               />
@@ -1166,14 +1217,14 @@ export function AssistantEditor({
 
         {/* Save Button */}
         {isNewProject ? (
-          // Only show Create Assistant button if name is set
+          // Only show Create Agent button if name is set
           project.name?.trim() && (
             <div className="flex justify-end pt-2 pb-4">
               <Button
                 onClick={saveProject}
                 disabled={isLoading || isGenerating}
               >
-                {isSaving ? t("Common.saving") : "Create Assistant"}
+                {isSaving ? t("Common.saving") : "Create Agent"}
                 {isSaving && <Loader className="size-4 animate-spin" />}
               </Button>
             </div>
@@ -1181,7 +1232,11 @@ export function AssistantEditor({
         ) : (
           // Always show Save button for existing projects
           <div className="flex justify-end pt-2 pb-4">
-            <Button onClick={saveProject} disabled={isLoading || isGenerating}>
+            <Button
+              onClick={saveProject}
+              disabled={isLoading || isGenerating || !hasAnyChanges}
+              variant={hasAnyChanges ? "default" : "secondary"}
+            >
               {isSaving ? t("Common.saving") : t("Common.save")}
               {isSaving && <Loader className="size-4 animate-spin" />}
             </Button>
@@ -1200,18 +1255,18 @@ export function AssistantEditor({
 
       {/* AI Generation Dialog */}
       <Dialog
-        open={openGenerateAssistantDialog}
-        onOpenChange={setOpenGenerateAssistantDialog}
+        open={openGenerateAgentDialog}
+        onOpenChange={setOpenGenerateAgentDialog}
       >
         <DialogContent className="max-w-2xl w-full">
           <DialogHeader className="text-center">
             <DialogTitle className="text-xl font-semibold">
-              Generate Assistant
+              Generate Agent
             </DialogTitle>
             <DialogDescription className="font-medium mt-2">
               {project.threadId
-                ? "I'll analyze your chat history and create an assistant that can continue this type of work."
-                : "Describe the assistant you want to create. Be specific about its purpose, capabilities, and how it should interact with users."}
+                ? "I'll analyze your chat history and create an agent that can continue this type of work."
+                : "Describe the agent you want to create. Be specific about its purpose, capabilities, and how it should interact with users."}
             </DialogDescription>
           </DialogHeader>
 
@@ -1230,18 +1285,18 @@ export function AssistantEditor({
               </Label>
               <Textarea
                 id="generate-prompt"
-                value={generateAssistantPrompt}
+                value={generateAgentPrompt}
                 autoFocus
                 placeholder={
                   project.threadId
-                    ? "Add any additional requirements, preferences, or constraints for the assistant..."
-                    : "A research assistant that can analyze data, create charts, and provide insights on market trends..."
+                    ? "Add any additional requirements, preferences, or constraints for the agent..."
+                    : "A research agent that can analyze data, create charts, and provide insights on market trends..."
                 }
-                onChange={(e) => setGenerateAssistantPrompt(e.target.value)}
+                onChange={(e) => setGenerateAgentPrompt(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && e.metaKey) {
                     e.preventDefault();
-                    submitGenerateAssistant();
+                    submitGenerateAgent();
                   }
                 }}
                 className="min-h-32 resize-none border-muted focus:border-primary transition-colors"
@@ -1252,16 +1307,16 @@ export function AssistantEditor({
             <div className="flex justify-end gap-3 pt-2">
               <Button
                 variant="outline"
-                onClick={() => setOpenGenerateAssistantDialog(false)}
+                onClick={() => setOpenGenerateAgentDialog(false)}
                 disabled={isGenerating}
               >
                 {isNewProject ? "Create Manually" : "Cancel"}
               </Button>
               <Button
-                onClick={submitGenerateAssistant}
+                onClick={submitGenerateAgent}
                 disabled={
                   isGenerating ||
-                  (!generateAssistantPrompt.trim() && !project.threadId)
+                  (!generateAgentPrompt.trim() && !project.threadId)
                 }
                 className="min-w-32"
               >

@@ -184,7 +184,7 @@ export async function selectProjectListByUserIdAction() {
 
 export async function insertProjectAction(project: {
   name: string;
-  description?: string;
+  description: string | null;
   instructions?: Project["instructions"];
   mcpConfig?: {
     tools: ProjectMcpToolConfig[];
@@ -223,6 +223,7 @@ export async function insertProjectWithThreadAction({
   const project = await chatRepository.insertProject(
     {
       name,
+      description: null,
       userId,
       instructions: instructions ?? {
         systemPrompt: "",

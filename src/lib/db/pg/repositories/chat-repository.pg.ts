@@ -561,6 +561,7 @@ export const pgChatRepository: ChatRepository = {
       .select({
         id: ProjectSchema.id,
         name: ProjectSchema.name,
+        description: ProjectSchema.description,
         createdAt: ProjectSchema.createdAt,
         updatedAt: ProjectSchema.updatedAt,
         userId: ProjectSchema.userId,

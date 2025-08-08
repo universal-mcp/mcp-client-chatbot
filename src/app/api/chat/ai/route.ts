@@ -2,13 +2,13 @@ import { streamObject } from "ai";
 
 import { customModelProvider } from "lib/ai/models";
 import {
-  buildAssistantGenerationPrompt,
-  buildAssistantGenerationFromThreadPrompt,
+  buildAgentGenerationPrompt,
+  buildAgentGenerationFromThreadPrompt,
 } from "lib/ai/prompts";
 import globalLogger from "logger";
 
 import { colorize } from "consola/utils";
-import { AssistantGenerateSchema } from "app-types/chat";
+import { AgentGenerateSchema } from "app-types/chat";
 import { z } from "zod";
 import { loadAppDefaultTools } from "../helper";
 import { safe } from "ts-safe";
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
       })
       .unwrap();
 
-    const dynamicAssistantSchema = AssistantGenerateSchema.extend({
+    const dynamicAgentSchema = AgentGenerateSchema.extend({
       tools: z
         .array(
           z.enum(
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
               : ([""] as [string]),
           ),
         )
-        .describe("Assistant allowed tools name")
+        .describe("Agent allowed tools name")
         .optional()
         .default([]),
     });
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
     let prompt: string;
 
     if (threadId) {
-      // Generate assistant from thread history
+      // Generate agent from thread history
       const thread = await selectThreadWithMessagesAction(threadId);
 
       if (!thread) {
@@ -98,25 +98,25 @@ export async function POST(request: Request) {
         })),
       );
 
-      system = buildAssistantGenerationFromThreadPrompt(Array.from(toolNames));
+      system = buildAgentGenerationFromThreadPrompt(Array.from(toolNames));
 
       // Build prompt with conversation history and user's additional requirements
-      prompt = `Generate an assistant based on this conversation history:\n\n${JSON.stringify(messages, null, 2)}`;
+      prompt = `Generate an agent based on this conversation history:\n\n${JSON.stringify(messages, null, 2)}`;
 
       // If user provided additional requirements, include them
       if (message && message.trim() !== "") {
         prompt += `\n\nAdditional requirements from user: ${message}`;
       }
     } else {
-      // Generate assistant from user description
-      system = buildAssistantGenerationPrompt(Array.from(toolNames));
+      // Generate agent from user description
+      system = buildAgentGenerationPrompt(Array.from(toolNames));
       prompt = message;
     }
     const result = streamObject({
       model: customModelProvider.getModel("openai/gpt-4.1"),
       system,
       prompt,
-      schema: dynamicAssistantSchema,
+      schema: dynamicAgentSchema,
     });
 
     return result.toTextStreamResponse();

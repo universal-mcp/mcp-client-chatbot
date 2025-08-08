@@ -2,12 +2,12 @@
 
 import {
   AudioWaveformIcon,
-  Bot,
   CornerRightUp,
   Paperclip,
   PlusIcon,
   Square,
   X,
+  Bot,
 } from "lucide-react";
 import { useRef, useEffect, useState } from "react";
 import { UseChatHelpers } from "@ai-sdk/react";
@@ -32,12 +32,15 @@ interface PromptInputProps {
   isLoading?: boolean;
   voiceDisabled?: boolean;
   disabled?: boolean;
-  selectedProject?: string | null;
-  selectedProjectName?: string | null;
+  selectedProjectId?: string | null;
+  selectedProject?: { name: string; description?: string | null } | null;
   onProjectClear?: () => void;
   isProjectSelectionDisabled?: boolean;
-  projectList?: Array<{ id: string; name: string; description?: string }>;
-  onProjectSelect?: (projectId: string | null, projectName?: string) => void;
+  projectList?: Array<{ id: string; name: string; description: string | null }>;
+  onProjectSelect?: (
+    projectId: string | null,
+    project?: { name: string; description?: string | null },
+  ) => void;
 }
 
 export default function PromptInput({
@@ -50,8 +53,8 @@ export default function PromptInput({
   toolDisabled,
   voiceDisabled,
   disabled,
+  selectedProjectId,
   selectedProject,
-  selectedProjectName,
   onProjectClear,
   isProjectSelectionDisabled = false,
   projectList = [],
@@ -157,29 +160,40 @@ export default function PromptInput({
           <div
             onClick={handleContainerClick}
             className={cn(
-              "rounded-4xl backdrop-blur-sm transition-all duration-200 bg-muted/80 relative flex w-full flex-col z-10 border items-stretch p-3",
-              isLoadingTools
-                ? "cursor-wait border-primary/50 animate-pulse"
-                : "cursor-text focus-within:border-muted-foreground hover:border-muted-foreground",
+              "shadow-lg overflow-hidden rounded-4xl backdrop-blur-sm transition-all duration-200 bg-muted/60 relative flex w-full flex-col cursor-text z-10 items-stretch focus-within:bg-muted hover:bg-muted focus-within:ring-muted hover:ring-muted",
+              isLoadingTools && "cursor-wait animate-pulse",
             )}
           >
-            <div className="flex flex-col gap-3.5 px-1">
-              {selectedProjectName && (
-                <div className="flex items-center gap-2 px-3 py-1.5 text-xs bg-gradient-to-r from-primary/20 via-primary/15 to-primary/10 text-primary rounded-full font-medium border border-primary/30 shadow-md backdrop-blur-sm ring-1 ring-primary/10 fade-in slide-in-from-top-1 duration-300">
-                  <Bot className="size-3.5 drop-shadow-md text-primary/90" />
-                  <span className="truncate font-bold tracking-wide">
-                    {selectedProjectName}
-                  </span>
+            {selectedProject && (
+              <div className="bg-input rounded-b-sm rounded-t-3xl p-3 flex flex-col gap-4 mx-2 mt-2">
+                <div className="flex items-center gap-2">
+                  <Button className="size-6 flex items-center justify-center ring ring-border rounded-full flex-shrink-0 p-0.5">
+                    <Bot className="size-3.5" />
+                  </Button>
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <span className="text-sm font-semibold truncate">
+                      {selectedProject.name}
+                    </span>
+                    {selectedProject.description ? (
+                      <span className="text-muted-foreground text-xs truncate">
+                        {selectedProject.description}
+                      </span>
+                    ) : null}
+                  </div>
                   {!isProjectSelectionDisabled && (
-                    <button
+                    <Button
+                      variant={"ghost"}
+                      size={"icon"}
                       onClick={onProjectClear}
-                      className="ml-auto p-0.5 hover:bg-primary/30 hover:scale-105 rounded-full transition-all duration-200"
+                      className="rounded-full hover:bg-input! flex-shrink-0"
                     >
-                      <X className="size-3.5" />
-                    </button>
+                      <X />
+                    </Button>
                   )}
                 </div>
-              )}
+              </div>
+            )}
+            <div className="flex flex-col gap-3.5 px-5 pt-3 pb-4">
               {attachedFiles.length > 0 && (
                 <div className="flex flex-col gap-2">
                   {attachedFiles.map((file, index) => (
@@ -227,20 +241,20 @@ export default function PromptInput({
                 </Button>
 
                 {!toolDisabled && (
-                  <div className="interactive-element">
+                  <div className="interactive-element mx-1">
                     <ToolSelectDropdown
                       align="start"
                       side="top"
                       disabled={false}
-                      projectId={selectedProject || undefined}
+                      projectId={selectedProjectId || undefined}
                     />
                   </div>
                 )}
 
                 <div className="ml-1">
                   <ProjectSelector
+                    selectedProjectId={selectedProjectId}
                     selectedProject={selectedProject}
-                    selectedProjectName={selectedProjectName}
                     projectList={projectList}
                     onProjectSelect={onProjectSelect}
                     disabled={isProjectSelectionDisabled}
@@ -251,57 +265,51 @@ export default function PromptInput({
                 {!isLoading && !input.length && !voiceDisabled && !disabled ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <div
+                      <Button
+                        size={"sm"}
                         onClick={() => {
                           appStoreMutate((state) => ({
                             voiceChat: {
                               ...state.voiceChat,
                               isOpen: true,
                               threadId: currentThreadId ?? undefined,
-                              projectId: selectedProject ?? undefined,
+                              projectId: selectedProjectId ?? undefined,
                             },
                           }));
                         }}
-                        className="border fade-in animate-in cursor-pointer text-background rounded-full p-2 bg-primary hover:bg-primary/90 transition-all duration-200 interactive-element"
+                        className="rounded-full p-2!"
                       >
                         <AudioWaveformIcon size={16} />
-                      </div>
+                      </Button>
                     </TooltipTrigger>
                     <TooltipContent>{t("VoiceChat.title")}</TooltipContent>
                   </Tooltip>
+                ) : isLoading ? (
+                  <div
+                    onClick={() => {
+                      onStop();
+                    }}
+                    className={cn(
+                      "fade-in animate-in cursor-pointer text-muted-foreground rounded-full p-2 bg-secondary hover:bg-accent-foreground hover:text-accent transition-all duration-200",
+                      disabled && "opacity-50 cursor-not-allowed",
+                    )}
+                  >
+                    <Square
+                      size={16}
+                      className="fill-muted-foreground text-muted-foreground"
+                    />
+                  </div>
                 ) : (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div
-                        onClick={() => {
-                          if (isLoading) {
-                            onStop();
-                          } else {
-                            submit();
-                          }
-                        }}
-                        className={cn(
-                          "fade-in animate-in cursor-pointer rounded-full p-2 transition-all duration-200 interactive-element",
-                          isLoading
-                            ? "text-muted-foreground bg-secondary hover:bg-accent-foreground hover:text-accent"
-                            : "border text-background bg-primary hover:bg-primary/90",
-                          disabled && "opacity-50 cursor-not-allowed",
-                        )}
-                      >
-                        {isLoading ? (
-                          <Square
-                            size={16}
-                            className="fill-muted-foreground text-muted-foreground"
-                          />
-                        ) : (
-                          <CornerRightUp size={16} />
-                        )}
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {isLoading ? "Stop generation" : "Send a message"}
-                    </TooltipContent>
-                  </Tooltip>
+                  <Button
+                    size={"sm"}
+                    onClick={() => submit()}
+                    className={cn(
+                      "rounded-full p-2! text-background bg-primary hover:bg-primary/90",
+                      disabled && "opacity-50 cursor-not-allowed",
+                    )}
+                  >
+                    <CornerRightUp size={16} />
+                  </Button>
                 )}
               </div>
             </div>

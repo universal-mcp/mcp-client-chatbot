@@ -74,7 +74,7 @@ export function AppSidebarMenus() {
                     isActive={pathname === "/project"}
                   >
                     <Bot className="size-4" />
-                    Assistants
+                    Agents
                   </SidebarMenuButton>
                 </Link>
               </SidebarMenuItem>
