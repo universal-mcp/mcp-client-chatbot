@@ -10,6 +10,8 @@ import {
   uuid,
   boolean,
   unique,
+  integer,
+  index,
 } from "drizzle-orm/pg-core";
 import {
   user as UserSchema,
@@ -209,6 +211,27 @@ export const ProjectMcpToolConfigSchema = pgTable(
   }),
 );
 
+export const CreditLedgerSchema = pgTable(
+  "credit_ledger",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    workspaceId: uuid("workspace_id").notNull(),
+    userId: uuid("user_id").references(() => UserSchema.id, {
+      onDelete: "set null",
+    }),
+    change: integer("change").notNull(),
+    balance: integer("balance").notNull(),
+    description: text("description").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => {
+    return {
+      workspaceIdIndex: index("workspace_id_idx").on(table.workspaceId),
+      userIdIndex: index("user_id_idx").on(table.userId),
+    };
+  },
+);
+
 export {
   UserSchema,
   SessionSchema,
@@ -232,3 +255,4 @@ export type McpOAuthClientEntity = typeof McpOAuthClientSchema.$inferSelect;
 export type McpOAuthStateEntity = typeof McpOAuthStateSchema.$inferSelect;
 export type ProjectMcpToolConfigEntity =
   typeof ProjectMcpToolConfigSchema.$inferSelect;
+export type CreditLedgerEntity = typeof CreditLedgerSchema.$inferSelect;

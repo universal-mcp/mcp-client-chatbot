@@ -60,6 +60,7 @@ export default function ChatBot({
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const searchParams = useSearchParams();
+  // const router = useRouter();
   const [
     appStoreMutate,
     toolChoice,
@@ -194,12 +195,11 @@ export default function ChatBot({
       }
     },
     onError: (error) => {
-      console.error(error);
-
-      toast.error(
-        truncateString(error.message, 100) ||
-          "An error occured, please try again!",
-      );
+      const message = error?.message || "An error occured, please try again!";
+      // For insufficient credits, rely on the dedicated error component UI
+      if (!message.toLowerCase().includes("insufficient credits")) {
+        toast.error(truncateString(message, 100));
+      }
     },
   });
 

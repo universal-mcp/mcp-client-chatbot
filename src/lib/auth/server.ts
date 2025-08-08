@@ -14,6 +14,7 @@ import logger from "@/lib/logger";
 import { reactVerifyEmail } from "@/lib/email/verify-email";
 import { stripe } from "@better-auth/stripe";
 import Stripe from "stripe";
+import { pgCreditRepository } from "@/lib/db/pg/repositories/credit-repository.pg";
 
 const from = process.env.BETTER_AUTH_EMAIL || "manoj@agentr.dev";
 
@@ -133,13 +134,14 @@ export const auth = betterAuth({
             priceId: "price_1RpqflHVSpWJf2VWygjqJFT1",
           },
         ],
-        onSubscriptionComplete: async ({ subscription, plan }) => {
-          logger.info(
-            `Subscription ${subscription.id} completed for plan ${plan.name}`,
-          );
+        authorizeReference: async ({}) => {
+          return true;
         },
-        onSubscriptionUpdate: async ({ subscription }) => {
-          logger.info(`Subscription ${subscription.id} updated`);
+        onSubscriptionComplete: async ({ event, subscription }) => {
+          logger.info(`Subscription ${subscription.id} completed`, event);
+        },
+        onSubscriptionUpdate: async ({ event, subscription }) => {
+          logger.info(`Subscription ${subscription.id} updated`, event);
         },
         onSubscriptionCancel: async ({ subscription }) => {
           logger.info(`Subscription ${subscription.id} canceled`);
@@ -149,20 +151,31 @@ export const auth = betterAuth({
         logger.info(`Stripe webhook event: ${event.type}`);
 
         switch (event.type) {
-          case "customer.subscription.created":
-            logger.info("New subscription created", event.data.object);
+          case "checkout.session.completed":
+            const checkoutSession = event.data.object;
+            const subscriptionId = checkoutSession.subscription as string;
+            const referenceId = checkoutSession.client_reference_id as string;
+            const userId = checkoutSession.metadata?.userId as string;
+
+            try {
+              await pgCreditRepository.addCredits(
+                referenceId,
+                1000,
+                `Credits for subscription ${subscriptionId}`,
+                userId,
+              );
+            } catch (error) {
+              logger.error(`Failed to process invoice.paid webhook: ${error}`);
+            }
             break;
           case "customer.subscription.updated":
-            logger.info("Subscription updated", event.data.object);
+            // logger.info("Subscription updated", event.data.object);
             break;
           case "customer.subscription.deleted":
-            logger.info("Subscription deleted", event.data.object);
-            break;
-          case "invoice.paid":
-            logger.info("Invoice paid", event.data.object);
+            // logger.info("Subscription deleted", event.data.object);
             break;
           case "invoice.payment_failed":
-            logger.error("Invoice payment failed", event.data.object);
+            // logger.error("Invoice payment failed", event.data.object);
             break;
         }
       },
@@ -190,7 +203,6 @@ export const getSession = async () => {
     logger.error("No session found");
     return null;
   }
-  // logger.debug("Session found", session);
   return session;
 };
 

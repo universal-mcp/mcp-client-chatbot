@@ -183,6 +183,31 @@ export const ErrorMessage = ({
   const [isExpanded, setIsExpanded] = useState(false);
   const maxLength = 200;
   const t = useTranslations();
+
+  const isInsufficientCredits =
+    typeof error?.message === "string" &&
+    error.message.toLowerCase().includes("insufficient credits");
+
+  if (isInsufficientCredits) {
+    return (
+      <div className="w-full mx-auto max-w-3xl px-6 animate-in fade-in mt-4">
+        <Alert variant="destructive" className="border-destructive">
+          <Terminal className="h-4 w-4" />
+          <AlertTitle className="mb-2">Insufficient credits</AlertTitle>
+          <AlertDescription className="text-sm">
+            You have insufficient credits to continue. Please go to Billing to
+            top up your credits:
+            <a
+              className="underline font-medium ml-1"
+              href="/workspace/settings"
+            >
+              Open Billing
+            </a>
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
   return (
     <div className="w-full mx-auto max-w-3xl px-6 animate-in fade-in mt-4">
       <Alert variant="destructive" className="border-destructive">

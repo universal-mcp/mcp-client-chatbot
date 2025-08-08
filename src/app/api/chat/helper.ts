@@ -279,6 +279,26 @@ export function handleError(error: any) {
   return errorToString(error.message);
 }
 
+// Credits & tokens conversion helpers
+// Adjust the ratio as needed. By default, 1 credit = 100 tokens (prompt + completion combined)
+const TOKENS_PER_CREDIT = 100;
+
+export function convertTokensToCredits(totalTokensUsed: number): number {
+  if (!Number.isFinite(totalTokensUsed) || totalTokensUsed <= 0) return 0;
+  return Math.ceil(totalTokensUsed / TOKENS_PER_CREDIT);
+}
+
+export function estimateMaxCompletionTokensFromCredits(
+  availableCredits: number,
+  safetyRatio: number = 0.8,
+): number {
+  if (!Number.isFinite(availableCredits) || availableCredits <= 0) return 0;
+  const budgetTokens = Math.floor(availableCredits * TOKENS_PER_CREDIT);
+  // Keep room for prompt/tooling tokens and safety margin
+  const tokens = Math.max(0, Math.floor(budgetTokens * safetyRatio));
+  return Math.min(tokens, 64000);
+}
+
 export function convertToMessage(message: ChatMessage): Message {
   return {
     ...message,

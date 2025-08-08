@@ -70,7 +70,6 @@ export const WorkspacePicker = () => {
   };
 
   const handleOpenSettings = () => {
-    if (!activeOrganization?.id) return;
     setIsOpen(false);
     router.push("/workspace/settings");
   };
@@ -187,7 +186,7 @@ export const WorkspacePicker = () => {
             <DropdownMenuSeparator className="my-1.5" />
             <DropdownMenuItem
               onClick={handleOpenSettings}
-              disabled={switchingTo !== null || !activeOrganization?.id}
+              disabled={switchingTo !== null}
               className="cursor-pointer p-2"
             >
               <Settings className="mr-2 h-4 w-4" />
