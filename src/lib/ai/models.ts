@@ -2,9 +2,17 @@
 import { LanguageModel } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { anthropic } from "@ai-sdk/anthropic";
+import { createAzure } from "@ai-sdk/azure";
+
+const azure = createAzure({
+  resourceName: "aihub2542374897",
+  apiKey: process.env.AZURE_OPENAI_API_KEY!,
+  apiVersion: "2024-12-01-preview",
+});
 
 export const customModelProvider = {
   getModel: (model?: string): LanguageModel => {
+    // return azure("gpt-4.1");
     if (model) {
       if (model.startsWith("openai/")) {
         return openai(model.replace("openai/", ""));
@@ -16,6 +24,6 @@ export const customModelProvider = {
     return anthropic("claude-4-sonnet-20250514");
   },
   getTitleModel: (): LanguageModel => {
-    return anthropic("claude-3-5-haiku-latest");
+    return azure("gpt-4.1");
   },
 };
