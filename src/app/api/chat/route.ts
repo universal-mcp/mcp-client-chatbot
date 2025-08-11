@@ -206,6 +206,7 @@ export async function POST(request: Request) {
           system: systemPrompt,
           messages,
           maxSteps: 40,
+          temperature: 1,
           experimental_transform: smoothStream({ chunking: "word" }),
           maxRetries: 3,
           tools: vercelAITools,

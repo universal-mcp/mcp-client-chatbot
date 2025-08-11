@@ -68,7 +68,7 @@ const initialState: AppState = {
   isMcpClientListLoading: true,
   isProjectListLoading: true,
   generatingTitleThreadIds: [],
-  llmModel: "anthropic/claude-sonnet-4",
+  llmModel: "anthropic/claude-4-sonnet-20250514",
 };
 
 export const appStore = create<AppState & AppDispatch>()(
