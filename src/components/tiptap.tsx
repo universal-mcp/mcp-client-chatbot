@@ -59,7 +59,8 @@ const MarkdownEditor = ({
   const [isRichTextMode, setIsRichTextMode] = useState(true);
   const [visibleButtons, setVisibleButtons] = useState(0);
   const toolbarRef = useRef<HTMLDivElement>(null);
-  const [_, setForceRender] = useState({});
+  // Tracks selection changes to update toolbar active states without heavy re-renders
+  const [selectionTick, setSelectionTick] = useState(0);
 
   useEffect(() => {
     if (isGenerating && !isRichTextMode) {
@@ -69,7 +70,34 @@ const MarkdownEditor = ({
 
   const [markdownContent, setMarkdownContent] = useState(value);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const baselineMarkdownRef = useRef<string>("");
   const richTextRef = useRef<HTMLDivElement>(null);
+  const hasInitializedContentRef = useRef(false);
+  const lastExternalValueRef = useRef<string>(value);
+  const debounceTimerRef = useRef<number | null>(null);
+  const isApplyingExternalUpdateRef = useRef(false);
+  const scrollDebounceTimerRef = useRef<number | null>(null);
+
+  const scheduleAutoScroll = useCallback(() => {
+    if (!isRichTextMode) return;
+    if (scrollDebounceTimerRef.current) {
+      window.clearTimeout(scrollDebounceTimerRef.current);
+    }
+    scrollDebounceTimerRef.current = window.setTimeout(() => {
+      const scrollContainer = richTextRef.current;
+      if (!scrollContainer) return;
+      requestAnimationFrame(() => {
+        const editorContent = scrollContainer.querySelector(".ProseMirror");
+        const scrollableContainer = editorContent?.parentElement;
+        if (scrollableContainer) {
+          scrollableContainer.scrollTo({
+            top: scrollableContainer.scrollHeight,
+            behavior: "smooth",
+          });
+        }
+      });
+    }, 80);
+  }, [isRichTextMode]);
 
   const markdownToHtml = useCallback(
     async (markdown: string): Promise<string> => {
@@ -138,84 +166,200 @@ const MarkdownEditor = ({
     content: "",
     immediatelyRender: false,
     onUpdate: ({ editor }) => {
-      if (isRichTextMode) {
-        onChange?.(returnPlainText ? editor.getText() : editor.getHTML());
+      // When applying external updates, skip onChange but DO keep auto-scroll
+      if (isApplyingExternalUpdateRef.current) {
+        if (isRichTextMode && isGenerating) {
+          scheduleAutoScroll();
+        }
+        return;
       }
-      setForceRender({});
+
+      if (isRichTextMode && !isGenerating) {
+        // Debounce parent onChange to avoid re-rendering parent on every keystroke
+        if (debounceTimerRef.current) {
+          window.clearTimeout(debounceTimerRef.current);
+        }
+        debounceTimerRef.current = window.setTimeout(() => {
+          onChange?.(returnPlainText ? editor.getText() : editor.getHTML());
+        }, 300);
+      }
+
+      // Smooth auto-scroll while generating in rich mode
+      if (isRichTextMode && isGenerating) {
+        scheduleAutoScroll();
+      }
+    },
+    onSelectionUpdate: () => {
+      // Bump a small tick to re-render toolbar button variants when the caret moves
+      setSelectionTick((tick) => (tick + 1) % 1000000);
     },
   });
 
-  useEffect(() => {
-    setMarkdownContent(value);
-  }, [value]);
+  // We intentionally avoid syncing markdown state from external value.
+  // Markdown content is derived only when toggling from rich → markdown.
 
-  useEffect(() => {
-    const syncContent = async () => {
-      if (editor && markdownContent !== undefined) {
-        if (isRichTextMode) {
-          const htmlContent = await markdownToHtml(markdownContent);
-          const currentHtml = editor.getHTML();
-          if (htmlContent !== currentHtml) {
-            editor.commands.setContent(htmlContent);
-          }
-        }
+  // Helper to append delta text efficiently (used for streaming)
+  const appendEditorTextDelta = useCallback(
+    (delta: string) => {
+      if (!editor || !delta) return;
+      isApplyingExternalUpdateRef.current = true;
+      try {
+        editor.chain().insertContent(delta).run();
+      } finally {
+        setTimeout(() => {
+          isApplyingExternalUpdateRef.current = false;
+        }, 0);
       }
-    };
+    },
+    [editor],
+  );
 
-    syncContent();
-  }, [editor, isRichTextMode, markdownContent, markdownToHtml]);
+  // Initialize editor content once with HTML
+  useEffect(() => {
+    if (!editor || hasInitializedContentRef.current) return;
+    hasInitializedContentRef.current = true;
+    const initial = value || "";
+    isApplyingExternalUpdateRef.current = true;
+    try {
+      editor.commands.setContent(initial, { emitUpdate: false });
+    } finally {
+      setTimeout(() => {
+        isApplyingExternalUpdateRef.current = false;
+      }, 0);
+    }
+    lastExternalValueRef.current = value || "";
+  }, [editor, value]);
+
+  // Efficiently apply external value updates in rich mode
+  useEffect(() => {
+    if (!editor || !isRichTextMode) return;
+
+    const newValue = value || "";
+    if (newValue === lastExternalValueRef.current) return;
+
+    // If the editor is focused (user typing), do not override content unless streaming
+    if ((editor as any).isFocused && !isGenerating) {
+      // Some Tiptap builds expose isFocused as getter; try both function/object
+      const focused =
+        typeof editor.isFocused === "function"
+          ? (editor.isFocused as () => boolean)()
+          : (editor as any).isFocused;
+      if (focused) {
+        lastExternalValueRef.current = newValue;
+        return;
+      }
+    }
+
+    const currentText = editor.getText() || "";
+    // Extract plain text from incoming HTML
+    const container = document.createElement("div");
+    container.innerHTML = newValue;
+    const newText = container.textContent || container.innerText || "";
+
+    // Streaming-friendly: if new text extends current text, append only the delta
+    if (newText.startsWith(currentText)) {
+      const delta = newText.slice(currentText.length);
+      appendEditorTextDelta(delta);
+    } else {
+      isApplyingExternalUpdateRef.current = true;
+      try {
+        editor.commands.setContent(newValue);
+      } finally {
+        setTimeout(() => {
+          isApplyingExternalUpdateRef.current = false;
+        }, 0);
+      }
+    }
+
+    lastExternalValueRef.current = newValue;
+  }, [editor, isRichTextMode, value, appendEditorTextDelta]);
 
   useEffect(() => {
     if (!isGenerating) return;
 
     const timeoutId = setTimeout(() => {
-      const scrollContainer = isRichTextMode
-        ? richTextRef.current
-        : textareaRef.current;
-      if (scrollContainer) {
-        requestAnimationFrame(() => {
-          if (isRichTextMode) {
-            const editorContent = scrollContainer.querySelector(".ProseMirror");
-            const scrollableContainer = editorContent?.parentElement;
-            if (scrollableContainer) {
-              scrollableContainer.scrollTo({
-                top: scrollableContainer.scrollHeight,
-                behavior: "smooth",
-              });
-            }
-          } else {
+      if (isRichTextMode) {
+        scheduleAutoScroll();
+      } else {
+        const scrollContainer = textareaRef.current;
+        if (scrollContainer) {
+          requestAnimationFrame(() => {
             scrollContainer.scrollTo({
               top: scrollContainer.scrollHeight,
               behavior: "smooth",
             });
-          }
-        });
+          });
+        }
       }
     }, 50);
 
     return () => clearTimeout(timeoutId);
-  }, [markdownContent, isGenerating, isRichTextMode]);
+  }, [markdownContent, isGenerating, isRichTextMode, scheduleAutoScroll]);
 
   const handleMarkdownChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const newValue = e.target.value;
       setMarkdownContent(newValue);
-      onChange?.(newValue);
     },
-    [onChange],
+    [],
   );
 
   const handleModeToggle = useCallback(async () => {
+    // Cancel any pending debounced onChange when toggling modes
+    if (debounceTimerRef.current) {
+      window.clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+    if (scrollDebounceTimerRef.current) {
+      window.clearTimeout(scrollDebounceTimerRef.current);
+      scrollDebounceTimerRef.current = null;
+    }
+
     if (isRichTextMode) {
-      // Switch to Markdown
+      // Switch to Markdown: convert current rich content once, do NOT notify parent
       const htmlContent = editor?.getHTML() || "";
       const convertedMarkdown = htmlToMarkdown(htmlContent);
+      baselineMarkdownRef.current = convertedMarkdown;
       setMarkdownContent(convertedMarkdown);
-      onChange?.(convertedMarkdown);
+      setIsRichTextMode(false);
+    } else {
+      // Switch to Rich Text: convert markdown to HTML once
+      const htmlContent = await markdownToHtml(markdownContent || "");
+      const markdownUnchanged =
+        (baselineMarkdownRef.current || "") === (markdownContent || "");
+
+      isApplyingExternalUpdateRef.current = true;
+      try {
+        // If no edits were made while in Markdown mode, restore exact original HTML
+        if (markdownUnchanged) {
+          editor?.commands.setContent(lastExternalValueRef.current || "", {
+            emitUpdate: false,
+          });
+        } else {
+          editor?.commands.setContent(htmlContent, { emitUpdate: false });
+        }
+      } finally {
+        setTimeout(() => {
+          isApplyingExternalUpdateRef.current = false;
+        }, 0);
+      }
+
+      // Only notify parent if content actually changed during Markdown mode
+      if (!markdownUnchanged) {
+        onChange?.(htmlContent);
+        lastExternalValueRef.current = htmlContent;
+      }
+
+      setIsRichTextMode(true);
     }
-    // Switch to Rich Text will be handled by useEffect
-    setIsRichTextMode((prev) => !prev);
-  }, [isRichTextMode, editor, htmlToMarkdown, onChange]);
+  }, [
+    isRichTextMode,
+    editor,
+    htmlToMarkdown,
+    markdownContent,
+    markdownToHtml,
+    onChange,
+  ]);
 
   const allToolbarButtons = useMemo(
     () => {
@@ -327,8 +471,9 @@ const MarkdownEditor = ({
         </Button>,
       ];
     },
+    // Recompute when editor instance, generating state, or selection tick changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [editor, isGenerating, editor?.state.selection],
+    [editor, isGenerating, selectionTick],
   );
 
   useEffect(() => {
