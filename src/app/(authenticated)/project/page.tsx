@@ -121,7 +121,7 @@ function TemplateCard({ template, onClick }: TemplateCardProps) {
 
   return (
     <Card
-      className="h-full cursor-pointer transition-all duration-200 hover:shadow-md hover:border-accent-foreground/20 group gap-3"
+      className="h-full cursor-pointer transition-all duration-200 hover:shadow-md hover:border-foreground/20 group gap-3"
       onClick={onClick}
     >
       <CardHeader className="pb-0">
@@ -185,7 +185,7 @@ function AgentCard({
   return (
     <Card
       key={id}
-      className="h-full cursor-pointer transition-all duration-200 hover:shadow-md hover:border-accent-foreground/20 group overflow-hidden gap-3"
+      className="h-full cursor-pointer transition-all duration-200 hover:shadow-md hover:border-foreground/20 group overflow-hidden gap-3"
       onClick={handleCardClick}
     >
       <CardHeader className="pb-0">
@@ -346,7 +346,7 @@ export default function ProjectsPage() {
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Header */}
-      <div className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
+      <div className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="flex justify-center p-6">
           <div
             className="flex items-center justify-between w-full"
@@ -360,7 +360,8 @@ export default function ProjectsPage() {
             </div>
 
             <Button
-              className="gap-2"
+              variant="secondary"
+              className="gap-2 text-foreground bg-secondary/40 border border-foreground"
               onClick={() => router.push("/project/new")}
             >
               <Plus className="size-4" />

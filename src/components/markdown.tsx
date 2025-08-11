@@ -23,7 +23,7 @@ WordByWordFadeIn.displayName = "WordByWordFadeIn";
 const components: Partial<Components> = {
   code: ({ children }) => {
     return (
-      <code className="text-sm rounded-md bg-accent py-1 px-2 mx-0.5">
+      <code className="text-sm rounded-md bg-muted py-1 px-2 mx-0.5">
         {children}
       </code>
     );
@@ -31,7 +31,7 @@ const components: Partial<Components> = {
   blockquote: ({ children }) => {
     return (
       <div className="px-4">
-        <blockquote className="relative bg-accent/30 p-6 rounded-2xl my-6 overflow-hidden border">
+        <blockquote className="relative bg-muted p-6 rounded-2xl my-6 overflow-hidden border">
           <WordByWordFadeIn>{children}</WordByWordFadeIn>
         </blockquote>
       </div>

@@ -65,7 +65,7 @@ export function AppSidebarUser({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground bg-input/30 border"
+              className="data-[state=open]:bg-muted data-[state=open]:text-foreground bg-input/30 border"
               size={"lg"}
             >
               <Avatar className="rounded-full size-8 border">
@@ -151,8 +151,8 @@ function SelectLlmModel() {
   const models = [
     "openai/gpt-4.1",
     "openai/gpt-4.1-mini",
+    "openai/gpt-5-chat",
     "openai/gpt-5-mini",
-    "openai/gpt-5-nano",
     "anthropic/claude-3-7-sonnet-latest",
     "anthropic/claude-4-sonnet-20250514",
   ];
@@ -237,7 +237,7 @@ function SelectTheme() {
               <div
                 className={cn(
                   isDark &&
-                    "bg-accent ring ring-muted-foreground/40 text-foreground",
+                    "bg-secondary ring ring-muted-foreground/40 text-foreground",
                   "p-1 rounded-full",
                 )}
               >
@@ -246,7 +246,7 @@ function SelectTheme() {
               <div
                 className={cn(
                   !isDark &&
-                    "bg-accent ring ring-muted-foreground/40 text-foreground",
+                    "bg-secondary ring ring-muted-foreground/40 text-foreground",
                   "p-1 rounded-full",
                 )}
               >

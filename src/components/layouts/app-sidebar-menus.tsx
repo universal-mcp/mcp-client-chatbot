@@ -24,25 +24,34 @@ export function AppSidebarMenus() {
           <TooltipProvider>
             <Tooltip>
               <SidebarMenuItem className="mb-1">
-                <Link href="/">
+                <div
+                  className={`flex items-center rounded-lg ${
+                    pathname === "/" ? "bg-input!" : ""
+                  }`}
+                >
                   <SidebarMenuButton
-                    className="flex font-semibold group/new-chat"
+                    asChild
+                    className="flex font-semibold data-[active=true]:bg-transparent!"
                     isActive={pathname === "/"}
                   >
-                    <WriteIcon className="size-4" />
-                    {t("newChat")}
-                    <div className="flex items-center gap-1 text-xs font-medium ml-auto opacity-0 group-hover/new-chat:opacity-100 transition-opacity">
-                      {getShortcutKeyList(Shortcuts.openNewChat).map((key) => (
-                        <span
-                          key={key}
-                          className="border w-5 h-5 flex items-center justify-center bg-accent rounded"
-                        >
-                          {key}
-                        </span>
-                      ))}
-                    </div>
+                    <Link href="/" className="flex items-center">
+                      <WriteIcon className="size-4" />
+                      {t("newChat")}
+                      <div className="flex items-center gap-1 text-xs font-medium ml-auto opacity-0 group-hover/new-chat:opacity-100 transition-opacity">
+                        {getShortcutKeyList(Shortcuts.openNewChat).map(
+                          (key) => (
+                            <span
+                              key={key}
+                              className="border w-5 h-5 flex items-center justify-center bg-accent rounded"
+                            >
+                              {key}
+                            </span>
+                          ),
+                        )}
+                      </div>
+                    </Link>
                   </SidebarMenuButton>
-                </Link>
+                </div>
               </SidebarMenuItem>
             </Tooltip>
           </TooltipProvider>
@@ -51,15 +60,22 @@ export function AppSidebarMenus() {
           <TooltipProvider>
             <Tooltip>
               <SidebarMenuItem className="mb-1">
-                <Link href="/integrations">
+                <div
+                  className={`flex items-center rounded-lg ${
+                    pathname === "/integrations" ? "bg-input!" : ""
+                  }`}
+                >
                   <SidebarMenuButton
-                    className="font-semibold"
+                    asChild
+                    className="font-semibold data-[active=true]:bg-transparent!"
                     isActive={pathname === "/integrations"}
                   >
-                    <MCPIcon className="size-4 fill-accent-foreground" />
-                    MCP Integrations
+                    <Link href="/integrations" className="flex items-center">
+                      <MCPIcon className="size-4 fill-accent-foreground" />
+                      MCP Integrations
+                    </Link>
                   </SidebarMenuButton>
-                </Link>
+                </div>
               </SidebarMenuItem>
             </Tooltip>
           </TooltipProvider>
@@ -68,15 +84,22 @@ export function AppSidebarMenus() {
           <TooltipProvider>
             <Tooltip>
               <SidebarMenuItem>
-                <Link href="/project">
+                <div
+                  className={`flex items-center rounded-lg ${
+                    pathname === "/project" ? "bg-input!" : ""
+                  }`}
+                >
                   <SidebarMenuButton
-                    className="font-semibold"
+                    asChild
+                    className="font-semibold data-[active=true]:bg-transparent!"
                     isActive={pathname === "/project"}
                   >
-                    <Bot className="size-4" />
-                    Agents
+                    <Link href="/project" className="flex items-center">
+                      <Bot className="size-4" />
+                      Agents
+                    </Link>
                   </SidebarMenuButton>
-                </Link>
+                </div>
               </SidebarMenuItem>
             </Tooltip>
           </TooltipProvider>

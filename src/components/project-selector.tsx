@@ -74,13 +74,13 @@ export function ProjectSelector({
       </DropdownMenuTrigger>
       <DropdownMenuContent className="md:w-80 p-0" align="start" side="top">
         <div className="p-2 border-b">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <Search className="size-4 opacity-50" />
             <Input
               placeholder="Search agent..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="border-none bg-transparent p-0 h-8 text-sm focus-visible:ring-0"
+              className="bg-transparent p-2 h-8 text-sm focus-visible:ring-0"
             />
           </div>
         </div>

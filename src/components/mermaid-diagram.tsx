@@ -104,7 +104,7 @@ export function MermaidDiagram({ chart }: MermaidDiagramProps) {
           <pre className="mt-2 p-2 bg-destructive/10 dark:bg-destructive/20 rounded text-xs overflow-auto">
             {state.error}
           </pre>
-          <pre className="mt-2 p-2 bg-accent/10 dark:bg-accent/20 rounded text-xs overflow-auto">
+          <pre className="mt-2 p-2 bg-muted/30 dark:bg-muted/20 rounded text-xs overflow-auto">
             {chart}
           </pre>
         </div>

@@ -160,7 +160,7 @@ export default function PromptInput({
           <div
             onClick={handleContainerClick}
             className={cn(
-              "shadow-lg overflow-hidden rounded-4xl backdrop-blur-sm transition-all duration-200 bg-muted/60 relative flex w-full flex-col cursor-text z-10 items-stretch focus-within:bg-muted hover:bg-muted focus-within:ring-muted hover:ring-muted",
+              "shadow-lg overflow-hidden rounded-4xl backdrop-blur-sm transition-all duration-200 bg-muted/60 border border-input relative flex w-full flex-col cursor-text z-10 items-stretch focus-within:bg-muted hover:bg-muted focus-within:ring-muted hover:ring-muted",
               isLoadingTools && "cursor-wait animate-pulse",
             )}
           >
@@ -290,7 +290,7 @@ export default function PromptInput({
                       onStop();
                     }}
                     className={cn(
-                      "fade-in animate-in cursor-pointer text-muted-foreground rounded-full p-2 bg-secondary hover:bg-accent-foreground hover:text-accent transition-all duration-200",
+                      "fade-in animate-in cursor-pointer text-muted-foreground rounded-full p-2 bg-secondary hover:bg-secondary/80 hover:text-foreground transition-all duration-200",
                       disabled && "opacity-50 cursor-not-allowed",
                     )}
                   >

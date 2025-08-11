@@ -23,7 +23,7 @@ const MermaidDiagram = dynamic(
   () => import("./mermaid-diagram").then((mod) => mod.MermaidDiagram),
   {
     loading: () => (
-      <div className="text-sm flex bg-accent/30 flex-col rounded-2xl relative my-4 overflow-hidden border">
+      <div className="text-sm flex bg-muted/30 flex-col rounded-2xl relative my-4 overflow-hidden border">
         <div className="w-full flex z-20 py-2 px-4 items-center">
           <span className="text-sm text-muted-foreground">mermaid</span>
         </div>
@@ -145,7 +145,7 @@ export function PreBlock({ children }: { children: any }) {
     <div
       className={cn(
         loading && "animate-pulse",
-        "text-sm flex bg-accent/30 flex-col rounded-2xl relative my-4 overflow-hidden border",
+        "text-sm flex bg-muted/30 flex-col rounded-2xl relative my-4 overflow-hidden border",
       )}
     >
       {component}

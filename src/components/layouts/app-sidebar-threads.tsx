@@ -270,12 +270,14 @@ export function AppSidebarThreads() {
                           threadId={thread.id}
                           beforeTitle={thread.title}
                         >
-                          <div className="flex items-center data-[state=open]:bg-input! group-hover/thread:bg-input! rounded-lg">
+                          <div
+                            className={`flex items-center rounded-lg ${currentThreadId === thread.id ? "bg-input!" : ""}`}
+                          >
                             <Tooltip delayDuration={1000}>
                               <TooltipTrigger asChild>
                                 <SidebarMenuButton
                                   asChild
-                                  className="group-hover/thread:bg-transparent!"
+                                  className="data-[active=true]:bg-transparent!"
                                   isActive={currentThreadId === thread.id}
                                 >
                                   <Link

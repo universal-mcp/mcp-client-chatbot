@@ -430,7 +430,7 @@ export function ChatBotVoice() {
                       "rounded-full p-6 transition-colors duration-300",
 
                       isLoading
-                        ? "bg-accent-foreground text-accent animate-pulse"
+                        ? "bg-foreground text-background animate-pulse"
                         : !isActive
                           ? "bg-green-500/10 text-green-500 hover:bg-green-500/30"
                           : !isListening

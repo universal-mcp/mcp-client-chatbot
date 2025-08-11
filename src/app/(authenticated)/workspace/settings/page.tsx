@@ -109,18 +109,18 @@ export default function WorkspaceSettingsPage() {
               </div>
               {!isPersonalWorkspace && (
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   size="sm"
                   onClick={handleEditClick}
                   disabled={!isAdmin}
-                  className={!isAdmin ? "opacity-50 cursor-not-allowed" : ""}
+                  className={`gap-2 ${!isAdmin ? "opacity-50 cursor-not-allowed" : ""}`}
                   title={
                     !isAdmin
                       ? "Only administrators can edit workspace details"
                       : ""
                   }
                 >
-                  <Settings className="h-4 w-4 mr-2" />
+                  <Settings className="h-4 w-4" />
                   Edit
                 </Button>
               )}

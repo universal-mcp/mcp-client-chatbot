@@ -86,7 +86,7 @@ export const WorkspacePicker = () => {
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton
                 size="lg"
-                className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                className="data-[state=open]:bg-muted data-[state=open]:text-foreground"
               >
                 {isLoading ? (
                   <>
