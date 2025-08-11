@@ -28,11 +28,13 @@ import {
   Code,
   WandSparklesIcon,
   PlusIcon,
+  CornerUpLeft,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR, { mutate } from "swr";
+import { AnimatePresence, motion } from "framer-motion";
 import { Button } from "ui/button";
 import { Input } from "ui/input";
 import { Label } from "ui/label";
@@ -53,6 +55,8 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
+  DialogClose,
 } from "ui/dialog";
 import { Textarea } from "ui/textarea";
 import { TextShimmer } from "ui/text-shimmer";
@@ -104,6 +108,7 @@ export function AgentEditor({
   const [project, setProject] = useObjectState(defaultConfig());
   const [isConversationsModalOpen, setIsConversationsModalOpen] =
     useState(false);
+  const [isLeaveConfirmOpen, setIsLeaveConfirmOpen] = useState(false);
 
   // MCP Configuration state
   const [mcpServers, setMcpServers] = useState<MCPServerWithId[]>([]);
@@ -437,6 +442,7 @@ export function AgentEditor({
         [DefaultToolName.CreatePieChart]: AppDefaultToolkit.Visualization,
         [DefaultToolName.CreateBarChart]: AppDefaultToolkit.Visualization,
         [DefaultToolName.CreateLineChart]: AppDefaultToolkit.Visualization,
+        [DefaultToolName.CreateTable]: AppDefaultToolkit.Visualization,
         [DefaultToolName.WebSearch]: AppDefaultToolkit.WebSearch,
         [DefaultToolName.WebContent]: AppDefaultToolkit.WebSearch,
         [DefaultToolName.Http]: AppDefaultToolkit.Http,
@@ -646,6 +652,13 @@ export function AgentEditor({
     projectData,
   ]);
 
+  const handleCancelChanges = useCallback(() => {
+    if (isNewProject) return;
+    setProject({ ...originalProject });
+    setToolConfigs(new Map(originalToolConfigs));
+    setHasMcpChanges(false);
+  }, [isNewProject, originalProject, originalToolConfigs]);
+
   const handleServerToggle = useCallback(
     (serverId: string, enabled: boolean) => {
       setServerConfigs((prev) => {
@@ -802,7 +815,13 @@ export function AgentEditor({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => router.push(`/project`)}
+              onClick={() => {
+                if (hasAnyChanges) {
+                  setIsLeaveConfirmOpen(true);
+                } else {
+                  router.push(`/project`);
+                }
+              }}
               className="flex items-center gap-2"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -829,7 +848,7 @@ export function AgentEditor({
                   <TooltipTrigger asChild>
                     <Button
                       variant="outline"
-                      size="sm"
+                      size="default"
                       onClick={() => setIsConversationsModalOpen(true)}
                       className="flex items-center gap-2"
                     >
@@ -843,7 +862,7 @@ export function AgentEditor({
               )}
               <Button
                 variant="outline"
-                size="sm"
+                size="default"
                 disabled={isGenerating}
                 onClick={handleOpenAiGenerate}
                 className="flex items-center gap-2"
@@ -852,16 +871,98 @@ export function AgentEditor({
                 Generate with AI
                 {isGenerating && <Loader className="h-4 w-4 animate-spin" />}
               </Button>
-              <Button
-                variant="default"
-                size="sm"
-                disabled={isGenerating || !projectId}
-                onClick={handleStartChat}
-                className="flex items-center gap-1 bg-white text-black hover:bg-gray-100"
-              >
-                <PlusIcon className="h-4 w-4" />
-                Start Chat
-              </Button>
+              <AnimatePresence mode="wait" initial={false}>
+                {isNewProject ? (
+                  <motion.div
+                    key="create"
+                    initial={{ y: -16, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: 16, opacity: 0 }}
+                    transition={{ duration: 0.18, ease: "easeOut" }}
+                    className="flex"
+                  >
+                    <Button
+                      variant="secondary"
+                      size="default"
+                      onClick={saveProject}
+                      disabled={
+                        isLoading ||
+                        isGenerating ||
+                        !(project.name?.trim() ?? false)
+                      }
+                      className="flex items-center gap-2 text-foreground bg-secondary/40 border border-foreground"
+                    >
+                      {isSaving ? (
+                        <>
+                          {t("Common.saving")}
+                          <Loader className="size-4 animate-spin" />
+                        </>
+                      ) : (
+                        <>
+                          <PlusIcon className="h-3 w-3" />
+                          Create agent
+                        </>
+                      )}
+                    </Button>
+                  </motion.div>
+                ) : hasAnyChanges ? (
+                  <motion.div
+                    key="edit"
+                    initial={{ y: -16, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: 16, opacity: 0 }}
+                    transition={{ duration: 0.18, ease: "easeOut" }}
+                    className="flex items-center gap-2"
+                  >
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="default"
+                          onClick={handleCancelChanges}
+                          disabled={isSaving || isGenerating}
+                          aria-label="Revert changes"
+                        >
+                          <CornerUpLeft className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Revert changes</p>
+                      </TooltipContent>
+                    </Tooltip>
+                    <Button
+                      variant="secondary"
+                      size="default"
+                      onClick={saveProject}
+                      disabled={isSaving || isGenerating || !hasAnyChanges}
+                      className="flex items-center gap-2 px-4 min-w-36 justify-center text-foreground bg-secondary/40 border border-foreground"
+                    >
+                      {isSaving ? t("Common.saving") : t("Common.save")}
+                      {isSaving && <Loader className="size-4 animate-spin" />}
+                    </Button>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="start"
+                    initial={{ y: -16, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: 16, opacity: 0 }}
+                    transition={{ duration: 0.18, ease: "easeOut" }}
+                    className="flex"
+                  >
+                    <Button
+                      variant="secondary"
+                      size="default"
+                      disabled={isGenerating || !projectId}
+                      onClick={handleStartChat}
+                      className="flex items-center gap-2 text-foreground bg-secondary/40 border border-foreground"
+                    >
+                      <PlusIcon className="h-3 w-3" />
+                      Start Chat
+                    </Button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </div>
@@ -878,7 +979,7 @@ export function AgentEditor({
               value={project.name || ""}
               onChange={(e) => setProject({ name: e.target.value })}
               disabled={isLoading || isGenerating}
-              className="hover:bg-input bg-secondary/40 transition-colors border-transparent border-none! focus-visible:bg-input! ring-0! placeholder:text-xs"
+              className="hover:bg-input bg-secondary/40 transition-colors focus-visible:bg-input! ring-0! placeholder:text-xs"
               id="project-name"
               placeholder="Deep Research"
             />
@@ -897,7 +998,7 @@ export function AgentEditor({
               value={project.description || ""}
               onChange={(e) => setProject({ description: e.target.value })}
               disabled={isLoading || isGenerating}
-              className="hover:bg-input bg-secondary/40 transition-colors border-transparent border-none! focus-visible:bg-input! ring-0! placeholder:text-xs"
+              className="hover:bg-input bg-secondary/40 transition-colors focus-visible:bg-input! ring-0! placeholder:text-xs"
               id="project-description"
               placeholder="Performs deep research on a given topic"
             />
@@ -924,7 +1025,7 @@ export function AgentEditor({
                   })
                 }
                 disabled={isLoading || isGenerating}
-                className="w-64 hover:bg-input bg-secondary/40 transition-colors border-transparent border-none! focus-visible:bg-input! ring-0! placeholder:text-xs"
+                className="w-64 hover:bg-input bg-secondary/40 transition-colors focus-visible:bg-input! ring-0! placeholder:text-xs"
                 id="project-expert"
                 placeholder="collating loads of data"
               />
@@ -1215,33 +1316,7 @@ export function AgentEditor({
           </Popover>
         </div>
 
-        {/* Save Button */}
-        {isNewProject ? (
-          // Only show Create Agent button if name is set
-          project.name?.trim() && (
-            <div className="flex justify-end pt-2 pb-4">
-              <Button
-                onClick={saveProject}
-                disabled={isLoading || isGenerating}
-              >
-                {isSaving ? t("Common.saving") : "Create Agent"}
-                {isSaving && <Loader className="size-4 animate-spin" />}
-              </Button>
-            </div>
-          )
-        ) : (
-          // Always show Save button for existing projects
-          <div className="flex justify-end pt-2 pb-4">
-            <Button
-              onClick={saveProject}
-              disabled={isLoading || isGenerating || !hasAnyChanges}
-              variant={hasAnyChanges ? "default" : "secondary"}
-            >
-              {isSaving ? t("Common.saving") : t("Common.save")}
-              {isSaving && <Loader className="size-4 animate-spin" />}
-            </Button>
-          </div>
-        )}
+        {/* Save Button moved to top. Bottom CTA removed as requested. */}
       </div>
 
       {/* Past Conversations Modal - only for existing projects */}
@@ -1334,6 +1409,31 @@ export function AgentEditor({
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Leave Confirmation Dialog */}
+      <Dialog open={isLeaveConfirmOpen} onOpenChange={setIsLeaveConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Unsaved changes</DialogTitle>
+            <DialogDescription>
+              You have unsaved changes. Are you sure you want to leave this
+              page?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Keep editing</Button>
+            </DialogClose>
+            <Button
+              variant="destructive"
+              onClick={() => router.push(`/project`)}
+              className="bg-destructive/80 hover:bg-destructive transition-colors"
+            >
+              Discard and leave
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
