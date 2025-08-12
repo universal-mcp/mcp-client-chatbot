@@ -35,6 +35,10 @@ function OrgMembers({
       toast.error("Only administrators can remove members");
       return;
     }
+    if (!activeOrganization?.id) {
+      toast.error("Organization not found");
+      return;
+    }
 
     await organization.removeMember({
       memberIdOrEmail: member.id,
