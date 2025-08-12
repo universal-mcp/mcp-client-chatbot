@@ -71,7 +71,7 @@ export function ProjectDropdown({ project, children, side, align }: Props) {
           router.push("/");
         }
         mutate("/api/thread/list");
-        mutate("projects");
+        mutate("/api/project/list");
       })
       .unwrap();
   };
@@ -169,7 +169,7 @@ function UpdateProjectNameDialog({
         setIsOpen(false);
         if (isOk) {
           onUpdated(name);
-          mutate("projects");
+          mutate("/api/project/list");
           mutate(`/projects/${projectId}`);
           toast.success(t("Chat.Project.projectUpdated"));
         } else {

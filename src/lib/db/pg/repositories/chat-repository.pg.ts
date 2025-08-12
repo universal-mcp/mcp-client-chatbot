@@ -561,6 +561,7 @@ export const pgChatRepository: ChatRepository = {
       .select({
         id: ProjectSchema.id,
         name: ProjectSchema.name,
+        description: ProjectSchema.description,
         createdAt: ProjectSchema.createdAt,
         updatedAt: ProjectSchema.updatedAt,
         userId: ProjectSchema.userId,
@@ -590,7 +591,7 @@ export const pgChatRepository: ChatRepository = {
 
   updateProject: async (
     id: string,
-    project: Partial<Pick<Project, "name" | "instructions">>,
+    project: Partial<Pick<Project, "name" | "description" | "instructions">>,
     userId: string,
     organizationId: string | null,
   ): Promise<Project> => {

@@ -175,7 +175,7 @@ export const UserMessagePart = memo(
             "flex flex-col gap-4 max-w-full",
             "flex flex-col gap-4 max-w-full ring ring-input",
             {
-              "bg-accent text-accent-foreground px-4 py-3 rounded-2xl": isLast,
+              "bg-secondary text-secondary-foreground px-4 py-3 rounded-2xl": true, // Always apply user message styling
               "opacity-50": isError,
             },
             isError && "border-destructive border",
@@ -508,6 +508,13 @@ export const ToolMessagePart = memo(
           case DefaultToolName.CreateLineChart:
             return (
               <LineChart key={`${toolCallId}-${toolName}`} {...(args as any)} />
+            );
+          case DefaultToolName.CreateTable:
+            return (
+              <InteractiveTable
+                key={`${toolCallId}-${toolName}`}
+                {...(args as any)}
+              />
             );
         }
       }
@@ -849,6 +856,17 @@ const BarChart = dynamic(
 
 const LineChart = dynamic(
   () => import("./tool-invocation/line-chart").then((mod) => mod.LineChart),
+  {
+    ssr: false,
+    loading,
+  },
+);
+
+const InteractiveTable = dynamic(
+  () =>
+    import("./tool-invocation/interactive-table").then(
+      (mod) => mod.InteractiveTable,
+    ),
   {
     ssr: false,
     loading,

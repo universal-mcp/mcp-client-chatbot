@@ -37,15 +37,14 @@ import {
   DialogTitle,
 } from "ui/dialog";
 import { useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
-import { Think } from "ui/think";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ThinkChat } from "ui/think";
 import { useGenerateThreadTitle } from "@/hooks/queries/use-generate-thread-title";
 
 type Props = {
   threadId: string;
   initialMessages: Array<UIMessage>;
   selectedChatModel?: string;
-  projectId?: string;
   isReadOnly?: boolean;
   slots?: {
     emptySlot?: ReactNode;
@@ -57,16 +56,18 @@ export default function ChatBot({
   threadId,
   initialMessages,
   slots,
-  projectId,
   isReadOnly,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const searchParams = useSearchParams();
   const [
     appStoreMutate,
     toolChoice,
     allowedAppDefaultToolkit,
     allowedMcpServers,
     threadList,
+    llmModel,
+    projectList,
   ] = appStore(
     useShallow((state) => [
       state.mutate,
@@ -74,14 +75,70 @@ export default function ChatBot({
       state.allowedAppDefaultToolkit,
       state.allowedMcpServers,
       state.threadList,
-      state.isMcpClientListLoading,
+      state.llmModel,
+      state.projectList,
     ]),
   );
-  const router = useRouter();
+
+  // Local state for project selection
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
+    null,
+  );
+  const [selectedProject, setSelectedProject] = useState<{
+    name: string;
+    description?: string | null;
+  } | null>(null);
+
+  const currentThread = useMemo(() => {
+    return threadList.find((thread) => thread.id === threadId);
+  }, [threadList, threadId]);
+
+  // Initialize project selection based on current thread or URL params
+  useEffect(() => {
+    // First check if there's a projectId in URL params
+    const urlProjectId = searchParams.get("projectId");
+
+    if (urlProjectId) {
+      // URL param takes precedence
+      const project = projectList.find((p) => p.id === urlProjectId);
+      if (project) {
+        setSelectedProjectId(urlProjectId);
+        setSelectedProject({
+          name: project.name,
+          description: project.description,
+        });
+        return;
+      } else if (projectList.length > 0) {
+        // Project not found in list, but project list is loaded
+        console.warn(
+          `Project with ID ${urlProjectId} not found in project list`,
+        );
+        // Optionally show a toast or handle this case
+      }
+      // If projectList is empty, we might still be loading, so don't clear yet
+    }
+
+    // Fall back to thread's project if no URL param or URL project not found
+    if (currentThread?.projectId) {
+      const project = projectList.find((p) => p.id === currentThread.projectId);
+      setSelectedProjectId(currentThread.projectId);
+      setSelectedProject(
+        project
+          ? { name: project.name, description: project.description }
+          : null,
+      );
+    } else if (!urlProjectId) {
+      // Only clear if there's no URL param to avoid clearing while loading
+      setSelectedProjectId(null);
+      setSelectedProject(null);
+    }
+  }, [currentThread?.projectId, projectList, searchParams]);
+
   const generateTitle = useGenerateThreadTitle({
     threadId,
-    projectId,
+    projectId: selectedProjectId ?? undefined,
   });
+
   const {
     messages,
     input,
@@ -98,7 +155,11 @@ export default function ChatBot({
     api: "/api/chat",
     initialMessages,
     experimental_prepareRequestBody: ({ messages }) => {
-      window.history.replaceState({}, "", `/chat/${threadId}`);
+      // Build URL with project ID if selected
+      const url = selectedProjectId
+        ? `/chat/${threadId}?projectId=${selectedProjectId}`
+        : `/chat/${threadId}`;
+      window.history.replaceState({}, "", url);
       const lastMessage = messages.at(-1)!;
       vercelAISdkV4ToolInvocationIssueCatcher(lastMessage);
       const request: ChatApiSchemaRequestBody = {
@@ -107,7 +168,8 @@ export default function ChatBot({
         allowedMcpServers: latestRef.current.allowedMcpServers,
         allowedAppDefaultToolkit: latestRef.current.allowedAppDefaultToolkit,
         message: lastMessage,
-        projectId: projectId ?? currentThread?.projectId ?? null,
+        projectId: latestRef.current.selectedProjectId ?? null,
+        llmModel: latestRef.current.llmModel,
       };
       return request;
     },
@@ -137,10 +199,6 @@ export default function ChatBot({
         if (userContent || assistantContent) {
           generateTitle(userContent + assistantContent);
         }
-
-        if (projectId) {
-          router.replace(`/chat/${threadId}`);
-        }
       } else if (latestRef.current.threadList[0]?.id !== threadId) {
         mutate("/api/thread/list");
       }
@@ -155,16 +213,6 @@ export default function ChatBot({
     },
   });
 
-  const append = useCallback(
-    (...args: Parameters<typeof originalAppend>) => {
-      if (projectId) {
-        appStoreMutate({ currentProjectId: undefined });
-      }
-      return originalAppend(...args);
-    },
-    [originalAppend, projectId, appStoreMutate],
-  );
-
   const [isDeleteThreadPopupOpen, setIsDeleteThreadPopupOpen] = useState(false);
 
   const latestRef = useToRef({
@@ -174,6 +222,8 @@ export default function ChatBot({
     messages,
     threadList,
     threadId,
+    llmModel,
+    selectedProjectId,
   });
 
   const isLoading = useMemo(
@@ -252,17 +302,13 @@ export default function ChatBot({
     };
   }, [threadId]);
 
-  const currentThread = useMemo(() => {
-    return threadList.find((thread) => thread.id === threadId);
-  }, [threadList, threadId]);
-
   useEffect(() => {
-    if (isInitialThreadEntry)
+    if (isInitialThreadEntry && !isReadOnly)
       containerRef.current?.scrollTo({
         top: containerRef.current?.scrollHeight,
         behavior: "instant",
       });
-  }, [isInitialThreadEntry]);
+  }, [isInitialThreadEntry, isReadOnly]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -290,10 +336,34 @@ export default function ChatBot({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  // Project selection handlers
+  const handleProjectSelect = useCallback(
+    (
+      projectId: string | null,
+      project?: { name: string; description?: string | null },
+    ) => {
+      setSelectedProjectId(projectId);
+      setSelectedProject(
+        project
+          ? { name: project.name, description: project.description }
+          : null,
+      );
+    },
+    [],
+  );
+
+  const handleProjectClear = useCallback(() => {
+    setSelectedProjectId(null);
+    setSelectedProject(null);
+  }, []);
+
+  // Check if project selection should be disabled (when thread has a project)
+  const isProjectSelectionDisabled = currentThread != null;
+
   return (
     <div
       className={cn(
-        emptyMessage && !projectId && "justify-center pb-24",
+        emptyMessage && "justify-center pb-24",
         "flex flex-col min-w-0 relative h-full",
       )}
     >
@@ -338,7 +408,7 @@ export default function ChatBot({
             {showThink && (
               <>
                 <div className="w-full mx-auto max-w-3xl px-6 relative">
-                  <Think />
+                  <ThinkChat />
                 </div>
                 <div className="min-h-[calc(55dvh-56px)]" />
               </>
@@ -354,11 +424,16 @@ export default function ChatBot({
         >
           <PromptInput
             input={input}
-            append={append}
+            append={originalAppend}
             setInput={setInput}
             isLoading={isLoading || isPendingToolCall}
             onStop={stop}
-            isInProjectContext={!!projectId || !!currentThread?.projectId}
+            selectedProjectId={selectedProjectId}
+            selectedProject={selectedProject}
+            onProjectClear={handleProjectClear}
+            isProjectSelectionDisabled={isProjectSelectionDisabled}
+            projectList={projectList}
+            onProjectSelect={handleProjectSelect}
           />
           {slots?.inputBottomSlot}
         </div>

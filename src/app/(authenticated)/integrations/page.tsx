@@ -48,6 +48,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ToolsModalContent } from "@/components/ToolsModalContent";
 
 interface DefaultServerConfig {
   id: string;
@@ -426,7 +427,7 @@ export default function IntegrationsPage() {
 
   return (
     <div className="flex flex-col h-full bg-background">
-      <div className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
+      <div className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="flex justify-center p-6">
           <div
             className="flex items-center justify-between w-full"
@@ -441,7 +442,11 @@ export default function IntegrationsPage() {
               </p>
             </div>
             {!isLoadingData && isAdmin && (
-              <Button onClick={handleAddServerClick} className="gap-2">
+              <Button
+                onClick={handleAddServerClick}
+                variant="secondary"
+                className="gap-2 text-foreground bg-secondary/40 border border-foreground/40"
+              >
                 <Plus className="size-4" />
                 Add Server
               </Button>
@@ -581,6 +586,7 @@ export default function IntegrationsPage() {
                 <DialogFooter>
                   <Button
                     variant="outline"
+                    className="text-foreground"
                     onClick={() => {
                       setAddServerModalOpen(false);
                       setNewServerName("");
@@ -593,6 +599,7 @@ export default function IntegrationsPage() {
                     Cancel
                   </Button>
                   <Button
+                    className="text-foreground"
                     onClick={handleAddServer}
                     disabled={isAddingServer || !isFormValid}
                   >
@@ -664,6 +671,7 @@ export default function IntegrationsPage() {
                 <DialogFooter>
                   <Button
                     variant="outline"
+                    className="text-foreground"
                     onClick={() => {
                       setDefaultServerModalOpen(false);
                       setDefaultServerCredentialType("personal");
@@ -674,6 +682,7 @@ export default function IntegrationsPage() {
                     Cancel
                   </Button>
                   <Button
+                    className="text-foreground"
                     onClick={handleDefaultServerConnect}
                     disabled={isAddingServer}
                   >
@@ -855,7 +864,7 @@ function ServerCard({
   };
 
   return (
-    <Card className="relative">
+    <Card className="relative bg-muted/50 dark:bg-card shadow-md">
       {isLoading && (
         <div className="absolute inset-0 bg-background/50 flex items-center justify-center z-10 rounded-lg">
           <Loader className="h-6 w-6 animate-spin" />
@@ -897,7 +906,7 @@ function ServerCard({
             {server.oauthStatus.required && (
               <Badge
                 variant={
-                  server.oauthStatus.isAuthorized ? "default" : "outline"
+                  server.oauthStatus.isAuthorized ? "default" : "secondary"
                 }
                 className={`text-xs ${
                   server.oauthStatus.isAuthorized
@@ -916,11 +925,11 @@ function ServerCard({
             {/* Show Connect button for default servers */}
             {server.isDefault && onConnect && (
               <Button
-                variant="default"
+                variant="outline"
                 size="sm"
+                className="text-foreground"
                 onClick={onConnect}
                 disabled={isLoading}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm border border-primary/20 hover:shadow-md transition-all duration-200"
               >
                 <Plus className="h-4 w-4" />
                 Add
@@ -945,6 +954,7 @@ function ServerCard({
                       <Button
                         variant="outline"
                         size="sm"
+                        className="text-foreground"
                         onClick={() => {
                           if (server.oauthStatus.hasToken) {
                             onRevokeAuth(server.id);
@@ -952,11 +962,6 @@ function ServerCard({
                             onAuthorize(server.id);
                           }
                         }}
-                        className={
-                          server.oauthStatus.hasToken
-                            ? "hover:bg-red-50 hover:text-red-600"
-                            : "hover:bg-green-50 hover:text-green-600"
-                        }
                       >
                         {server.oauthStatus.hasToken ? (
                           <>Revoke</>
@@ -970,9 +975,9 @@ function ServerCard({
                   <Button
                     variant="outline"
                     size="sm"
+                    className="text-foreground"
                     onClick={() => setEditModalOpen(true)}
                     disabled={isLoading}
-                    className="hover:bg-green-50 hover:text-green-600"
                   >
                     <Pencil className="h-4 w-4" />
                   </Button>
@@ -980,9 +985,9 @@ function ServerCard({
                 <Button
                   variant="outline"
                   size="sm"
+                  className="text-foreground"
                   onClick={handleRefresh}
                   disabled={isRefreshing || isLoading}
-                  className="hover:bg-blue-50 hover:text-blue-600"
                 >
                   <RefreshCw
                     className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
@@ -993,7 +998,7 @@ function ServerCard({
                     <Button
                       variant="outline"
                       size="sm"
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      className="text-foreground"
                       onClick={handleOpenDeleteDialog}
                       disabled={isCheckingUsage || isDeleting}
                     >
@@ -1017,7 +1022,7 @@ function ServerCard({
                                   <p className="font-bold">Warning</p>
                                   <p>
                                     This server is used by the following
-                                    assistant(s).
+                                    agent(s).
                                   </p>
                                   <ul className="list-disc pl-5 mt-2">
                                     {projectsInUse.slice(0, 3).map((p) => (
@@ -1033,15 +1038,15 @@ function ServerCard({
                                       onClick={() =>
                                         setShowFullProjectList(true)
                                       }
-                                      className="text-destructive"
+                                      className="text-foreground border border-foreground/40"
                                     >
                                       ... and {projectsInUse.length - 3} more
                                     </Button>
                                   )}
                                   <Separator className="my-2 bg-destructive/20" />
                                   <p>
-                                    Please disable it from the assistant
-                                    settings before deleting.
+                                    Please disable it from the agent settings
+                                    before deleting.
                                   </p>
                                 </div>
                               ) : (
@@ -1056,6 +1061,7 @@ function ServerCard({
                         <DialogFooter>
                           <Button
                             variant="outline"
+                            className="text-foreground"
                             onClick={() => setDeleteDialogOpen(false)}
                             disabled={isDeleting}
                           >
@@ -1063,6 +1069,7 @@ function ServerCard({
                           </Button>
                           <Button
                             variant="destructive"
+                            className="text-foreground"
                             onClick={handleDelete}
                             disabled={isDeleting || projectsInUse.length > 0}
                           >
@@ -1080,9 +1087,7 @@ function ServerCard({
                     >
                       <DialogContent>
                         <DialogHeader>
-                          <DialogTitle>
-                            Assistants using this server
-                          </DialogTitle>
+                          <DialogTitle>Agents using this server</DialogTitle>
                         </DialogHeader>
                         <ScrollArea className="h-60">
                           <ul className="list-disc pl-5 mt-2">
@@ -1094,7 +1099,10 @@ function ServerCard({
                           </ul>
                         </ScrollArea>
                         <DialogFooter>
-                          <Button onClick={() => setShowFullProjectList(false)}>
+                          <Button
+                            className="text-foreground"
+                            onClick={() => setShowFullProjectList(false)}
+                          >
                             Close
                           </Button>
                         </DialogFooter>
@@ -1138,50 +1146,11 @@ function ServerCard({
 
           {/* Tools Modal */}
           <Dialog open={toolsModalOpen} onOpenChange={setToolsModalOpen}>
-            <DialogContent className="max-w-2xl max-h-[80vh]">
-              <DialogHeader>
-                <DialogTitle>Available Tools</DialogTitle>
-              </DialogHeader>
-
-              <ScrollArea className="max-h-[60vh] pr-4">
-                {server.toolInfo.length > 0 ? (
-                  <div className="space-y-3">
-                    {server.toolInfo.map((tool) => (
-                      <div
-                        key={tool.name}
-                        className="border rounded-lg p-4 bg-muted/30"
-                      >
-                        <div className="flex items-start gap-4">
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-medium text-sm mb-2">
-                              <code className="bg-background px-2 py-1 rounded text-xs font-mono">
-                                {tool.name}
-                              </code>
-                            </h4>
-                            <TruncatedDescription
-                              description={tool.description}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Settings className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No tools available on this server</p>
-                  </div>
-                )}
-              </ScrollArea>
-
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setToolsModalOpen(false)}
-                >
-                  Close
-                </Button>
-              </DialogFooter>
+            <DialogContent className="sm:max-w-[800px] fixed p-10 overflow-hidden">
+              <ToolsModalContent
+                tools={server.toolInfo}
+                serverName={server.name}
+              />
             </DialogContent>
           </Dialog>
         </div>
@@ -1228,6 +1197,7 @@ function ServerCard({
             <DialogFooter>
               <Button
                 variant="outline"
+                className="text-foreground"
                 onClick={() => {
                   setEditModalOpen(false);
                   // Reset form to original values
@@ -1240,6 +1210,7 @@ function ServerCard({
                 Cancel
               </Button>
               <Button
+                className="text-foreground"
                 onClick={handleEdit}
                 disabled={isEditing || !isEditFormValid}
               >
@@ -1251,39 +1222,5 @@ function ServerCard({
         </Dialog>
       )}
     </Card>
-  );
-}
-
-function TruncatedDescription({
-  description,
-  maxLength = 150,
-}: {
-  description: string;
-  maxLength?: number;
-}) {
-  const [isExpanded, setIsExpanded] = useState(false);
-
-  if (description.length <= maxLength) {
-    return (
-      <p className="text-sm text-muted-foreground leading-relaxed break-words hyphens-auto">
-        {description}
-      </p>
-    );
-  }
-
-  return (
-    <div>
-      <p className="text-sm text-muted-foreground leading-relaxed break-words hyphens-auto">
-        {isExpanded ? description : `${description.substring(0, maxLength)}...`}
-      </p>
-      <Button
-        variant="link"
-        size="sm"
-        className="px-0 h-auto mt-1 text-xs"
-        onClick={() => setIsExpanded(!isExpanded)}
-      >
-        {isExpanded ? "Show less" : "Show more"}
-      </Button>
-    </div>
   );
 }

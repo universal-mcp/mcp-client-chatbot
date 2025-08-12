@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/card";
 import { useObjectState } from "@/hooks/use-object-state";
 
-import { Loader } from "lucide-react";
+import { Loader, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { safe } from "ts-safe";
 import { authClient } from "auth/client";
 import { toast } from "sonner";
@@ -22,13 +22,20 @@ import { GithubIcon } from "ui/github-icon";
 import { GoogleIcon } from "ui/google-icon";
 import { useTranslations } from "next-intl";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function SignInPage() {
   const t = useTranslations("Auth.SignIn");
+  const forgotPasswordT = useTranslations("Auth.ForgotPassword");
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const [loading, setLoading] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
+  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
+  const [forgotPasswordSubmitted, setForgotPasswordSubmitted] = useState(false);
+  const [forgotPasswordError, setForgotPasswordError] = useState("");
 
   // Get invitation ID from URL params
   const invitationId = searchParams.get("invite");
@@ -70,6 +77,28 @@ export default function SignInPage() {
       .unwrap();
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotPasswordLoading(true);
+    setForgotPasswordError("");
+
+    try {
+      const { error } = await authClient.requestPasswordReset({
+        email: forgotPasswordEmail,
+        redirectTo: "/reset-password",
+      });
+      if (error) {
+        setForgotPasswordError(
+          error.message || "An error occurred. Please try again.",
+        );
+      } else {
+        setForgotPasswordSubmitted(true);
+      }
+    } finally {
+      setForgotPasswordLoading(false);
+    }
+  };
+
   const googleSignIn = () => {
     if (!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID)
       return toast.warning(t("oauthClientIdNotSet", { provider: "Google" }));
@@ -107,6 +136,111 @@ export default function SignInPage() {
         toast.error(e.error);
       });
   };
+
+  // Show forgot password success state
+  if (forgotPasswordSubmitted) {
+    return (
+      <div className="w-full h-full flex flex-col p-4 md:p-8 justify-center">
+        <Card className="w-full md:max-w-md bg-background border-none mx-auto shadow-none animate-in fade-in duration-1000">
+          <CardHeader className="my-4">
+            <CardTitle className="text-2xl text-center my-1">
+              {forgotPasswordT("successTitle")}
+            </CardTitle>
+            <CardDescription className="text-center text-muted-foreground">
+              {forgotPasswordT("successDescription")}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col">
+            <Alert variant="default" className="mb-4">
+              <CheckCircle2 className="h-4 w-4" />
+              <AlertDescription>
+                {forgotPasswordT("successAlert")}
+              </AlertDescription>
+            </Alert>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                setForgotPasswordSubmitted(false);
+                setShowForgotPassword(false);
+                setForgotPasswordEmail("");
+              }}
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />{" "}
+              {forgotPasswordT("backToSignIn")}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show forgot password form
+  if (showForgotPassword) {
+    return (
+      <div className="w-full h-full flex flex-col p-4 md:p-8 justify-center">
+        <Card className="w-full md:max-w-md bg-background border-none mx-auto shadow-none animate-in fade-in duration-1000">
+          <CardHeader className="my-4">
+            <CardTitle className="text-2xl text-center my-1">
+              {forgotPasswordT("title")}
+            </CardTitle>
+            <CardDescription className="text-center text-muted-foreground">
+              {forgotPasswordT("description")}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col">
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div className="grid gap-2">
+                <Label htmlFor="forgot-email">
+                  {forgotPasswordT("emailLabel")}
+                </Label>
+                <Input
+                  id="forgot-email"
+                  type="email"
+                  placeholder={forgotPasswordT("emailPlaceholder")}
+                  value={forgotPasswordEmail}
+                  onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                  required
+                  className="transition-all focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+              {forgotPasswordError && (
+                <Alert
+                  variant="destructive"
+                  className="flex items-center gap-2"
+                >
+                  <AlertDescription>{forgotPasswordError}</AlertDescription>
+                </Alert>
+              )}
+              <Button
+                className="w-full"
+                type="submit"
+                disabled={forgotPasswordLoading}
+              >
+                {forgotPasswordLoading ? (
+                  <Loader className="size-4 animate-spin ml-1" />
+                ) : (
+                  forgotPasswordT("sendButton")
+                )}
+              </Button>
+            </form>
+            <Button
+              variant="link"
+              className="w-full mt-4"
+              onClick={() => {
+                setShowForgotPassword(false);
+                setForgotPasswordEmail("");
+                setForgotPasswordError("");
+              }}
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />{" "}
+              {forgotPasswordT("backToSignIn")}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full h-full flex flex-col p-4 md:p-8 justify-center">
@@ -153,8 +287,17 @@ export default function SignInPage() {
                 required
               />
             </div>
+            <div className="flex justify-end -mt-7">
+              <Button
+                variant="link"
+                className="px-1 h-auto text-sm text-muted-foreground hover:text-primary"
+                onClick={() => setShowForgotPassword(true)}
+              >
+                Forgot password?
+              </Button>
+            </div>
             <Button
-              className="w-full"
+              className="w-full -mt-2"
               onClick={emailAndPasswordSignIn}
               disabled={loading}
             >

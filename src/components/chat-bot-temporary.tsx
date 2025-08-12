@@ -32,7 +32,7 @@ import {
 } from "ui/dialog";
 import { DialogTitle } from "@radix-ui/react-dialog";
 import { Textarea } from "ui/textarea";
-import { Think } from "ui/think";
+import { ThinkChat } from "ui/think";
 
 export function ChatBotTemporary() {
   const t = useTranslations("Chat.TemporaryChat");
@@ -299,7 +299,7 @@ function DrawerTemporaryContent({
         })}
         {showThink && (
           <div className="w-full mx-auto max-w-3xl px-6">
-            <Think />
+            <ThinkChat />
           </div>
         )}
         {error && <ErrorMessage error={error} />}

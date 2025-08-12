@@ -38,16 +38,6 @@ const ChatBotTemporary = dynamic(
     ssr: false,
   },
 );
-
-const McpCustomizationPopup = dynamic(
-  () =>
-    import("@/components/mcp-customization-popup").then(
-      (mod) => mod.McpCustomizationPopup,
-    ),
-  {
-    ssr: false,
-  },
-);
 export function AppPopupProvider() {
   return (
     <>
@@ -55,7 +45,6 @@ export function AppPopupProvider() {
       <ChatPreferencesPopup />
       <ChatBotVoice />
       <ChatBotTemporary />
-      <McpCustomizationPopup />
     </>
   );
 }

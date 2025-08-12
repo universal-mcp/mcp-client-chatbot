@@ -184,6 +184,7 @@ export async function selectProjectListByUserIdAction() {
 
 export async function insertProjectAction(project: {
   name: string;
+  description: string | null;
   instructions?: Project["instructions"];
   mcpConfig?: {
     tools: ProjectMcpToolConfig[];
@@ -194,7 +195,11 @@ export async function insertProjectAction(project: {
   const newProject = await pgChatRepository.insertProject(
     {
       name: project.name,
-      instructions: project.instructions ?? { systemPrompt: "" },
+      description: project.description,
+      instructions: {
+        systemPrompt: project.instructions?.systemPrompt ?? "",
+        expert: project.instructions?.expert ?? "",
+      },
       userId,
     },
     userId,
@@ -218,9 +223,11 @@ export async function insertProjectWithThreadAction({
   const project = await chatRepository.insertProject(
     {
       name,
+      description: null,
       userId,
       instructions: instructions ?? {
         systemPrompt: "",
+        expert: "",
       },
     },
     userId,
@@ -254,7 +261,7 @@ export async function selectProjectByIdAction(id: string) {
 
 export async function updateProjectAction(
   id: string,
-  project: Partial<Pick<Project, "name" | "instructions">>,
+  project: Partial<Pick<Project, "name" | "description" | "instructions">>,
 ) {
   const { userId, organizationId } = await getSessionContext();
   const updatedProject = await chatRepository.updateProject(

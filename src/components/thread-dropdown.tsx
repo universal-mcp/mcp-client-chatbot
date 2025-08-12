@@ -2,7 +2,7 @@
 import { deleteThreadAction, updateThreadAction } from "@/app/api/chat/actions";
 import { appStore } from "@/app/store";
 import { useToRef } from "@/hooks/use-latest";
-import { Loader, PencilLine, Trash, WandSparkles } from "lucide-react";
+import { Loader, PencilLine, Trash, Bot } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type PropsWithChildren, useState } from "react";
 import { toast } from "sonner";
@@ -20,7 +20,6 @@ import {
   DialogTrigger,
 } from "ui/dialog";
 import { Input } from "ui/input";
-import { CreateProjectWithThreadPopup } from "./create-project-with-thread-popup";
 import { Popover, PopoverContent, PopoverTrigger } from "ui/popover";
 import {
   Command,
@@ -56,6 +55,11 @@ export function ThreadDropdown({
   const [open, setOpen] = useState(false);
 
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleExportAsAgent = () => {
+    router.push(`/project/new?threadId=${threadId}`);
+    setOpen(false);
+  };
 
   const handleUpdate = async (title: string) => {
     safe()
@@ -110,15 +114,13 @@ export function ThreadDropdown({
           <CommandList>
             <CommandGroup>
               <CommandItem className="cursor-pointer">
-                <CreateProjectWithThreadPopup
-                  threadId={threadId}
-                  onClose={() => setOpen(false)}
+                <div
+                  className="flex items-center gap-2 w-full"
+                  onClick={handleExportAsAgent}
                 >
-                  <div className="flex items-center gap-2 w-full">
-                    <WandSparkles className="text-foreground" />
-                    <span className="mr-4">{t("summarizeAsProject")}</span>
-                  </div>
-                </CreateProjectWithThreadPopup>
+                  <Bot className="text-foreground" />
+                  <span className="mr-4">Export as Agent</span>
+                </div>
               </CommandItem>
               <CommandItem className="cursor-pointer p-0">
                 <UpdateThreadNameDialog

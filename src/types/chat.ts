@@ -20,9 +20,11 @@ export type ChatThread = {
 export type Project = {
   id: string;
   name: string;
+  description: string | null;
   userId: string;
   instructions: {
     systemPrompt: string;
+    expert: string;
   };
   createdAt: Date;
   updatedAt: Date;
@@ -91,6 +93,7 @@ export const chatApiSchemaRequestBodySchema = z.object({
   toolChoice: z.enum(["auto", "none", "manual"]),
   allowedMcpServers: z.record(z.string(), AllowedMCPServerZodSchema).optional(),
   allowedAppDefaultToolkit: z.array(z.string()).optional(),
+  llmModel: z.string(),
 });
 
 export type ChatApiSchemaRequestBody = z.infer<
@@ -270,3 +273,15 @@ export const ClientToolInvocationZodSchema = z.object({
 export type ClientToolInvocation = z.infer<
   typeof ClientToolInvocationZodSchema
 >;
+
+export const AgentGenerateSchema = z.object({
+  name: z.string().describe("Assistant name"),
+  description: z.string().describe("Assistant description"),
+  role: z.string().describe("Assistant role"),
+  instructions: z.string().describe("Assistant instructions"),
+  tools: z
+    .array(z.string())
+    .describe("Assistant allowed tools name")
+    .optional()
+    .default([]),
+});

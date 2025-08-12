@@ -7,7 +7,6 @@ import {
   formatDataStreamPart,
   appendClientMessage,
   Message,
-  Tool,
 } from "ai";
 
 import { customModelProvider } from "lib/ai/models";
@@ -38,16 +37,18 @@ import {
   filterToolsByAllowedMCPServers,
   filterToolsByProjectConfig,
   applyProjectToolModes,
+  createProjectMcpConfig,
+  loadAppDefaultTools,
 } from "./helper";
 import { getSessionContext } from "auth/session-context";
 import { getProjectMcpToolsAction } from "../mcp/project-config/actions";
-import { APP_DEFAULT_TOOL_KIT } from "lib/ai/tools/tool-kit";
 
 export async function POST(request: Request) {
   try {
     const json = await request.json();
     const { userId, organizationId, user } = await getSessionContext();
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const {
       id,
       message,
@@ -55,9 +56,10 @@ export async function POST(request: Request) {
       allowedMcpServers,
       allowedAppDefaultToolkit,
       projectId,
+      llmModel,
     } = chatApiSchemaRequestBodySchema.parse(json);
 
-    const model = customModelProvider.getModel();
+    const model = customModelProvider.getModel(llmModel);
 
     let thread = await chatRepository.selectThreadDetails(
       id,
@@ -104,27 +106,12 @@ export async function POST(request: Request) {
     const mcpTools = manager.tools();
     const mcpServers = await manager.getClients();
 
-    // Get project-specific MCP configurations
-    const projectMcpConfig = projectId
-      ? await (async () => {
-          const toolConfigsData = await getProjectMcpToolsAction(projectId);
-          const toolConfigMap = new Map(
-            toolConfigsData.map((c) => [`${c.mcpServerId}:${c.toolName}`, c]),
-          );
-          const enabledServerIds = new Set(
-            toolConfigsData.map((c) => c.mcpServerId),
-          );
-
-          return {
-            servers: mcpServers.map((server) => ({
-              id: server.id,
-              name: server.client.getInfo().name,
-              enabled: enabledServerIds.has(server.id),
-            })),
-            tools: toolConfigMap,
-          };
-        })()
-      : undefined;
+    // Get project-specific tool configurations
+    const projectMcpConfig = await createProjectMcpConfig(
+      projectId,
+      mcpServers,
+      getProjectMcpToolsAction,
+    );
 
     const inProgressToolStep = extractInProgressToolPart(messages.slice(-2));
 
@@ -156,19 +143,9 @@ export async function POST(request: Request) {
           })
           .orElse({});
 
-        const APP_DEFAULT_TOOLS = safe(APP_DEFAULT_TOOL_KIT)
-          .map(errorIf(() => !isToolCallAllowed && "Not allowed"))
-          .map((tools) => {
-            return (
-              allowedAppDefaultToolkit?.reduce(
-                (acc, key) => {
-                  return { ...acc, ...tools[key] };
-                },
-                {} as Record<string, Tool>,
-              ) || {}
-            );
-          })
-          .orElse({});
+        const APP_DEFAULT_TOOLS = !isToolCallAllowed
+          ? {}
+          : loadAppDefaultTools(projectMcpConfig, allowedAppDefaultToolkit);
 
         if (inProgressToolStep) {
           const toolResult = await manualToolExecuteByLastMessage(
@@ -229,6 +206,7 @@ export async function POST(request: Request) {
           system: systemPrompt,
           messages,
           maxSteps: 40,
+          temperature: 1,
           experimental_transform: smoothStream({ chunking: "word" }),
           maxRetries: 3,
           tools: vercelAITools,

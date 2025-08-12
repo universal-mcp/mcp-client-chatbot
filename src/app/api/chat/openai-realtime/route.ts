@@ -2,14 +2,18 @@ import { NextRequest } from "next/server";
 import { getSessionContext } from "@/lib/auth/session-context";
 import { AllowedMCPServer, VercelAIMcpTool } from "app-types/mcp";
 import { chatRepository } from "lib/db/repository";
-import { filterToolsByAllowedMCPServers, mergeSystemPrompt } from "../helper";
+import {
+  filterToolsByAllowedMCPServers,
+  filterToolsByProjectConfig,
+  mergeSystemPrompt,
+} from "../helper";
 import {
   buildProjectInstructionsSystemPrompt,
   buildSpeechSystemPrompt,
 } from "lib/ai/prompts";
 import { errorIf, safe } from "ts-safe";
-import { DEFAULT_VOICE_TOOLS } from "lib/ai/speech";
 import { mcpGateway } from "lib/ai/mcp/mcp-gateway";
+import { getProjectMcpToolsAction } from "../../mcp/project-config/actions";
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,11 +43,63 @@ export async function POST(request: NextRequest) {
       organizationId,
     );
     const mcpTools = mcpClientsManager.tools();
+    const mcpServers = await mcpClientsManager.getClients();
+    console.log("mcpServers", mcpServers);
+
+    // Get project-specific MCP configurations
+    const projectMcpConfig = projectId
+      ? await (async () => {
+          const toolConfigsData = await getProjectMcpToolsAction(projectId);
+          const mcpTools = toolConfigsData.filter(
+            (c) => c.mcpServerId !== null,
+          );
+          const toolConfigMap = new Map(
+            mcpTools.map((c) => [
+              `${c.mcpServerId as string}:${c.toolName}`,
+              {
+                mcpServerId: c.mcpServerId as string,
+                toolName: c.toolName,
+                enabled: c.enabled,
+                mode: c.mode,
+              },
+            ]),
+          );
+          const enabledServerIds = new Set(
+            mcpTools.map((c) => c.mcpServerId as string),
+          );
+
+          return {
+            servers: mcpServers.map((server) => ({
+              id: server.id,
+              name: server.client.getInfo().name,
+              enabled: enabledServerIds.has(server.id),
+            })),
+            tools: toolConfigMap,
+          };
+        })()
+      : undefined;
 
     const tools = safe(mcpTools)
       .map(errorIf(() => toolChoice === "none" && "Not allowed"))
       .map((tools) => {
-        return filterToolsByAllowedMCPServers(tools, allowedMcpServers);
+        // First apply project config filters if in project context
+        let filteredTools = tools;
+
+        if (projectMcpConfig) {
+          // In project context: only use project-specific server/tool filtering
+          filteredTools = filterToolsByProjectConfig(
+            filteredTools,
+            projectMcpConfig,
+          );
+        } else {
+          // Outside project context: use global allowedMcpServers setting
+          filteredTools = filterToolsByAllowedMCPServers(
+            filteredTools,
+            allowedMcpServers,
+          );
+        }
+
+        return filteredTools;
       })
       .orElse(undefined);
 
@@ -59,15 +115,6 @@ export async function POST(request: NextRequest) {
           organizationId,
         );
 
-    // const mcpServerCustomizations = await safe()
-    //   .map(() => {
-    //     if (Object.keys(tools ?? {}).length === 0)
-    //       throw new Error("No tools found");
-    //     return rememberMcpServerCustomizationsAction(userId);
-    //   })
-    //   .map((v) => filterMcpServerCustomizations(tools, v))
-    //   .orElse({});
-
     const openAITools = Object.entries(tools ?? {}).map(([name, tool]) => {
       return vercelAIToolToOpenAITool(tool as VercelAIMcpTool, name);
     });
@@ -75,7 +122,6 @@ export async function POST(request: NextRequest) {
     const systemPrompt = mergeSystemPrompt(
       buildSpeechSystemPrompt(user, userPreferences),
       buildProjectInstructionsSystemPrompt(instructions),
-      // buildMcpServerCustomizationsSystemPrompt(mcpServerCustomizations),
     );
 
     const r = await fetch("https://api.openai.com/v1/realtime/sessions", {
@@ -90,9 +136,10 @@ export async function POST(request: NextRequest) {
         voice: voice || "alloy",
         input_audio_transcription: {
           model: "whisper-1",
+          language: "en",
         },
         instructions: systemPrompt,
-        tools: [...openAITools, ...DEFAULT_VOICE_TOOLS],
+        tools: [...openAITools],
       }),
     });
 

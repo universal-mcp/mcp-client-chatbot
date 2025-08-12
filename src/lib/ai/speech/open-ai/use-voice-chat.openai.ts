@@ -1,11 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import {
-  DEFAULT_VOICE_TOOLS,
-  UIMessageWithCompleted,
-  VoiceChatSession,
-} from "..";
+import { UIMessageWithCompleted, VoiceChatSession } from "..";
 import { generateUUID } from "lib/utils";
 import { TextPart } from "ai";
 import {
@@ -17,7 +13,6 @@ import { ToolInvocationUIPart } from "app-types/chat";
 import { appStore } from "@/app/store";
 import { useShallow } from "zustand/shallow";
 import { callMcpToolByServerNameAction } from "@/app/api/mcp/actions";
-import { useTheme } from "next-themes";
 import { extractMCPToolId } from "lib/ai/mcp/mcp-tool-id";
 
 export const OPENAI_VOICE = {
@@ -115,7 +110,6 @@ export function useOpenAIVoiceChat(
   const audioElement = useRef<HTMLAudioElement | null>(null);
   const audioStream = useRef<MediaStream | null>(null);
 
-  const { setTheme, theme } = useTheme();
   const tracks = useRef<RTCRtpSender[]>([]);
 
   const startListening = useCallback(async () => {
@@ -214,22 +208,13 @@ export function useOpenAIVoiceChat(
       let toolResult: any = "success";
       stopListening();
       const toolArgs = JSON.parse(args);
-      if (DEFAULT_VOICE_TOOLS.some((t) => t.name === toolName)) {
-        switch (toolName) {
-          case "changeBrowserTheme":
-            const base = theme?.replace(/-dark$/, "");
-            setTheme(`${base}${toolArgs?.theme === "dark" ? "-dark" : ""}`);
-            break;
-        }
-      } else {
-        const toolId = extractMCPToolId(toolName);
+      const toolId = extractMCPToolId(toolName);
 
-        toolResult = await callMcpToolByServerNameAction(
-          toolId.serverName,
-          toolId.toolName,
-          toolArgs,
-        );
-      }
+      toolResult = await callMcpToolByServerNameAction(
+        toolId.serverName,
+        toolId.toolName,
+        toolArgs,
+      );
       startListening();
       const resultText = JSON.stringify(toolResult).trim();
 
