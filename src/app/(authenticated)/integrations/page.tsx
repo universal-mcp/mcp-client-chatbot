@@ -445,7 +445,7 @@ export default function IntegrationsPage() {
               <Button
                 onClick={handleAddServerClick}
                 variant="secondary"
-                className="gap-2 text-foreground bg-secondary/40 border border-foreground"
+                className="gap-2 text-foreground bg-secondary/40 border border-foreground/40"
               >
                 <Plus className="size-4" />
                 Add Server
@@ -1038,7 +1038,7 @@ function ServerCard({
                                       onClick={() =>
                                         setShowFullProjectList(true)
                                       }
-                                      className="text-foreground border border-foreground"
+                                      className="text-foreground border border-foreground/40"
                                     >
                                       ... and {projectsInUse.length - 3} more
                                     </Button>

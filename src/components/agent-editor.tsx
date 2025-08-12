@@ -890,7 +890,7 @@ export function AgentEditor({
                         isGenerating ||
                         !(project.name?.trim() ?? false)
                       }
-                      className="flex items-center gap-2 text-foreground bg-secondary/40 border border-foreground"
+                      className="flex items-center gap-2 text-foreground bg-secondary/40 border border-foreground/40"
                     >
                       {isSaving ? (
                         <>
@@ -935,7 +935,7 @@ export function AgentEditor({
                       size="default"
                       onClick={saveProject}
                       disabled={isSaving || isGenerating || !hasAnyChanges}
-                      className="flex items-center gap-2 px-4 min-w-36 justify-center text-foreground bg-secondary/40 border border-foreground"
+                      className="flex items-center gap-2 px-4 min-w-36 justify-center text-foreground bg-secondary/40 border border-foreground/40"
                     >
                       {isSaving ? t("Common.saving") : t("Common.save")}
                       {isSaving && <Loader className="size-4 animate-spin" />}
@@ -955,7 +955,7 @@ export function AgentEditor({
                       size="default"
                       disabled={isGenerating || !projectId}
                       onClick={handleStartChat}
-                      className="flex items-center gap-2 text-foreground bg-secondary/40 border border-foreground"
+                      className="flex items-center gap-2 text-foreground bg-secondary/40 border border-foreground/40"
                     >
                       <PlusIcon className="h-3 w-3" />
                       Start Chat

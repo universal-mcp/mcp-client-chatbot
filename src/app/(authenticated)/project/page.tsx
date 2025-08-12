@@ -361,7 +361,7 @@ export default function ProjectsPage() {
 
             <Button
               variant="secondary"
-              className="gap-2 text-foreground bg-secondary/40 border border-foreground"
+              className="gap-2 text-foreground bg-secondary/40 border border-foreground/40"
               onClick={() => router.push("/project/new")}
             >
               <Plus className="size-4" />
