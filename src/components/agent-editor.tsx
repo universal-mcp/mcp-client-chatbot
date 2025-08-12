@@ -119,6 +119,33 @@ export function AgentEditor({
   const [toolConfigs, setToolConfigs] = useState<Map<string, LocalToolConfig>>(
     new Map(),
   );
+
+  // Dynamic height for description up to 4 lines
+  const descriptionRef = useRef<HTMLTextAreaElement | null>(null);
+  const adjustDescriptionTextareaHeight = useCallback(() => {
+    const el = descriptionRef.current;
+    if (!el) return;
+
+    // Reset height to measure content height accurately
+    el.style.height = "auto";
+
+    const styles = window.getComputedStyle(el);
+    const lineHeight = parseFloat(styles.lineHeight || "0");
+    const paddingTop = parseFloat(styles.paddingTop || "0");
+    const paddingBottom = parseFloat(styles.paddingBottom || "0");
+    const borderTop = parseFloat(styles.borderTopWidth || "0");
+    const borderBottom = parseFloat(styles.borderBottomWidth || "0");
+    const maxPx =
+      lineHeight * 4 + paddingTop + paddingBottom + borderTop + borderBottom;
+
+    const desired = Math.min(el.scrollHeight, Math.max(maxPx, 0));
+    el.style.height = `${desired}px`;
+    el.style.overflowY = el.scrollHeight > maxPx ? "auto" : "hidden";
+  }, []);
+
+  useEffect(() => {
+    adjustDescriptionTextareaHeight();
+  }, [project.description, adjustDescriptionTextareaHeight]);
   const [hasMcpChanges, setHasMcpChanges] = useState(false);
   const [isMcpPopupOpen, setIsMcpPopupOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -935,7 +962,7 @@ export function AgentEditor({
                       size="default"
                       onClick={saveProject}
                       disabled={isSaving || isGenerating || !hasAnyChanges}
-                      className="flex items-center gap-2 px-4 min-w-36 justify-center text-foreground bg-secondary/40 border border-foreground/40"
+                      className="flex items-center gap-2 px-4 justify-center text-foreground bg-secondary/40 border border-foreground/40"
                     >
                       {isSaving ? t("Common.saving") : t("Common.save")}
                       {isSaving && <Loader className="size-4 animate-spin" />}
@@ -994,11 +1021,17 @@ export function AgentEditor({
           {isProjectLoading ? (
             <Skeleton className="w-full h-10" />
           ) : (
-            <Input
+            <Textarea
+              ref={descriptionRef}
               value={project.description || ""}
-              onChange={(e) => setProject({ description: e.target.value })}
+              onChange={(e) => {
+                setProject({ description: e.target.value });
+                // After state update, adjust height on next frame for smoothness
+                requestAnimationFrame(adjustDescriptionTextareaHeight);
+              }}
               disabled={isLoading || isGenerating}
-              className="hover:bg-input bg-secondary/40 transition-colors focus-visible:bg-input! ring-0! placeholder:text-xs"
+              rows={1}
+              className="hover:bg-input bg-secondary/40 transition-colors focus-visible:bg-input! ring-0! placeholder:text-xs min-h-7 overflow-y-hidden resize-none overscroll-contain"
               id="project-description"
               placeholder="Performs deep research on a given topic"
             />
