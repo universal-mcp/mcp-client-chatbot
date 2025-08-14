@@ -10,6 +10,8 @@ import {
   uuid,
   boolean,
   unique,
+  integer,
+  index,
 } from "drizzle-orm/pg-core";
 import {
   user as UserSchema,
@@ -19,6 +21,7 @@ import {
   organization as OrganizationSchema,
   member as MemberSchema,
   invitation as InvitationSchema,
+  subscription as SubscriptionSchema,
 } from "./auth.pg";
 
 export const ChatThreadSchema = pgTable("chat_thread", {
@@ -208,6 +211,25 @@ export const ProjectMcpToolConfigSchema = pgTable(
   }),
 );
 
+export const CreditLedgerSchema = pgTable(
+  "credit_ledger",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    referenceId: text("reference_id"),
+    userId: uuid("user_id").references(() => UserSchema.id, {
+      onDelete: "set null",
+    }),
+    change: integer("change").notNull(),
+    balance: integer("balance").notNull(),
+    description: text("description").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    referenceIdIndex: index("credit_reference_id_idx").on(table.referenceId),
+    userIdIndex: index("credit_user_id_idx").on(table.userId),
+  }),
+);
+
 export {
   UserSchema,
   SessionSchema,
@@ -216,6 +238,7 @@ export {
   OrganizationSchema,
   MemberSchema,
   InvitationSchema,
+  SubscriptionSchema,
 };
 
 export type McpServerEntity = typeof McpServerSchema.$inferSelect;
@@ -230,3 +253,4 @@ export type McpOAuthClientEntity = typeof McpOAuthClientSchema.$inferSelect;
 export type McpOAuthStateEntity = typeof McpOAuthStateSchema.$inferSelect;
 export type ProjectMcpToolConfigEntity =
   typeof ProjectMcpToolConfigSchema.$inferSelect;
+export type CreditLedgerEntity = typeof CreditLedgerSchema.$inferSelect;

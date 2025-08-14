@@ -40,6 +40,11 @@ import {
   createProjectMcpConfig,
   loadAppDefaultTools,
 } from "./helper";
+import { creditRepository } from "lib/db/repository";
+import {
+  convertTokensToCredits,
+  estimateMaxCompletionTokensFromCredits,
+} from "./helper";
 import { getSessionContext } from "auth/session-context";
 import { getProjectMcpToolsAction } from "../mcp/project-config/actions";
 
@@ -119,6 +124,19 @@ export async function POST(request: Request) {
 
     return createDataStreamResponse({
       execute: async (dataStream) => {
+        // Determine workspace context for credits (organization or personal)
+        const workspaceId = organizationId ?? userId;
+        // Check balance before allowing the chat to proceed
+        const balance = await creditRepository.getBalance(workspaceId);
+        if (balance <= 0) {
+          throw new Error(
+            "Insufficient credits. Please go to Billing to top up: /workspace/settings",
+          );
+        }
+
+        // Optionally guard the max tokens based on available credits
+        const estimatedMaxCompletionTokens =
+          estimateMaxCompletionTokensFromCredits(balance);
         const tools = safe(mcpTools)
           .map(errorIf(() => !isToolCallAllowed && "Not allowed"))
           .map((tools) => {
@@ -211,6 +229,7 @@ export async function POST(request: Request) {
           maxRetries: 3,
           tools: vercelAITools,
           toolChoice: "auto",
+          maxTokens: estimatedMaxCompletionTokens || undefined,
           onFinish: async ({ response, usage }) => {
             const appendMessages = appendResponseMessages({
               messages: messages.slice(-1),
@@ -256,6 +275,24 @@ export async function POST(request: Request) {
                 userId,
                 organizationId,
               );
+            }
+
+            // Consume credits according to total token usage
+            try {
+              const totalTokensUsed =
+                (usage?.promptTokens || 0) + (usage?.completionTokens || 0);
+              const creditsToConsume = convertTokensToCredits(totalTokensUsed);
+              if (creditsToConsume > 0) {
+                await creditRepository.consumeCredits(
+                  workspaceId,
+                  userId,
+                  creditsToConsume,
+                  `Chat usage: ${totalTokensUsed} tokens -> ${creditsToConsume} credits`,
+                );
+              }
+            } catch (e) {
+              // Do not break the chat if consumption fails; log for follow-up
+              logger.error(e);
             }
           },
         });

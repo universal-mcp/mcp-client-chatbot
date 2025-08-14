@@ -137,7 +137,6 @@ export const getSession = async () => {
     logger.error("No session found");
     return null;
   }
-  // logger.debug("Session found", session);
   return session;
 };
 
