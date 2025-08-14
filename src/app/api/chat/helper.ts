@@ -281,7 +281,7 @@ export function handleError(error: any) {
 
 // Credits & tokens conversion helpers
 // Adjust the ratio as needed. By default, 1 credit = 100 tokens (prompt + completion combined)
-const TOKENS_PER_CREDIT = 100;
+const TOKENS_PER_CREDIT = 1000;
 
 export function convertTokensToCredits(totalTokensUsed: number): number {
   if (!Number.isFinite(totalTokensUsed) || totalTokensUsed <= 0) return 0;

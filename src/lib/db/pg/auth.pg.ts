@@ -6,6 +6,7 @@ import {
   uuid,
   json,
   integer,
+  unique,
 } from "drizzle-orm/pg-core";
 import { UserPreferences } from "app-types/user";
 
@@ -29,18 +30,26 @@ export const user = pgTable("user", {
   stripeCustomerId: text("stripe_customer_id"),
 });
 
-export const subscription = pgTable("subscription", {
-  id: uuid("id").primaryKey().notNull().defaultRandom(),
-  plan: text("plan").notNull(),
-  referenceId: text("reference_id").notNull(),
-  stripeCustomerId: text("stripe_customer_id"),
-  stripeSubscriptionId: text("stripe_subscription_id"),
-  status: text("status").default("incomplete"),
-  periodStart: timestamp("period_start"),
-  periodEnd: timestamp("period_end"),
-  cancelAtPeriodEnd: boolean("cancel_at_period_end"),
-  seats: integer("seats"),
-});
+export const subscription = pgTable(
+  "subscription",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    plan: text("plan").notNull(),
+    referenceId: text("reference_id").notNull(),
+    stripeCustomerId: text("stripe_customer_id"),
+    stripeSubscriptionId: text("stripe_subscription_id"),
+    status: text("status").default("incomplete"),
+    periodStart: timestamp("period_start"),
+    periodEnd: timestamp("period_end"),
+    cancelAtPeriodEnd: boolean("cancel_at_period_end"),
+    seats: integer("seats"),
+  },
+  (table) => {
+    return {
+      referenceIdUnique: unique().on(table.referenceId),
+    };
+  },
+);
 
 export const session = pgTable("session", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -94,6 +103,7 @@ export const organization = pgTable("organization", {
   logo: text("logo"),
   createdAt: timestamp("created_at").notNull(),
   metadata: text("metadata"),
+  stripeCustomerId: text("stripe_customer_id"),
 });
 
 export const member = pgTable("member", {

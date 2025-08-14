@@ -1,6 +1,5 @@
 "use client";
 import { createAuthClient } from "better-auth/react";
-import { stripeClient } from "@better-auth/stripe/client";
 import {
   organizationClient,
   multiSessionClient,
@@ -8,13 +7,7 @@ import {
 import { toast } from "sonner";
 
 export const authClient = createAuthClient({
-  plugins: [
-    organizationClient(),
-    multiSessionClient(),
-    stripeClient({
-      subscription: true, //if you want to enable subscription management
-    }),
-  ],
+  plugins: [organizationClient(), multiSessionClient()],
   fetchOptions: {
     onError(e) {
       if (e.error.status === 429) {

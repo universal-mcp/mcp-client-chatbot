@@ -9,7 +9,7 @@ export const pgCreditRepository: CreditRepository = {
     const [latestEntry] = await db
       .select()
       .from(CreditLedgerSchema)
-      .where(eq(CreditLedgerSchema.workspaceId, workspaceId))
+      .where(eq(CreditLedgerSchema.referenceId, workspaceId))
       .orderBy(desc(CreditLedgerSchema.createdAt))
       .limit(1);
     return latestEntry?.balance ?? 0;
@@ -25,7 +25,7 @@ export const pgCreditRepository: CreditRepository = {
     const newBalance = currentBalance + amount;
 
     await db.insert(CreditLedgerSchema).values({
-      workspaceId,
+      referenceId: workspaceId,
       userId,
       change: amount,
       balance: newBalance,
@@ -48,7 +48,7 @@ export const pgCreditRepository: CreditRepository = {
     const newBalance = currentBalance - amount;
 
     await db.insert(CreditLedgerSchema).values({
-      workspaceId,
+      referenceId: workspaceId,
       userId,
       change: -amount,
       balance: newBalance,
@@ -66,7 +66,7 @@ export const pgCreditRepository: CreditRepository = {
     return db
       .select()
       .from(CreditLedgerSchema)
-      .where(eq(CreditLedgerSchema.workspaceId, workspaceId))
+      .where(eq(CreditLedgerSchema.referenceId, workspaceId))
       .orderBy(desc(CreditLedgerSchema.createdAt))
       .limit(limit)
       .offset(offset);

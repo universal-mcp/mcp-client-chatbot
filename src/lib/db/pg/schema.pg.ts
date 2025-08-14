@@ -215,7 +215,7 @@ export const CreditLedgerSchema = pgTable(
   "credit_ledger",
   {
     id: uuid("id").primaryKey().notNull().defaultRandom(),
-    workspaceId: uuid("workspace_id").notNull(),
+    referenceId: text("reference_id"),
     userId: uuid("user_id").references(() => UserSchema.id, {
       onDelete: "set null",
     }),
@@ -224,12 +224,10 @@ export const CreditLedgerSchema = pgTable(
     description: text("description").notNull(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  (table) => {
-    return {
-      workspaceIdIndex: index("workspace_id_idx").on(table.workspaceId),
-      userIdIndex: index("user_id_idx").on(table.userId),
-    };
-  },
+  (table) => ({
+    referenceIdIndex: index("credit_reference_id_idx").on(table.referenceId),
+    userIdIndex: index("credit_user_id_idx").on(table.userId),
+  }),
 );
 
 export {

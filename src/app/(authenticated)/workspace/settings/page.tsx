@@ -20,7 +20,6 @@ import {
   Loader,
   Check,
   CreditCard,
-  Calendar,
   Coins,
 } from "lucide-react";
 import { useActiveOrganization, authClient } from "@/lib/auth/client";
@@ -37,17 +36,15 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 interface SubscriptionPlan {
   id: string;
   name: string;
+  price: number; // USD per month
+  credits: number | "unlimited"; // monthly credits
 }
 
 const plans: SubscriptionPlan[] = [
-  {
-    id: "free",
-    name: "Free",
-  },
-  {
-    id: "pro",
-    name: "Pro",
-  },
+  { id: "free", name: "Free", price: 0, credits: 0 },
+  { id: "pro", name: "Pro", price: 10, credits: 1000 },
+  { id: "plus", name: "Plus", price: 100, credits: "unlimited" },
+  { id: "max", name: "Max", price: 1000, credits: "unlimited" },
 ];
 
 export default function WorkspaceSettingsPage() {
@@ -82,19 +79,33 @@ export default function WorkspaceSettingsPage() {
     : activeOrganization?.id;
 
   // Fetch current subscription data
-  const { data: subscriptions, mutate: mutateSubscriptions } = useSWR(
+  const {
+    data: subscriptions,
+    mutate: mutateSubscriptions,
+    isLoading: isLoadingSubscriptions,
+  } = useSWR(
     session && referenceId ? `subscriptions-${referenceId}` : null,
     async () => {
-      const result = await authClient.subscription.list({
-        query: { referenceId },
-      });
-      return result.data || [];
+      const res = await fetch(`/api/subscription/list`);
+      if (!res.ok) return [];
+      return res.json();
     },
   );
 
-  // Fetch credit balance
-  const { data: creditBalance, isLoading: isLoadingCredits } = useSWR(
-    referenceId ? `credit-balance-${referenceId}` : null,
+  const currentSubscription = subscriptions?.[0];
+  const currentPlan = currentSubscription?.plan || "free";
+  const isUnlimited = currentPlan === "plus" || currentPlan === "max";
+  const currentPlanDetails =
+    plans.find((p) => p.id === currentPlan) || plans[0];
+  // isUnlimited already computed above
+
+  // Fetch credit balance only for non-unlimited plans
+  const {
+    data: creditBalance,
+    isLoading: isLoadingCredits,
+    mutate: mutateCreditBalance,
+  } = useSWR(
+    referenceId && !isUnlimited ? `credit-balance-${referenceId}` : null,
     async () => {
       const response = await fetch("/api/credits/balance");
       if (!response.ok) {
@@ -104,9 +115,6 @@ export default function WorkspaceSettingsPage() {
       return data.balance;
     },
   );
-
-  const currentSubscription = subscriptions?.[0];
-  const currentPlan = currentSubscription?.plan || "free";
 
   const handleUpgrade = async (plan: SubscriptionPlan) => {
     if (plan.id === "free") {
@@ -122,16 +130,26 @@ export default function WorkspaceSettingsPage() {
     try {
       setLoading(plan.id);
 
-      const result = await authClient.subscription.upgrade({
-        plan: plan.id,
-        referenceId: referenceId,
-        successUrl: `${window.location.origin}/workspace/settings?success=true`,
-        cancelUrl: `${window.location.origin}/workspace/settings`,
+      const res = await fetch(`/api/subscription/upgrade`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          plan: plan.id,
+          referenceId,
+          isWorkspace: !isPersonalWorkspace,
+          successUrl: `${window.location.origin}/workspace/settings?success=true`,
+          cancelUrl: `${window.location.origin}/workspace/settings`,
+          subscriptionId: currentSubscription?.id,
+          metadata: { referenceId },
+        }),
       });
-
-      if (result.error) {
-        toast.error(result.error.message || "Failed to upgrade subscription");
+      if (!res.ok) {
+        toast.error("Failed to upgrade subscription");
         return;
+      }
+      const data = await res.json();
+      if (data?.url && data.redirect !== false) {
+        window.location.href = data.url as string;
       }
     } catch (error) {
       console.error("Upgrade error:", error);
@@ -150,13 +168,21 @@ export default function WorkspaceSettingsPage() {
     try {
       setLoading("manage");
 
-      const result = await authClient.subscription.cancel({
-        referenceId: referenceId,
-        returnUrl: `${window.location.origin}/workspace/settings`,
+      const res = await fetch(`/api/subscription/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          referenceId,
+          returnUrl: `${window.location.origin}/workspace/settings`,
+        }),
       });
-
-      if (result.error) {
-        toast.error(result.error.message || "Failed to open billing portal");
+      if (!res.ok) {
+        toast.error("Failed to open billing portal");
+        return;
+      }
+      const data = await res.json();
+      if (data?.url) {
+        window.location.href = data.url as string;
       }
     } catch (error) {
       console.error("Billing portal error:", error);
@@ -171,6 +197,9 @@ export default function WorkspaceSettingsPage() {
   useEffect(() => {
     if (success) {
       mutateSubscriptions();
+      if (!isUnlimited && referenceId) {
+        mutateCreditBalance();
+      }
       router.replace(`/workspace/settings`);
     }
   }, [success, mutateSubscriptions, router]);
@@ -183,7 +212,20 @@ export default function WorkspaceSettingsPage() {
     setIsEditModalOpen(true);
   };
 
-  if (isLoadingRole || isLoadingCredits) {
+  const authLoading = session === undefined;
+  const orgPending = typeof activeOrganization === "undefined";
+  const subsPending =
+    session && referenceId ? Boolean(isLoadingSubscriptions) : false;
+  const creditsPending =
+    referenceId && !isUnlimited ? Boolean(isLoadingCredits) : false;
+
+  if (
+    authLoading ||
+    orgPending ||
+    isLoadingRole ||
+    subsPending ||
+    creditsPending
+  ) {
     return (
       <div className="flex h-full w-full items-center justify-center">
         <Loader className="size-5 animate-spin" />
@@ -337,166 +379,175 @@ export default function WorkspaceSettingsPage() {
               </Alert>
             )}
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Coins className="h-5 w-5" />
-                  Credits
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {creditBalance ?? "..."}
-                </div>
-                <p className="text-muted-foreground">Available credits</p>
-              </CardContent>
-            </Card>
+            {null}
 
             <Card className="mb-8">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CreditCard className="h-5 w-5" />
-                  Current Subscription
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-lg font-semibold">
-                        {currentPlan === "free" ? "Free Plan" : "Pro Plan"}
-                      </span>
-                      <Badge variant="secondary">Current</Badge>
-                      {currentSubscription?.status && (
-                        <Badge
-                          variant={
-                            currentSubscription.status === "active"
-                              ? "default"
-                              : "destructive"
-                          }
-                        >
-                          {currentSubscription.status}
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-muted-foreground">
-                      {currentPlan === "free"
-                        ? "You're currently on the free plan"
-                        : "You have an active Pro subscription"}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold">
-                      ${currentPlan === "free" ? "0" : "20"}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      per month
-                    </div>
+              <CardContent className="">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Coins className="h-4 w-4" />
+                  <span>Credits</span>
+                </div>
+                <div className="mt-1 text-3xl font-bold">
+                  {isUnlimited ? "∞" : (creditBalance ?? "...")}
+                </div>
+                <div className="mt-4 flex items-center justify-start">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                      Current Plan
+                    </span>
+                    <Badge variant="secondary">{currentPlanDetails.name}</Badge>
                   </div>
                 </div>
+                {currentPlan !== "free" && (
+                  <div className="mt-2 text-xs text-muted-foreground space-y-1">
+                    <div>Billing email: {session?.user?.email}</div>
+                    {currentSubscription?.periodEnd && (
+                      <div>
+                        {currentSubscription.cancelAtPeriodEnd ? (
+                          <>
+                            Set to be cancelled on:{" "}
+                            {new Date(
+                              currentSubscription.periodEnd,
+                            ).toLocaleDateString()}
+                          </>
+                        ) : (
+                          <>
+                            Next billing date:{" "}
+                            {new Date(
+                              currentSubscription.periodEnd,
+                            ).toLocaleDateString()}
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {currentSubscription && currentPlan !== "free" && (
+                  <div className="mt-4">
+                    {currentSubscription.cancelAtPeriodEnd ? (
+                      <Button
+                        size="sm"
+                        variant="default"
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm border border-primary/20 hover:shadow-md transition-all duration-200"
+                        onClick={async () => {
+                          try {
+                            setLoading("restore");
+                            const res = await fetch(
+                              `/api/subscription/restore`,
+                              {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  subscriptionId: currentSubscription.id,
+                                  referenceId,
+                                }),
+                              },
+                            );
+                            if (!res.ok) {
+                              toast.error("Failed to restore subscription");
+                            } else {
+                              toast.success("Subscription restored");
+                              mutateSubscriptions();
+                            }
+                          } catch (error) {
+                            console.error("Restore error:", error);
+                            toast.error("Failed to restore subscription");
+                          } finally {
+                            setLoading(null);
+                          }
+                        }}
+                        disabled={loading === "restore"}
+                      >
+                        {loading === "restore" ? (
+                          <>
+                            <Loader className="h-4 w-4 animate-spin mr-2" />
+                            Restoring...
+                          </>
+                        ) : (
+                          "Restore"
+                        )}
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={handleManageBilling}
+                        disabled={loading === "manage"}
+                      >
+                        {loading === "manage" ? (
+                          <>
+                            <Loader className="h-4 w-4 animate-spin mr-2" />
+                            Loading...
+                          </>
+                        ) : (
+                          "Cancel"
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
-            <div className="grid gap-6 md:grid-cols-2">
-              {plans.map((plan) => {
-                const isCurrentPlan = plan.id === currentPlan;
-                return (
-                  <Card key={plan.id}>
-                    <CardHeader className="text-center pb-4">
-                      <CardTitle className="text-xl">{plan.name}</CardTitle>
-                      <CardDescription>
-                        {plan.id === "free" ? "Free plan" : "Pro plan"}
-                      </CardDescription>
-                    </CardHeader>
+            <div className="grid grid-cols-3 gap-6">
+              {plans
+                .filter((plan) => plan.id !== "free")
+                .map((plan) => {
+                  const isCurrentPlan = plan.id === currentPlan;
+                  return (
+                    <Card key={plan.id}>
+                      <CardHeader className="text-center pb-4">
+                        <CardTitle className="text-xl flex items-center justify-center gap-2">
+                          {plan.name}
+                          <Badge variant="secondary">
+                            ${plan.price}/{plan.id === "pro" ? "week" : "mo"}
+                          </Badge>
+                        </CardTitle>
+                        <CardDescription>
+                          {plan.credits === "unlimited"
+                            ? "Unlimited credits"
+                            : plan.credits > 0
+                              ? `${plan.credits.toLocaleString()} credits/${plan.id === "pro" ? "week" : "month"}`
+                              : "Free plan"}
+                        </CardDescription>
+                      </CardHeader>
 
-                    <CardFooter className="pt-6">
-                      {isCurrentPlan ? (
-                        <div className="w-full space-y-2">
-                          <Button variant="outline" className="w-full" disabled>
-                            Current Plan
-                          </Button>
-                          {plan.id !== "free" && currentSubscription && (
+                      <CardFooter className="pt-6">
+                        {isCurrentPlan ? (
+                          <div className="w-full space-y-2">
                             <Button
-                              variant="ghost"
-                              size="sm"
+                              variant="outline"
                               className="w-full"
-                              onClick={handleManageBilling}
-                              disabled={loading === "manage"}
+                              disabled
                             >
-                              {loading === "manage" ? (
-                                <>
-                                  <Loader className="h-4 w-4 animate-spin mr-2" />
-                                  Loading...
-                                </>
-                              ) : (
-                                "Cancel"
-                              )}
+                              Current Plan
                             </Button>
-                          )}
-                        </div>
-                      ) : (
-                        <Button
-                          className="w-full"
-                          onClick={() => handleUpgrade(plan)}
-                          disabled={loading === plan.id}
-                          variant={plan.id === "free" ? "outline" : "default"}
-                        >
-                          {loading === plan.id ? (
-                            <>
-                              <Loader className="h-4 w-4 animate-spin mr-2" />
-                              Processing...
-                            </>
-                          ) : plan.id === "free" && currentPlan === "pro" ? (
-                            "Default"
-                          ) : (
-                            "Upgrade Now"
-                          )}
-                        </Button>
-                      )}
-                    </CardFooter>
-                  </Card>
-                );
-              })}
+                          </div>
+                        ) : (
+                          <Button
+                            className="w-full"
+                            onClick={() => handleUpgrade(plan)}
+                            disabled={loading === plan.id}
+                            variant="default"
+                          >
+                            {loading === plan.id ? (
+                              <>
+                                <Loader className="h-4 w-4 animate-spin mr-2" />
+                                Processing...
+                              </>
+                            ) : (
+                              "Switch"
+                            )}
+                          </Button>
+                        )}
+                      </CardFooter>
+                    </Card>
+                  );
+                })}
             </div>
 
-            <Card className="mt-8">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
-                  Billing Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center py-2 border-b">
-                    <span className="text-sm font-medium">
-                      Next billing date
-                    </span>
-                    <span className="text-sm text-muted-foreground">
-                      {currentSubscription?.periodEnd
-                        ? new Date(
-                            currentSubscription.periodEnd,
-                          ).toLocaleDateString()
-                        : "No upcoming billing"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b">
-                    <span className="text-sm font-medium">Payment method</span>
-                    <span className="text-sm text-muted-foreground">
-                      {currentSubscription
-                        ? "Card ending in ••••"
-                        : "No payment method"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center py-2">
-                    <span className="text-sm font-medium">Billing email</span>
-                    <span className="text-sm text-muted-foreground">
-                      {session?.user?.email}
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            {null}
           </div>
         </>
       )}
