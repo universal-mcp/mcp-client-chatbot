@@ -22,9 +22,9 @@ export async function middleware(request: NextRequest) {
       signInUrl.searchParams.set("invite", invitationId);
       return NextResponse.redirect(signInUrl);
     }
-
-    return NextResponse.redirect(new URL("/sign-in", request.url));
+    return NextResponse.redirect(new URL("/", request.url));
   }
+
   return NextResponse.next();
 }
 

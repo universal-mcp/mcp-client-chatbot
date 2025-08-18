@@ -211,7 +211,7 @@ export function AssistantEditor({
       if (!projectId) return null;
       const project = await selectProjectByIdAction(projectId);
       if (!project) {
-        router.push("/");
+        router.push("/chat");
       }
       return project;
     },
@@ -219,7 +219,7 @@ export function AssistantEditor({
       revalidateOnFocus: false,
       onError: (error) => {
         handleErrorWithToast(error);
-        router.push(`/`);
+        router.push(`/chat`);
       },
       onSuccess: (data) => {
         if (data) {

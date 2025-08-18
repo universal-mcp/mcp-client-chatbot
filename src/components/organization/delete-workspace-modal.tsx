@@ -48,7 +48,7 @@ export const DeleteWorkspaceModal = ({
           toast.success("Workspace deleted successfully");
           onOpenChange(false);
           // Refresh the page to reflect the change
-          window.location.href = "/";
+          window.location.href = "/chat";
         },
         onError: (error) => {
           toast.error(error.error.message);

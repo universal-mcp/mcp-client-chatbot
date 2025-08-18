@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 export async function getSessionContext() {
   const session = await getSession();
   if (!session?.user?.id) {
-    redirect("/sign-in");
+    redirect("/");
   }
 
   return {

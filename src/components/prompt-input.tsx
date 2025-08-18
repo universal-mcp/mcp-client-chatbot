@@ -8,6 +8,7 @@ import {
   PlusIcon,
   Square,
   X,
+  Wrench,
 } from "lucide-react";
 import { useRef, useEffect, useState } from "react";
 import { UseChatHelpers } from "@ai-sdk/react";
@@ -38,6 +39,8 @@ interface PromptInputProps {
   isProjectSelectionDisabled?: boolean;
   projectList?: Array<{ id: string; name: string; description?: string }>;
   onProjectSelect?: (projectId: string | null, projectName?: string) => void;
+  // When true, keep controls visible but non-interactive (for unauthenticated users)
+  controlsDisabled?: boolean;
 }
 
 export default function PromptInput({
@@ -56,6 +59,7 @@ export default function PromptInput({
   isProjectSelectionDisabled = false,
   projectList = [],
   onProjectSelect,
+  controlsDisabled = false,
 }: PromptInputProps) {
   const t = useTranslations("Chat");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -71,7 +75,8 @@ export default function PromptInput({
     ]),
   );
 
-  const isLoadingTools = isMcpClientListLoading && !toolDisabled;
+  const isLoadingTools =
+    !controlsDisabled && isMcpClientListLoading && !toolDisabled;
 
   // Auto-resize textarea
   useEffect(() => {
@@ -221,21 +226,38 @@ export default function PromptInput({
                   variant={"ghost"}
                   size={"sm"}
                   className="rounded-full hover:bg-input! p-2! mr-1"
-                  onClick={notImplementedToast}
+                  onClick={() => {
+                    if (controlsDisabled || disabled) return;
+                    notImplementedToast();
+                  }}
+                  disabled={controlsDisabled || disabled}
                 >
                   <PlusIcon />
                 </Button>
 
-                {!toolDisabled && (
-                  <div className="interactive-element">
-                    <ToolSelectDropdown
-                      align="start"
-                      side="top"
-                      disabled={false}
-                      projectId={selectedProject || undefined}
-                    />
-                  </div>
-                )}
+                <div className="interactive-element">
+                  {controlsDisabled ? (
+                    <Button
+                      variant={"outline"}
+                      disabled
+                      className={cn(
+                        "rounded-full font-semibold bg-secondary opacity-50 cursor-not-allowed",
+                      )}
+                    >
+                      <Wrench className="size-3.5 hidden sm:block" />
+                      Tools
+                    </Button>
+                  ) : (
+                    !toolDisabled && (
+                      <ToolSelectDropdown
+                        align="start"
+                        side="top"
+                        disabled={disabled || isLoadingTools}
+                        projectId={selectedProject || undefined}
+                      />
+                    )
+                  )}
+                </div>
 
                 <div className="ml-1">
                   <ProjectSelector
@@ -248,11 +270,12 @@ export default function PromptInput({
                 </div>
                 <div className="flex-1" />
 
-                {!isLoading && !input.length && !voiceDisabled && !disabled ? (
+                {!isLoading && !input.length && !voiceDisabled ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div
                         onClick={() => {
+                          if (controlsDisabled || disabled) return;
                           appStoreMutate((state) => ({
                             voiceChat: {
                               ...state.voiceChat,
@@ -262,7 +285,13 @@ export default function PromptInput({
                             },
                           }));
                         }}
-                        className="border fade-in animate-in cursor-pointer text-background rounded-full p-2 bg-primary hover:bg-primary/90 transition-all duration-200 interactive-element"
+                        aria-disabled={controlsDisabled || disabled}
+                        className={cn(
+                          "border fade-in animate-in text-background rounded-full p-2 transition-all duration-200 interactive-element",
+                          controlsDisabled || disabled
+                            ? "cursor-not-allowed bg-secondary text-muted-foreground"
+                            : "cursor-pointer bg-primary hover:bg-primary/90",
+                        )}
                       >
                         <AudioWaveformIcon size={16} />
                       </div>
@@ -274,6 +303,7 @@ export default function PromptInput({
                     <TooltipTrigger asChild>
                       <div
                         onClick={() => {
+                          if (controlsDisabled || disabled) return;
                           if (isLoading) {
                             onStop();
                           } else {
@@ -285,8 +315,10 @@ export default function PromptInput({
                           isLoading
                             ? "text-muted-foreground bg-secondary hover:bg-accent-foreground hover:text-accent"
                             : "border text-background bg-primary hover:bg-primary/90",
-                          disabled && "opacity-50 cursor-not-allowed",
+                          (disabled || controlsDisabled) &&
+                            "opacity-50 cursor-not-allowed",
                         )}
+                        aria-disabled={controlsDisabled || disabled}
                       >
                         {isLoading ? (
                           <Square

@@ -24,10 +24,10 @@ export function AppSidebarMenus() {
           <TooltipProvider>
             <Tooltip>
               <SidebarMenuItem className="mb-1">
-                <Link href="/">
+                <Link href="/chat">
                   <SidebarMenuButton
                     className="flex font-semibold group/new-chat"
-                    isActive={pathname === "/"}
+                    isActive={pathname === "/chat"}
                   >
                     <WriteIcon className="size-4" />
                     {t("newChat")}

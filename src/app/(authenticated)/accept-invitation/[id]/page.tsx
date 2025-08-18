@@ -42,7 +42,7 @@ export default function InvitationPage() {
           await organization.setActive({
             organizationId: invitation?.organizationId,
           });
-          window.location.href = "/";
+          window.location.href = "/chat";
         }
       });
   };
@@ -58,7 +58,7 @@ export default function InvitationPage() {
           toast.error(res.error.message || "An error occurred");
         } else {
           toast.error(t("declinedTitle"));
-          router.push(`/`);
+          router.push(`/chat`);
         }
       });
   };

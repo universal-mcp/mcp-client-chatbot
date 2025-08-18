@@ -1,8 +1,17 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import type * as React from "react";
+import { useState, useRef, useEffect } from "react";
 import { cn } from "lib/utils";
-import { Code2, FileText, Database, BarChart3, Sparkles } from "lucide-react";
+import {
+  Code2,
+  FileText,
+  Database,
+  BarChart3,
+  Sparkles,
+  ArrowRight,
+} from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 
 interface UseCase {
   title: string;
@@ -18,11 +27,16 @@ interface CategoryCard {
 
 interface UseCaseCardsProps {
   onCardClick: (prompt: string) => void;
+  className?: string;
 }
 
-export default function UseCaseCards({ onCardClick }: UseCaseCardsProps) {
-  const [activePopup, setActivePopup] = useState<string | null>(null);
-  const componentRef = useRef<HTMLDivElement>(null);
+export default function UseCaseCards({
+  onCardClick,
+  className,
+}: UseCaseCardsProps) {
+  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const [, setDropdownPosition] = useState({ left: 0, width: 0 });
+  const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const categories: CategoryCard[] = [
     {
@@ -150,107 +164,178 @@ export default function UseCaseCards({ onCardClick }: UseCaseCardsProps) {
     },
   ];
 
+  // Calculate dropdown position when a category is clicked
   const handleCategoryClick = (categoryId: string) => {
-    setActivePopup(activePopup === categoryId ? null : categoryId);
+    if (activeDropdown === categoryId) {
+      setActiveDropdown(null);
+      return;
+    }
+
+    const categoryElement = categoryRefs.current[categoryId];
+    if (categoryElement) {
+      const rect = categoryElement.getBoundingClientRect();
+      const gridContainer = categoryElement.parentElement; // The grid container
+      const gridRect = gridContainer?.getBoundingClientRect();
+
+      if (gridRect) {
+        // Calculate position relative to the grid container (which has the padding)
+        // The arrow should point to the center of the clicked category
+        const centerOfCategory = rect.left - gridRect.left + rect.width / 2;
+
+        setDropdownPosition({
+          left: centerOfCategory,
+          width: rect.width,
+        });
+      }
+    }
+
+    setActiveDropdown(categoryId);
   };
 
   const handleUseCaseClick = (prompt: string) => {
     onCardClick(prompt);
-    setActivePopup(null);
+    setActiveDropdown(null);
   };
 
-  // Handle click outside to close popup
+  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        componentRef.current &&
-        !componentRef.current.contains(event.target as Node)
-      ) {
-        setActivePopup(null);
+      const target = event.target as HTMLElement;
+      if (!target.closest(".use-case-container")) {
+        setActiveDropdown(null);
       }
     };
 
-    if (activePopup) {
+    if (activeDropdown) {
       document.addEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
     }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [activePopup]);
+  }, [activeDropdown]);
 
   return (
-    <div ref={componentRef} className="max-w-4xl mx-auto mt-8">
-      <div className="relative px-4">
+    <div className={cn("max-w-3xl mx-auto mt-4 use-case-container", className)}>
+      <div className="relative px-2">
         {/* Category Cards Row */}
-        <div className="grid grid-cols-5 gap-3">
+        <div className="grid grid-cols-5 gap-2 relative z-10">
           {categories.map((category, _index) => (
-            <div key={category.id} className="relative">
-              <div
-                onClick={() => handleCategoryClick(category.id)}
-                className={cn(
-                  "group cursor-pointer rounded-xl p-4 transition-all duration-200",
-                  "bg-muted/50 border border-border/50 backdrop-blur-sm",
-                  "hover:bg-muted hover:border-border hover:scale-[1.02]",
-                  "active:scale-[0.98]",
-                  activePopup === category.id && "bg-muted border-border",
-                )}
-              >
-                <div className="flex flex-col items-center gap-2 text-center">
-                  <div className="p-3 rounded-lg bg-gray-800/50 group-hover:bg-gray-700/80 transition-colors">
-                    <div className="text-white">
-                      <div className="scale-125">{category.icon}</div>
-                    </div>
-                  </div>
-                  <span className="text-sm font-medium text-gray-300 group-hover:text-white transition-colors">
-                    {category.title}
-                  </span>
-                </div>
-              </div>
-
-              {/* Popup - Opens Upward */}
-              {activePopup === category.id && (
-                <div className="absolute bottom-full mb-3 left-1/2 transform -translate-x-1/2 z-50 w-[420px]">
-                  <div className="bg-black/20 backdrop-blur-sm border-1 border-white rounded-2xl shadow-2xl shadow-black/40 overflow-hidden">
-                    {/* Use Cases */}
-                    <div className="max-h-80 overflow-y-auto">
-                      {category.useCases.map((useCase, useCaseIndex) => (
-                        <div key={useCaseIndex}>
-                          <div
-                            onClick={() => handleUseCaseClick(useCase.prompt)}
-                            className="group cursor-pointer px-6 py-4 transition-all duration-200 hover:bg-white/5 active:bg-white/10 relative"
-                          >
-                            {/* Hover indicator */}
-                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary transform scale-y-0 group-hover:scale-y-100 transition-transform duration-200 origin-center" />
-
-                            <div className="pl-1">
-                              <p className="text-gray-300 group-hover:text-white text-sm leading-relaxed">
-                                {useCase.prompt}
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* Separator - only show between items, not after last */}
-                          {useCaseIndex < category.useCases.length - 1 && (
-                            <div className="mx-6 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Enhanced Arrow pointing down */}
-                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-px">
-                    <div className="w-0 h-0 border-l-[8px] border-r-[8px] border-t-[8px] border-l-transparent border-r-transparent border-t-white" />
-                    <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-[7px]">
-                      <div className="w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-l-transparent border-r-transparent border-t-black/20" />
-                    </div>
-                  </div>
-                </div>
+            <div
+              key={category.id}
+              ref={(el) => {
+                categoryRefs.current[category.id] = el;
+              }}
+              onClick={() => handleCategoryClick(category.id)}
+              className={cn(
+                "group cursor-pointer rounded-2xl p-3 transition-all duration-200",
+                "backdrop-blur-sm bg-muted/40 border border-border/50",
+                "hover:bg-muted/60 hover:border-muted-foreground/30 hover:shadow-lg hover:shadow-black/5",
+                "active:scale-[0.98]",
+                activeDropdown === category.id &&
+                  "bg-muted/80 border-primary/30 shadow-lg shadow-primary/10 ring-1 ring-primary/20",
               )}
+            >
+              <div className="flex flex-col items-center gap-2 text-center">
+                <div
+                  className={cn(
+                    "p-2.5 rounded-xl transition-all duration-200",
+                    "bg-gradient-to-br from-primary/20 via-primary/15 to-primary/10",
+                    "group-hover:from-primary/30 group-hover:via-primary/25 group-hover:to-primary/15",
+                    "group-hover:scale-105",
+                    activeDropdown === category.id &&
+                      "from-primary/40 via-primary/30 to-primary/20 scale-105",
+                  )}
+                >
+                  <div className="text-primary">{category.icon}</div>
+                </div>
+                <span
+                  className={cn(
+                    "text-xs font-medium transition-colors duration-200",
+                    "text-muted-foreground group-hover:text-foreground",
+                    activeDropdown === category.id &&
+                      "text-foreground font-semibold",
+                  )}
+                >
+                  {category.title}
+                </span>
+              </div>
             </div>
           ))}
         </div>
+
+        {/* Dropdown with Arrow */}
+        <AnimatePresence>
+          {activeDropdown && (
+            <motion.div
+              initial={{ opacity: 0, y: -10, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.95 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="absolute top-full mt-3 left-0 right-0 z-20"
+            >
+              {/* Dropdown Content */}
+              <div className="backdrop-blur-sm bg-muted/80 border border-border/50 shadow-xl shadow-black/10 rounded-2xl overflow-hidden mx-2">
+                {(() => {
+                  const currentCategory = categories.find(
+                    (c) => c.id === activeDropdown,
+                  );
+                  const useCases = currentCategory?.useCases || [];
+                  const hasScroll = useCases.length > 3;
+
+                  return (
+                    <>
+                      <div
+                        className={cn(
+                          "overflow-y-auto",
+                          hasScroll
+                            ? "max-h-[210px] scrollbar-thin scrollbar-thumb-border/30 scrollbar-track-transparent hover:scrollbar-thumb-border/50"
+                            : "max-h-fit",
+                        )}
+                      >
+                        {useCases.map((useCase, useCaseIndex) => (
+                          <div key={useCaseIndex}>
+                            <button
+                              type="button"
+                              onClick={() => handleUseCaseClick(useCase.prompt)}
+                              className={cn(
+                                "w-full text-left px-4 py-3.5 transition-all duration-200",
+                                "hover:bg-primary/10 hover:backdrop-blur-md group relative",
+                                "focus:bg-primary/10 focus:outline-none focus:ring-1 focus:ring-primary/20",
+                              )}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex-1 pr-3">
+                                  <div className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
+                                    {useCase.title}
+                                  </div>
+                                  <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed line-clamp-2">
+                                    {useCase.prompt}
+                                  </p>
+                                </div>
+
+                                {/* Arrow indicator */}
+                                <div className="opacity-0 group-hover:opacity-100 transition-all duration-200 group-hover:translate-x-1">
+                                  <ArrowRight className="w-4 h-4 text-primary" />
+                                </div>
+                              </div>
+                            </button>
+                            {useCaseIndex < useCases.length - 1 && (
+                              <div className="mx-4 h-px bg-border/30" />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Scroll indicator for more items */}
+                      {hasScroll && (
+                        <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-muted/80 to-transparent pointer-events-none rounded-b-2xl" />
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

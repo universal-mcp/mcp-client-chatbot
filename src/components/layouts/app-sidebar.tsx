@@ -36,7 +36,7 @@ export function AppSidebar({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isShortcutEvent(e, Shortcuts.openNewChat)) {
         e.preventDefault();
-        router.push("/");
+        router.push("/chat");
         router.refresh();
       }
       if (isShortcutEvent(e, Shortcuts.toggleSidebar)) {
@@ -54,10 +54,16 @@ export function AppSidebar({
     }
   }, [currentPath, isMobile]);
 
+  const isAuthenticated = !!session;
+
   return (
     <Sidebar collapsible="offcanvas" className="border-r">
       <SidebarHeader className="p-2 border-b">
-        <WorkspacePicker />
+        {isAuthenticated ? (
+          <WorkspacePicker />
+        ) : (
+          <div className="px-2 py-1 text-sm font-semibold">Wingmen</div>
+        )}
       </SidebarHeader>
 
       <SidebarHeader className="p-0">
@@ -83,13 +89,33 @@ export function AppSidebar({
       </SidebarHeader>
 
       <SidebarContent className="mt-2 overflow-hidden relative">
-        <div className="flex flex-col gap-2 overflow-y-auto">
-          <AppSidebarMenus />
-          <AppSidebarThreads />
-        </div>
+        {isAuthenticated ? (
+          <div className="flex flex-col gap-2 overflow-y-auto">
+            <AppSidebarMenus />
+            <AppSidebarThreads />
+          </div>
+        ) : (
+          <div className="h-full flex items-center justify-center p-4">
+            <div className="text-center text-muted-foreground">
+              <p className="text-sm">Welcome to Wingmen</p>
+              <p className="text-xs mt-1">Sign in to get started</p>
+            </div>
+          </div>
+        )}
       </SidebarContent>
       <SidebarFooter className="flex flex-col items-stretch space-y-2">
-        <AppSidebarUser session={session} />
+        {isAuthenticated ? (
+          <AppSidebarUser session={session} />
+        ) : (
+          <div className="p-2">
+            <button
+              onClick={() => router.push("/sign-in")}
+              className="w-full py-3 rounded-lg bg-primary text-primary-foreground font-semibold shadow hover:bg-primary/90"
+            >
+              Sign in
+            </button>
+          </div>
+        )}
       </SidebarFooter>
     </Sidebar>
   );

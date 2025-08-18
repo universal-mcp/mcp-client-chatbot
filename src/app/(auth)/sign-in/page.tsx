@@ -22,6 +22,7 @@ import { GithubIcon } from "ui/github-icon";
 import { GoogleIcon } from "ui/google-icon";
 import { useTranslations } from "next-intl";
 import { useRouter, useSearchParams } from "next/navigation";
+import { getPendingInvite, setPendingInvite } from "lib/pending-invite";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function SignInPage() {
@@ -38,7 +39,14 @@ export default function SignInPage() {
   const [forgotPasswordError, setForgotPasswordError] = useState("");
 
   // Get invitation ID from URL params
-  const invitationId = searchParams.get("invite");
+  const invitationId = searchParams.get("invite") || getPendingInvite();
+
+  // Persist invite id from URL into session storage for later steps
+  // (Middleware cannot access sessionStorage, so do it here on the client.)
+  if (typeof window !== "undefined") {
+    const urlInvite = searchParams.get("invite");
+    if (urlInvite) setPendingInvite(urlInvite);
+  }
 
   const [formData, setFormData] = useObjectState({
     email: "",
@@ -50,7 +58,7 @@ export default function SignInPage() {
     if (invitationId) {
       router.push(`/accept-invitation/${invitationId}`);
     } else {
-      router.push("/");
+      router.push(`/chat`);
     }
   };
 
@@ -61,7 +69,7 @@ export default function SignInPage() {
         {
           email: formData.email,
           password: formData.password,
-          callbackURL: "/",
+          callbackURL: "/chat",
         },
         {
           onError(ctx) {
@@ -106,7 +114,7 @@ export default function SignInPage() {
     // Check if there's a pending invitation to include in the callback URL
     const callbackURL = invitationId
       ? `/accept-invitation/${invitationId}`
-      : "/";
+      : "/chat";
 
     authClient.signIn
       .social({
@@ -125,7 +133,7 @@ export default function SignInPage() {
     // Check if there's a pending invitation to include in the callback URL
     const callbackURL = invitationId
       ? `/accept-invitation/${invitationId}`
-      : "/";
+      : "/chat";
 
     authClient.signIn
       .social({
@@ -333,9 +341,9 @@ export default function SignInPage() {
           <div className="my-8 text-center text-sm text-muted-foreground">
             {t("noAccount")}
             <Link
-              href={
-                invitationId ? `/sign-up?invite=${invitationId}` : "/sign-up"
-              }
+              href={(() => {
+                return `/sign-up`;
+              })()}
               className="underline-offset-4 text-primary"
             >
               {t("signUp")}
