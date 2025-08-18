@@ -266,7 +266,7 @@ export function AgentEditor({
       if (!projectId) return null;
       const project = await selectProjectByIdAction(projectId);
       if (!project) {
-        router.push("/");
+        router.push("/chat");
       }
       return project;
     },
@@ -274,7 +274,7 @@ export function AgentEditor({
       revalidateOnFocus: false,
       onError: (error) => {
         handleErrorWithToast(error);
-        router.push(`/`);
+        router.push(`/chat`);
       },
       onSuccess: (data) => {
         if (data) {

@@ -30,7 +30,7 @@ export function InvitationError() {
         </p>
       </CardContent>
       <CardFooter>
-        <Link href="/" className="w-full">
+        <Link href="/chat" className="w-full">
           <Button variant="outline" className="w-full">
             {t("backToHome")}
           </Button>

@@ -20,7 +20,8 @@ import { safe } from "ts-safe";
 import { UserZodSchema } from "app-types/user";
 import { existsByEmailAction } from "@/app/api/auth/actions";
 import { authClient } from "auth/client";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { getPendingInvite } from "lib/pending-invite";
 import { useTranslations } from "next-intl";
 import posthog from "posthog-js";
 
@@ -28,11 +29,11 @@ export default function SignUpPage() {
   const t = useTranslations();
   const [step, setStep] = useState(1);
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
 
   // Get invitation ID from URL params
-  const invitationId = searchParams.get("invite");
+  const invitationId = getPendingInvite();
+
   const [formData, setFormData] = useObjectState({
     email: "",
     name: "",
@@ -44,7 +45,7 @@ export default function SignUpPage() {
     if (invitationId) {
       router.push(`/accept-invitation/${invitationId}`);
     } else {
-      router.push("/");
+      router.push(`/chat`);
     }
   };
 
@@ -128,7 +129,9 @@ export default function SignUpPage() {
     <div className="animate-in fade-in duration-1000 w-full h-full flex flex-col p-4 md:p-8 justify-center relative">
       <div className="w-full flex justify-end absolute top-0 right-0">
         <Link
-          href={invitationId ? `/sign-in?invite=${invitationId}` : "/sign-in"}
+          href={(() => {
+            return `/sign-in`;
+          })()}
         >
           <Button variant="ghost">{t("Auth.SignUp.signIn")}</Button>
         </Link>

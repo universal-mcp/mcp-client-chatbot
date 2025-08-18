@@ -26,15 +26,15 @@ export function AppSidebarMenus() {
               <SidebarMenuItem className="mb-1">
                 <div
                   className={`flex items-center rounded-lg ${
-                    pathname === "/" ? "bg-input!" : ""
+                    pathname === "/chat" ? "bg-input!" : ""
                   }`}
                 >
                   <SidebarMenuButton
                     asChild
                     className="flex font-semibold data-[active=true]:bg-transparent!"
-                    isActive={pathname === "/"}
+                    isActive={pathname === "/chat"}
                   >
-                    <Link href="/" className="flex items-center">
+                    <Link href="/chat" className="flex items-center">
                       <WriteIcon className="size-4" />
                       {t("newChat")}
                       <div className="flex items-center gap-1 text-xs font-medium ml-auto opacity-0 group-hover/new-chat:opacity-100 transition-opacity">

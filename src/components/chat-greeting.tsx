@@ -14,25 +14,47 @@ function getGreetingByTime() {
 }
 
 export const ChatGreeting = () => {
-  const { data: session } = authClient.useSession();
+  const { data: session, isPending } = authClient.useSession();
 
   const t = useTranslations("Chat.Greeting");
 
   const user = session?.user;
 
   const word = useMemo(() => {
-    if (!user?.name) return "";
-    const words = [
-      t(getGreetingByTime(), { name: user.name }),
-      t("niceToSeeYouAgain", { name: user.name }),
-      t("whatAreYouWorkingOnToday", { name: user.name }),
-      t("letMeKnowWhenYoureReadyToBegin"),
-      t("whatAreYourThoughtsToday"),
-      t("whereWouldYouLikeToStart"),
-      t("whatAreYouThinking", { name: user.name }),
-    ];
+    // Don't show greeting until we know the session state
+    if (isPending) return "";
+
+    const hasName = Boolean(user?.name);
+    const words = hasName
+      ? [
+          t(getGreetingByTime(), { name: user!.name }),
+          t("niceToSeeYouAgain", { name: user!.name }),
+          t("whatAreYouWorkingOnToday", { name: user!.name }),
+          t("letMeKnowWhenYoureReadyToBegin"),
+          t("whatAreYourThoughtsToday"),
+          t("whereWouldYouLikeToStart"),
+          t("whatAreYouThinking", { name: user!.name }),
+        ]
+      : [
+          t("letMeKnowWhenYoureReadyToBegin"),
+          t("whatAreYourThoughtsToday"),
+          t("whereWouldYouLikeToStart"),
+        ];
     return words[Math.floor(Math.random() * words.length)];
-  }, [user?.name]);
+  }, [isPending, user?.name, t]);
+
+  // Don't render anything while loading to prevent flash
+  if (isPending || !word) {
+    return (
+      <div className="max-w-3xl mx-auto my-4 h-20">
+        <div className="rounded-xl p-6 flex flex-col gap-2 leading-relaxed text-center">
+          <h1 className="text-2xl md:text-3xl opacity-0">
+            {/* Placeholder to maintain layout */}
+          </h1>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <motion.div
@@ -45,7 +67,7 @@ export const ChatGreeting = () => {
     >
       <div className="rounded-xl p-6 flex flex-col gap-2 leading-relaxed text-center">
         <h1 className="text-2xl md:text-3xl">
-          {word ? <FlipWords words={[word]} className="text-primary" /> : ""}
+          <FlipWords words={[word]} className="text-primary" />
         </h1>
       </div>
     </motion.div>

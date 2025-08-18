@@ -68,7 +68,7 @@ export function ProjectDropdown({ project, children, side, align }: Props) {
       })
       .ifOk(() => {
         if (currentProjectId === project.id) {
-          router.push("/");
+          router.push("/chat");
         }
         mutate("/api/thread/list");
         mutate("/api/project/list");

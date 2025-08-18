@@ -22,14 +22,14 @@ export async function middleware(request: NextRequest) {
       signInUrl.searchParams.set("invite", invitationId);
       return NextResponse.redirect(signInUrl);
     }
-
-    return NextResponse.redirect(new URL("/sign-in", request.url));
+    return NextResponse.redirect(new URL("/", request.url));
   }
+
   return NextResponse.next();
 }
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|api/auth|api/mcp/oauth|api/stripe/webhook|sign-in|sign-up|forget-password|reset-password|share).*)",
+    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|api/auth|api/mcp/oauth|api/stripe/webhook|sign-in|sign-up|forget-password|reset-password|share|$).*)",
   ],
 };

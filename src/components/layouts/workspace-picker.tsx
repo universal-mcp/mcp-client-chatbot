@@ -57,7 +57,7 @@ export const WorkspacePicker = () => {
     setSwitchingTo(orgId ?? "personal");
     try {
       await organization.setActive({ organizationId: orgId });
-      window.location.href = "/";
+      window.location.href = "/chat";
     } catch (error) {
       console.error("Failed to switch organization", error);
       setSwitchingTo(null);

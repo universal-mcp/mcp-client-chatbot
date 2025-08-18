@@ -16,6 +16,7 @@ import { appStore } from "@/app/store";
 import { cn, generateUUID, truncateString } from "lib/utils";
 import { ErrorMessage, PreviewMessage } from "./message";
 import { ChatGreeting } from "./chat-greeting";
+import UseCaseCards from "./landing-page/use-case-cards";
 
 import { useShallow } from "zustand/shallow";
 import { UIMessage } from "ai";
@@ -38,6 +39,7 @@ import {
 } from "ui/dialog";
 import { useTranslations } from "next-intl";
 import { useRouter, useSearchParams } from "next/navigation";
+import { clearPendingPrompt, getPendingPrompt } from "lib/pending-prompt";
 import { ThinkChat } from "ui/think";
 import { useGenerateThreadTitle } from "@/hooks/queries/use-generate-thread-title";
 
@@ -69,6 +71,7 @@ export default function ChatBot({
     threadList,
     llmModel,
     projectList,
+    isMcpClientListLoading,
   ] = appStore(
     useShallow((state) => [
       state.mutate,
@@ -78,6 +81,7 @@ export default function ChatBot({
       state.threadList,
       state.llmModel,
       state.projectList,
+      state.isMcpClientListLoading,
     ]),
   );
 
@@ -295,6 +299,34 @@ export default function ChatBot({
     return false;
   }, [isLoading, messages.at(-1)]);
 
+  // Prefill input if there is a pending prompt (session handoff)
+  useEffect(() => {
+    const source = getPendingPrompt();
+    if (!source) return;
+    const trimmed = source.trim();
+    if (!trimmed) return;
+    // Only prefill if user hasn't typed something else already
+    if (!input) setInput(trimmed);
+  }, []);
+
+  // Auto-submit initial input when tools finish loading
+  const hasAutoSubmittedRef = useRef(false);
+  useEffect(() => {
+    const raw = getPendingPrompt();
+    const trimmed = raw?.trim();
+    if (!trimmed) return;
+    if (hasAutoSubmittedRef.current) return;
+    if (isMcpClientListLoading) return;
+    hasAutoSubmittedRef.current = true;
+    setInput("");
+    clearPendingPrompt();
+    originalAppend({
+      role: "user",
+      content: "",
+      parts: [{ type: "text", text: trimmed }],
+    });
+  }, [isMcpClientListLoading, originalAppend]);
+
   useEffect(() => {
     appStoreMutate({ currentThreadId: threadId });
     return () => {
@@ -435,6 +467,15 @@ export default function ChatBot({
             projectList={projectList}
             onProjectSelect={handleProjectSelect}
           />
+          {emptyMessage && (
+            <div className="max-w-3xl mx-auto w-full mt-2 px-2 pb-8">
+              <UseCaseCards
+                onCardClick={(prompt) => {
+                  setInput(prompt);
+                }}
+              />
+            </div>
+          )}
           {slots?.inputBottomSlot}
         </div>
       )}
@@ -469,7 +510,7 @@ function DeleteThreadPopup({
       .watch(() => setIsDeleting(false))
       .ifOk(() => {
         toast.success(t("Chat.Thread.threadDeleted"));
-        router.push("/");
+        router.push("/chat");
       })
       .ifFail(() => toast.error(t("Chat.Thread.failedToDeleteThread")))
       .watch(() => onClose());

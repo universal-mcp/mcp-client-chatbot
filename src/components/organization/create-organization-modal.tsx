@@ -107,7 +107,7 @@ export const CreateOrganizationModal = ({
             await organization.setActive({
               organizationId: ctx.data?.id || null,
             });
-            window.location.href = "/";
+            window.location.href = "/chat";
           }
         },
         onError: (error) => {
